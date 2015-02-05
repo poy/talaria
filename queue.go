@@ -1,19 +1,31 @@
 package talaria
 
-type Queue chan []byte
+type queue chan []byte
+type BufferSize int
 
-func NewQueue() Queue {
-	return make(chan []byte)
+const AnyBufferSize BufferSize = -1
+
+func NewQueue(size BufferSize) Queue {
+	return queue(make(chan []byte, size))
 }
 
-func (q Queue) Read(buffer []byte) (int, error) {
-	panic("Not implemented")
+func (q queue) BufferSize() BufferSize {
+	return BufferSize(cap(q))
 }
 
-func (q Queue) Write(data []byte) (int, error) {
-	panic("Not implemented")
+func (q queue) Read() []byte {
+	select {
+	case result, ok := <-q:
+		if ok {
+			return result
+		}
+		return nil
+	default:
+		return nil
+	}
 }
 
-func (q Queue) Close() error {
-	panic("Not implemented")
+func (q queue) Write(data []byte) error {
+	q <- data
+	return nil
 }
