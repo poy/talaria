@@ -17,6 +17,11 @@ type QueueFactory struct {
 	defaultBufferSize BufferSize
 }
 
+type QueueListing struct {
+	Name string
+	Q    Queue
+}
+
 func NewQueueFactory(defaultSize BufferSize) *QueueFactory {
 	if defaultSize < 0 {
 		panic("The default size must be a positive integer")
@@ -47,6 +52,18 @@ func (qf *QueueFactory) Remove(queueName string) {
 	defer qf.locker.Unlock()
 	qf.locker.Lock()
 	delete(qf.queueMap, queueName)
+}
+
+func (qf *QueueFactory) ListQueues() []QueueListing {
+	qs := make([]QueueListing, 0)
+	for k, v := range qf.queueMap {
+		ql := QueueListing{
+			Name: k,
+			Q:    v,
+		}
+		qs = append(qs, ql)
+	}
+	return qs
 }
 
 func (qf *QueueFactory) getSize(size BufferSize) BufferSize {

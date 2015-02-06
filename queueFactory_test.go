@@ -101,4 +101,17 @@ var _ = Describe("QueueFactory", func() {
 			Expect(queue1).ToNot(Equal(queue2))
 		})
 	})
+	Context("ListQueues", func() {
+		It("Should list all the queues", func() {
+			factory := NewQueueFactory(10)
+			factory.Fetch("a", 5)
+			factory.Fetch("b", 5)
+			factory.Fetch("c", 5)
+			names := make([]string, 0)
+			for _, q := range factory.ListQueues() {
+				names = append(names, q.Name)
+			}
+			Expect(names).To(ConsistOf([]string{"a", "b", "c"}))
+		})
+	})
 })
