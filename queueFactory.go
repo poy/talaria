@@ -2,6 +2,7 @@ package talaria
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -33,7 +34,7 @@ func NewQueueFactory(defaultSize BufferSize) *QueueFactory {
 	}
 }
 
-func (qf *QueueFactory) Fetch(queueName string, size BufferSize) (Queue, error) {
+func (qf *QueueFactory) AddQueue(queueName string, size BufferSize) error {
 	defer qf.locker.Unlock()
 	qf.locker.Lock()
 	var queue Queue
@@ -41,11 +42,20 @@ func (qf *QueueFactory) Fetch(queueName string, size BufferSize) (Queue, error) 
 	if queue, ok = qf.queueMap[queueName]; !ok {
 		queue = NewQueue(qf.getSize(size))
 		qf.queueMap[queueName] = queue
-	} else if size != AnyBufferSize && queue.BufferSize() != size {
-		return nil, errors.New("Requested a differing buffer size")
+	} else {
+		return errors.New(fmt.Sprintf("Queue with the name '%s' already exists", queueName))
 	}
 
-	return queue, nil
+	return nil
+}
+
+func (qf *QueueFactory) Fetch(queueName string) Queue {
+	defer qf.locker.Unlock()
+	qf.locker.Lock()
+	if queue, ok := qf.queueMap[queueName]; ok {
+		return queue
+	}
+	return nil
 }
 
 func (qf *QueueFactory) Remove(queueName string) {

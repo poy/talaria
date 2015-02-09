@@ -1,6 +1,7 @@
 package talaria_test
 
 import (
+	"fmt"
 	. "github.com/apoydence/talaria"
 	"sync"
 
@@ -14,52 +15,40 @@ var _ = Describe("QueueFactory", func() {
 			Expect(func() { NewQueueFactory(AnyBufferSize) }).Should(Panic())
 		})
 	})
-	Context("Fetch", func() {
+	Context("AddQueue and Fetch", func() {
 		It("Should add a new queue", func() {
 			factory := NewQueueFactory(10)
-			queue, err := factory.Fetch("some-queue", 5)
+			err := factory.AddQueue("some-queue", 5)
 			Expect(err).To(BeNil())
-			Expect(queue).ToNot(BeNil())
-		})
-		It("Should use an already present queue", func() {
-			factory := NewQueueFactory(10)
-			queue1, err := factory.Fetch("some-queue", 5)
-			Expect(err).To(BeNil())
-			queue2, err := factory.Fetch("some-queue", 5)
-			Expect(err).To(BeNil())
-			Expect(queue1).To(Equal(queue2))
-		})
-		It("Should return an error if different buffer sizes are required", func() {
-			factory := NewQueueFactory(10)
-			_, err := factory.Fetch("some-queue", 5)
-			Expect(err).To(BeNil())
-			_, err = factory.Fetch("some-queue", 10)
-			Expect(err).ToNot(BeNil())
-		})
-		It("Should return the existing queue with any buffer size", func() {
-			factory := NewQueueFactory(10)
-			queue1, err := factory.Fetch("some-queue", 5)
-			Expect(err).To(BeNil())
-			queue2, err := factory.Fetch("some-queue", AnyBufferSize)
-			Expect(err).To(BeNil())
-			Expect(queue1).To(Equal(queue2))
-			Expect(queue1.BufferSize()).To(BeEquivalentTo(5))
 		})
 		It("Should return a queue with the default buffer size", func() {
 			factory := NewQueueFactory(10)
-			queue, err := factory.Fetch("some-queue", AnyBufferSize)
+			err := factory.AddQueue("some-queue", AnyBufferSize)
 			Expect(err).To(BeNil())
+			queue := factory.Fetch("some-queue")
 			Expect(queue.BufferSize()).To(BeEquivalentTo(10))
 		})
-		It("Should add in a thread safe way", func() {
+		It("Should fail if a queue with the same name exists", func() {
+			factory := NewQueueFactory(10)
+			err := factory.AddQueue("some-queue", AnyBufferSize)
+			Expect(err).To(BeNil())
+			err = factory.AddQueue("some-queue", AnyBufferSize)
+			Expect(err).ToNot(BeNil())
+		})
+		It("Should add in a thread safe way", func(done Done) {
+			// NOTE: This test's real purpose is to let the --race flag fail
+			// if it needs to
+			defer close(done)
 			factory := NewQueueFactory(10)
 			results := make(chan Queue, 5)
 			for i := 0; i < 5; i++ {
-				go func() {
-					q, err := factory.Fetch("some-queue", 5)
+				go func(index int) {
+					defer GinkgoRecover()
+					name := fmt.Sprintf("some-queue-%d", index)
+					err := factory.AddQueue(name, 5)
 					Expect(err).To(BeNil())
-					results <- q
-				}()
+					results <- factory.Fetch(name)
+				}(i)
 			}
 
 			set := make(map[Queue]bool)
@@ -68,22 +57,25 @@ var _ = Describe("QueueFactory", func() {
 				set[q] = true
 			}
 
-			Expect(set).To(HaveLen(1))
+			Expect(set).To(HaveLen(5))
 		})
 	})
 	Context("Remove", func() {
 		It("Should remove a queue", func() {
 			factory := NewQueueFactory(10)
-			queue1, err := factory.Fetch("some-queue", 5)
+			err := factory.AddQueue("some-queue", 5)
 			Expect(err).To(BeNil())
+			queue1 := factory.Fetch("some-queue")
 			factory.Remove("some-queue")
-			queue2, err := factory.Fetch("some-queue", 5)
+			err = factory.AddQueue("some-queue", 5)
 			Expect(err).To(BeNil())
+			queue2 := factory.Fetch("some-queue")
 			Expect(queue1).ToNot(Equal(queue2))
 		})
 		It("Should remove in a thread safe way", func() {
 			factory := NewQueueFactory(10)
-			queue1, err := factory.Fetch("some-queue", 5)
+			err := factory.AddQueue("some-queue", 5)
+			queue1 := factory.Fetch("some-queue")
 			Expect(err).To(BeNil())
 			wg := &sync.WaitGroup{}
 
@@ -96,7 +88,8 @@ var _ = Describe("QueueFactory", func() {
 			}
 
 			wg.Wait()
-			queue2, err := factory.Fetch("some-queue", 5)
+			err = factory.AddQueue("some-queue", 5)
+			queue2 := factory.Fetch("some-queue")
 			Expect(err).To(BeNil())
 			Expect(queue1).ToNot(Equal(queue2))
 		})
@@ -104,9 +97,9 @@ var _ = Describe("QueueFactory", func() {
 	Context("ListQueues", func() {
 		It("Should list all the queues", func() {
 			factory := NewQueueFactory(10)
-			factory.Fetch("a", 5)
-			factory.Fetch("b", 5)
-			factory.Fetch("c", 5)
+			factory.AddQueue("a", 5)
+			factory.AddQueue("b", 5)
+			factory.AddQueue("c", 5)
 			names := make([]string, 0)
 			for _, q := range factory.ListQueues() {
 				names = append(names, q.Name)
