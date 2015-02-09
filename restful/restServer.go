@@ -7,7 +7,8 @@ import (
 )
 
 type QueueHolder interface {
-	Fetch(queueName string, size talaria.BufferSize) (talaria.Queue, error)
+	AddQueue(queueName string, size talaria.BufferSize) error
+	Fetch(queueName string) talaria.Queue
 }
 
 type RestServer struct {
@@ -24,7 +25,7 @@ func StartNewRestServer(queueHolder QueueHolder, addr string) (*RestServer, <-ch
 }
 
 func (rs *RestServer) start() <-chan error {
-	http.HandleFunc("/fetch", rs.handleFetch)
+	http.HandleFunc("/addQueue", rs.handleFetch)
 
 	errChan := make(chan error)
 	go func() {
@@ -41,8 +42,8 @@ func (rs *RestServer) handleFetch(resp http.ResponseWriter, req *http.Request) {
 			return
 		}
 
-		if name, bufferSize, ok := fetchParameters(req.PostForm); ok {
-			_, err := rs.queueHolder.Fetch(name, bufferSize)
+		if name, bufferSize, ok := addQueueParameters(req.PostForm); ok {
+			err := rs.queueHolder.AddQueue(name, bufferSize)
 			resp.WriteHeader(fetchStatusCode(err))
 			return
 		}
@@ -58,7 +59,7 @@ func fetchStatusCode(err error) int {
 	}
 }
 
-func fetchParameters(form map[string][]string) (string, talaria.BufferSize, bool) {
+func addQueueParameters(form map[string][]string) (string, talaria.BufferSize, bool) {
 	var values []string
 	var ok bool
 	if values, ok = form["name"]; !ok || len(values) != 1 {
