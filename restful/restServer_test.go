@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/apoydence/talaria"
 	. "github.com/apoydence/talaria/restful"
+	"github.com/gorilla/websocket"
 	"io"
 	"net/http"
 
@@ -60,19 +61,27 @@ var _ = Describe("RestServer", func() {
 	})
 	Context("Remove", func() {
 		It("Should call Remove on the QueueHolder", func() {
-			url := "http://localhost:8080/queues/someQueue"
-			req, _ := http.NewRequest("DELETE", url, nil)
+			u := "http://localhost:8080/queues/someQueue"
+			req, _ := http.NewRequest("DELETE", u, nil)
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(mqh.removeQueueName).To(Equal("someQueue"))
 		})
 		It("Should return a BadRequest if the queue name is left off", func() {
-			url := "http://localhost:8080/queues"
-			req, _ := http.NewRequest("DELETE", url, nil)
+			u := "http://localhost:8080/queues"
+			req, _ := http.NewRequest("DELETE", u, nil)
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
+		})
+	})
+	Context("ReadData", func() {
+		It("Should return a websocket that can read data from the queue", func() {
+			u := "ws://localhost:8080/queues/someQueue/readData"
+			dialer := &websocket.Dialer{}
+			_, _, err := dialer.Dial(u, nil)
+			Expect(err).To(BeNil())
 		})
 	})
 })
