@@ -16,6 +16,7 @@ type QueueHolder interface {
 	AddQueue(queueName string, size talaria.BufferSize) error
 	Fetch(queueName string) talaria.Queue
 	RemoveQueue(queueName string)
+	ListQueues() []talaria.QueueListing
 }
 
 type RestServer struct {
@@ -52,9 +53,24 @@ func (rs *RestServer) start() <-chan error {
 func (rs *RestServer) handleFetchQueue(resp http.ResponseWriter, req *http.Request) {
 	base, name := path.Split(req.URL.Path)
 	if base != "/queues/" || len(name) == 0 {
-		resp.WriteHeader(http.StatusBadRequest)
+		rs.handleMultiFetchQueue(resp, req)
 		return
 	}
+	rs.handleSingleFetchQueue(resp, name)
+}
+
+func (rs *RestServer) handleMultiFetchQueue(resp http.ResponseWriter, req *http.Request) {
+	for _, q := range rs.queueHolder.ListQueues() {
+		data, err := json.Marshal(NewQueueData(q.Name, q.Q.BufferSize()))
+		if err != nil {
+			resp.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		resp.Write(data)
+	}
+}
+
+func (rs *RestServer) handleSingleFetchQueue(resp http.ResponseWriter, name string) {
 	queue := rs.queueHolder.Fetch(name)
 
 	if queue == nil {

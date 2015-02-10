@@ -3,8 +3,10 @@ package restful_test
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"github.com/apoydence/talaria"
 	. "github.com/apoydence/talaria/restful"
+	"io"
 	"net/http"
 
 	. "github.com/onsi/ginkgo"
@@ -43,6 +45,17 @@ var _ = Describe("RestServer", func() {
 			Expect(err).To(BeNil())
 			Expect(data.QueueName).To(Equal("someQueue"))
 			Expect(data.Buffer).To(BeEquivalentTo(6))
+		})
+		It("Should return information on all the queues", func() {
+			url := "http://localhost:8080/queues"
+			resp, err := http.Get(url)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			ds := readData(resp.Body)
+			for i, d := range ds {
+				Expect(d.QueueName).To(Equal(fmt.Sprintf("some-queue-%d", i)))
+				Expect(d.Buffer).To(BeEquivalentTo(i))
+			}
 		})
 	})
 	Context("Remove", func() {
@@ -84,4 +97,30 @@ func (mqh *mockQueueHolder) Fetch(queueName string) talaria.Queue {
 
 func (mqh *mockQueueHolder) RemoveQueue(queueName string) {
 	mqh.removeQueueName = queueName
+}
+
+func (mqh *mockQueueHolder) ListQueues() []talaria.QueueListing {
+	qs := make([]talaria.QueueListing, 0)
+	for i := 0; i < 3; i++ {
+		qs = append(qs, talaria.QueueListing{
+			Name: fmt.Sprintf("some-queue-%d", i),
+			Q:    talaria.NewQueue(talaria.BufferSize(i)),
+		})
+	}
+	return qs
+}
+
+func readData(reader io.Reader) []QueueData {
+	ds := make([]QueueData, 0)
+	var data QueueData
+	dec := json.NewDecoder(reader)
+	var err error
+	for {
+		if err = dec.Decode(&data); err != nil {
+			break
+		}
+		ds = append(ds, data)
+	}
+
+	return ds
 }
