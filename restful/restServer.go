@@ -30,6 +30,13 @@ type QueueData struct {
 	Buffer    talaria.BufferSize `json:"bufferSize"`
 }
 
+func NewQueueData(name string, size talaria.BufferSize) QueueData {
+	return QueueData{
+		QueueName: name,
+		Buffer:    size,
+	}
+}
+
 func StartNewRestServer(queueHolder QueueHolder, addr string) (*RestServer, <-chan error) {
 	server := &RestServer{
 		queueHolder: queueHolder,
@@ -42,6 +49,7 @@ func StartNewRestServer(queueHolder QueueHolder, addr string) (*RestServer, <-ch
 func (rs *RestServer) start() <-chan error {
 	errChan := make(chan error)
 	once.Do(func() {
+		rs.router.Get("/queues", rs.handleFetchQueue)
 		rs.router.Post("/queues", rs.handleAddQueue)
 		rs.router.Delete("/queues", rs.handleRemove)
 		http.Handle("/", rs.router)
@@ -51,6 +59,28 @@ func (rs *RestServer) start() <-chan error {
 		}()
 	})
 	return errChan
+}
+
+func (rs *RestServer) handleFetchQueue(resp http.ResponseWriter, req *http.Request) {
+	base, name := path.Split(req.URL.Path)
+	if base != "/queues/" || len(name) == 0 {
+		resp.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	queue := rs.queueHolder.Fetch(name)
+
+	if queue == nil {
+		resp.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	var err error
+	var data []byte
+	if data, err = json.Marshal(NewQueueData(name, queue.BufferSize())); err == nil {
+		_, err = resp.Write(data)
+	} else {
+		resp.WriteHeader(http.StatusInternalServerError)
+	}
 }
 
 func (rs *RestServer) handleAddQueue(resp http.ResponseWriter, req *http.Request) {
@@ -77,6 +107,7 @@ func (rs *RestServer) handleRemove(resp http.ResponseWriter, req *http.Request) 
 		resp.WriteHeader(http.StatusBadRequest)
 		return
 	}
+
 	rs.queueHolder.RemoveQueue(name)
 	resp.WriteHeader(http.StatusOK)
 }

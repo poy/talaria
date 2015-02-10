@@ -31,6 +31,20 @@ var _ = Describe("RestServer", func() {
 			Expect(mqh.addBufferSize).To(BeEquivalentTo(5))
 		})
 	})
+	Context("Fetch", func() {
+		It("Should return information on the queue", func() {
+			url := "http://localhost:8080/queues/someQueue"
+			resp, err := http.Get(url)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			dec := json.NewDecoder(resp.Body)
+			var data QueueData
+			err = dec.Decode(&data)
+			Expect(err).To(BeNil())
+			Expect(data.QueueName).To(Equal("someQueue"))
+			Expect(data.Buffer).To(BeEquivalentTo(6))
+		})
+	})
 	Context("Remove", func() {
 		It("Should call Remove on the QueueHolder", func() {
 			url := "http://localhost:8080/queues/someQueue"
@@ -65,7 +79,7 @@ func (mqh *mockQueueHolder) AddQueue(queueName string, bufferSize talaria.Buffer
 
 func (mqh *mockQueueHolder) Fetch(queueName string) talaria.Queue {
 	mqh.fetchQueueName = queueName
-	return nil
+	return talaria.NewQueue(6)
 }
 
 func (mqh *mockQueueHolder) RemoveQueue(queueName string) {
