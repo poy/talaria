@@ -25,18 +25,6 @@ type RestServer struct {
 	jsonDecoder json.Decoder
 }
 
-type QueueData struct {
-	QueueName string             `json:"queueName"`
-	Buffer    talaria.BufferSize `json:"bufferSize"`
-}
-
-func NewQueueData(name string, size talaria.BufferSize) QueueData {
-	return QueueData{
-		QueueName: name,
-		Buffer:    size,
-	}
-}
-
 func StartNewRestServer(queueHolder QueueHolder, addr string) (*RestServer, <-chan error) {
 	server := &RestServer{
 		queueHolder: queueHolder,
