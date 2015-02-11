@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"github.com/apoydence/talaria"
 	"github.com/gorilla/pat"
+	"github.com/gorilla/websocket"
 	"io"
 	"net/http"
 	"path"
+	"strings"
 	"sync"
 )
 
@@ -24,6 +26,7 @@ type RestServer struct {
 	addr        string
 	router      *pat.Router
 	jsonDecoder json.Decoder
+	wsUpgrader  websocket.Upgrader
 }
 
 func StartNewRestServer(queueHolder QueueHolder, addr string) (*RestServer, <-chan error) {
@@ -31,6 +34,10 @@ func StartNewRestServer(queueHolder QueueHolder, addr string) (*RestServer, <-ch
 		queueHolder: queueHolder,
 		addr:        addr,
 		router:      pat.New(),
+		wsUpgrader: websocket.Upgrader{
+			ReadBufferSize:  1024,
+			WriteBufferSize: 1024,
+		},
 	}
 	return server, server.start()
 }
@@ -51,12 +58,57 @@ func (rs *RestServer) start() <-chan error {
 }
 
 func (rs *RestServer) handleFetchQueue(resp http.ResponseWriter, req *http.Request) {
-	base, name := path.Split(req.URL.Path)
-	if base != "/queues/" || len(name) == 0 {
+	parts := fetchUrlParts(req.URL.Path)
+	if len(parts) == 1 {
 		rs.handleMultiFetchQueue(resp, req)
 		return
+	} else if len(parts) == 2 {
+		rs.handleSingleFetchQueue(resp, parts[1])
+		return
+	} else if len(parts) == 3 {
+		wsType := strings.ToLower(parts[2])
+		if wsType == "readdata" {
+			rs.handleQueueReadData(resp, req, parts[1])
+		}
 	}
-	rs.handleSingleFetchQueue(resp, name)
+	resp.WriteHeader(http.StatusNotFound)
+}
+
+func (rs *RestServer) handleQueueReadData(resp http.ResponseWriter, req *http.Request, name string) {
+	queue := rs.queueHolder.Fetch(name)
+	if queue == nil {
+		resp.WriteHeader(http.StatusNotFound)
+	}
+	conn, err := rs.wsUpgrader.Upgrade(resp, req, nil)
+	if err == nil {
+		resp.WriteHeader(http.StatusInternalServerError)
+		go infiniteRead(conn)
+		go writeFromQueue(conn, queue)
+		return
+	}
+}
+
+func writeFromQueue(conn *websocket.Conn, queue talaria.Queue) {
+	for {
+		data := queue.Read()
+		if data == nil {
+			break
+		}
+
+		err := conn.WriteMessage(websocket.BinaryMessage, data)
+		if err != nil {
+			break
+		}
+	}
+}
+
+func infiniteRead(conn *websocket.Conn) {
+	for {
+		if _, _, err := conn.NextReader(); err != nil {
+			conn.Close()
+			break
+		}
+	}
 }
 
 func (rs *RestServer) handleMultiFetchQueue(resp http.ResponseWriter, req *http.Request) {
@@ -122,4 +174,16 @@ func fetchStatusCode(err error) int {
 	} else {
 		return http.StatusBadRequest
 	}
+}
+
+func fetchUrlParts(url string) []string {
+	result := make([]string, 0)
+	parts := strings.Split(url, "/")
+	for _, p := range parts {
+		if len(p) > 0 {
+			result = append(result, p)
+		}
+	}
+
+	return result
 }

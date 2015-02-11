@@ -77,10 +77,20 @@ var _ = Describe("RestServer", func() {
 		})
 	})
 	Context("ReadData", func() {
-		It("Should return a websocket that can read data from the queue", func() {
+		It("Should return a websocket that can read data from the queue", func(done Done) {
+			defer close(done)
 			u := "ws://localhost:8080/queues/someQueue/readData"
 			dialer := &websocket.Dialer{}
-			_, _, err := dialer.Dial(u, nil)
+			conn, _, err := dialer.Dial(u, nil)
+			Expect(err).To(BeNil())
+			Expect(conn).ToNot(BeNil())
+
+			messageType, data, err := conn.ReadMessage()
+			Expect(messageType).To(Equal(websocket.BinaryMessage))
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte{1, 2, 3, 4, 5}))
+
+			err = conn.Close()
 			Expect(err).To(BeNil())
 		})
 	})
@@ -101,7 +111,9 @@ func (mqh *mockQueueHolder) AddQueue(queueName string, bufferSize talaria.Buffer
 
 func (mqh *mockQueueHolder) Fetch(queueName string) talaria.Queue {
 	mqh.fetchQueueName = queueName
-	return talaria.NewQueue(6)
+	queue := talaria.NewQueue(6)
+	queue.Write([]byte{1, 2, 3, 4, 5})
+	return queue
 }
 
 func (mqh *mockQueueHolder) RemoveQueue(queueName string) {
