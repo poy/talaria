@@ -15,7 +15,7 @@ import (
 )
 
 var mqh = func() *mockQueueHolder {
-	mqh := &mockQueueHolder{}
+	mqh := newMockQueueHolder()
 	StartNewRestServer(mqh, ":8080")
 	return mqh
 }()
@@ -36,7 +36,7 @@ var _ = Describe("RestServer", func() {
 	})
 	Context("Fetch", func() {
 		It("Should return information on the queue", func() {
-			url := "http://localhost:8080/queues/someQueue"
+			url := "http://localhost:8080/queues/queueOf5"
 			resp, err := http.Get(url)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -44,8 +44,8 @@ var _ = Describe("RestServer", func() {
 			var data QueueData
 			err = dec.Decode(&data)
 			Expect(err).To(BeNil())
-			Expect(data.QueueName).To(Equal("someQueue"))
-			Expect(data.Buffer).To(BeEquivalentTo(6))
+			Expect(data.QueueName).To(Equal("queueOf5"))
+			Expect(data.Buffer).To(BeEquivalentTo(5))
 		})
 		It("Should return information on all the queues", func() {
 			url := "http://localhost:8080/queues"
@@ -79,7 +79,7 @@ var _ = Describe("RestServer", func() {
 	Context("ReadData", func() {
 		It("Should return a websocket that can read data from the queue", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/queues/someQueue/readData"
+			u := "ws://localhost:8080/queues/queueOf5/readData"
 			dialer := &websocket.Dialer{}
 			conn, _, err := dialer.Dial(u, nil)
 			Expect(err).To(BeNil())
@@ -93,6 +93,38 @@ var _ = Describe("RestServer", func() {
 			err = conn.Close()
 			Expect(err).To(BeNil())
 		})
+		It("Should close the connection when the queue is removed", func(done Done) {
+			defer close(done)
+			u := "ws://localhost:8080/queues/infiniteQueue/readData"
+			dialer := &websocket.Dialer{}
+			conn, _, err := dialer.Dial(u, nil)
+			Expect(err).To(BeNil())
+			Expect(conn).ToNot(BeNil())
+
+			for i := 0; i < 5; i++ {
+				messageType, data, err := conn.ReadMessage()
+				Expect(messageType).To(Equal(websocket.BinaryMessage))
+				Expect(err).To(BeNil())
+				Expect(data).To(Equal([]byte{1, 2, 3, 4, 5}))
+			}
+			mqh.infiniteQueue.Close()
+			_, _, err = conn.ReadMessage()
+			Expect(err).To(BeNil())
+		})
+	})
+	Context("WriteData", func() {
+		It("Should return a websocket that can write data to the queue", func(done Done) {
+			defer close(done)
+			u := "ws://localhost:8080/queues/queueWriter/writeData"
+			dialer := &websocket.Dialer{}
+			conn, _, err := dialer.Dial(u, nil)
+			Expect(err).To(BeNil())
+			Expect(conn).ToNot(BeNil())
+
+			conn.WriteMessage(websocket.BinaryMessage, []byte{1, 2, 3, 4, 5})
+			expectedData := mqh.queueWriter.Read()
+			Expect(expectedData).To(Equal([]byte{1, 2, 3, 4, 5}))
+		})
 	})
 })
 
@@ -101,6 +133,17 @@ type mockQueueHolder struct {
 	removeQueueName string
 	fetchQueueName  string
 	addBufferSize   talaria.BufferSize
+	queueOf5        talaria.Queue
+	queueWriter     talaria.Queue
+	infiniteQueue   talaria.Queue
+}
+
+func newMockQueueHolder() *mockQueueHolder {
+	return &mockQueueHolder{
+		queueOf5:      talaria.NewQueue(5),
+		queueWriter:   talaria.NewQueue(5),
+		infiniteQueue: talaria.NewQueue(5),
+	}
 }
 
 func (mqh *mockQueueHolder) AddQueue(queueName string, bufferSize talaria.BufferSize) error {
@@ -111,9 +154,24 @@ func (mqh *mockQueueHolder) AddQueue(queueName string, bufferSize talaria.Buffer
 
 func (mqh *mockQueueHolder) Fetch(queueName string) talaria.Queue {
 	mqh.fetchQueueName = queueName
-	queue := talaria.NewQueue(6)
-	queue.Write([]byte{1, 2, 3, 4, 5})
-	return queue
+	switch queueName {
+	case "queueOf5":
+		mqh.queueOf5.Write([]byte{1, 2, 3, 4, 5})
+		return mqh.queueOf5
+	case "queueWriter":
+		return mqh.queueWriter
+	case "infiniteQueue":
+		go func() {
+			for {
+				if !mqh.infiniteQueue.Write([]byte{1, 2, 3, 4, 5}) {
+					break
+				}
+			}
+		}()
+		return mqh.infiniteQueue
+	default:
+		panic("Unknown test queue: " + queueName)
+	}
 }
 
 func (mqh *mockQueueHolder) RemoveQueue(queueName string) {

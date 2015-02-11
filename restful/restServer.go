@@ -69,6 +69,8 @@ func (rs *RestServer) handleFetchQueue(resp http.ResponseWriter, req *http.Reque
 		wsType := strings.ToLower(parts[2])
 		if wsType == "readdata" {
 			rs.handleQueueReadData(resp, req, parts[1])
+		} else if wsType == "writedata" {
+			rs.handleQueueWriteData(resp, req, parts[1])
 		}
 	}
 	resp.WriteHeader(http.StatusNotFound)
@@ -81,10 +83,27 @@ func (rs *RestServer) handleQueueReadData(resp http.ResponseWriter, req *http.Re
 	}
 	conn, err := rs.wsUpgrader.Upgrade(resp, req, nil)
 	if err == nil {
-		resp.WriteHeader(http.StatusInternalServerError)
 		go infiniteRead(conn)
 		go writeFromQueue(conn, queue)
 		return
+	}
+}
+
+func (rs *RestServer) handleQueueWriteData(resp http.ResponseWriter, req *http.Request, name string) {
+	queue := rs.queueHolder.Fetch(name)
+	if queue == nil {
+		resp.WriteHeader(http.StatusNotFound)
+	}
+	conn, err := rs.wsUpgrader.Upgrade(resp, req, nil)
+	if err == nil {
+		go func() {
+			for {
+				_, data, err := conn.ReadMessage()
+				if err != nil || !queue.Write(data) {
+					break
+				}
+			}
+		}()
 	}
 }
 
