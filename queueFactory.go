@@ -9,8 +9,9 @@ import (
 type Queue interface {
 	Read() []byte
 	ReadAsync() []byte
-	Write(data []byte) error
+	Write(data []byte) bool
 	BufferSize() BufferSize
+	Close()
 }
 
 type QueueFactory struct {

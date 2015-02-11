@@ -33,7 +33,17 @@ func (q queue) ReadAsync() []byte {
 	}
 }
 
-func (q queue) Write(data []byte) error {
-	q <- data
-	return nil
+func (q queue) Write(data []byte) bool {
+	var notClosed bool
+	func() {
+		defer func() {
+			notClosed = recover() == nil
+		}()
+		q <- data
+	}()
+	return notClosed
+}
+
+func (q queue) Close() {
+	close(q)
 }

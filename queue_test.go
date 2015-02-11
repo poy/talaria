@@ -19,10 +19,16 @@ var _ = Describe("Queue", func() {
 			defer close(done)
 			queue := NewQueue(5)
 			data := []byte{1, 2, 3, 4, 5}
-			err := queue.Write(data)
-			Expect(err).To(BeNil())
+			queue.Write(data)
 			result := queue.Read()
 			Expect(data).To(Equal(result))
+		})
+		It("Should return an error when you write to a closed channel", func(done Done) {
+			defer close(done)
+			queue := NewQueue(5)
+			queue.Close()
+			data := []byte{1, 2, 3, 4, 5}
+			queue.Write(data)
 		})
 	})
 	Context("ReadAsync", func() {
@@ -30,6 +36,15 @@ var _ = Describe("Queue", func() {
 			defer close(done)
 			queue := NewQueue(5)
 			data := queue.ReadAsync()
+			Expect(data).To(BeNil())
+		})
+	})
+	Context("Close", func() {
+		It("Should close the queue", func(done Done) {
+			defer close(done)
+			queue := NewQueue(5)
+			queue.Close()
+			data := queue.Read()
 			Expect(data).To(BeNil())
 		})
 	})
