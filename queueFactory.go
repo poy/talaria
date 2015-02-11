@@ -8,6 +8,7 @@ import (
 
 type Queue interface {
 	Read() []byte
+	ReadAsync() []byte
 	Write(data []byte) error
 	BufferSize() BufferSize
 }

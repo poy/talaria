@@ -24,10 +24,12 @@ var _ = Describe("Queue", func() {
 			result := queue.Read()
 			Expect(data).To(Equal(result))
 		})
-		It("Should read a nil if there is nothing to read", func(done Done) {
+	})
+	Context("ReadAsync", func() {
+		It("Should return a nil if there is nothing to read", func(done Done) {
 			defer close(done)
 			queue := NewQueue(5)
-			data := queue.Read()
+			data := queue.ReadAsync()
 			Expect(data).To(BeNil())
 		})
 	})

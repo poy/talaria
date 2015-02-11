@@ -14,6 +14,14 @@ func (q queue) BufferSize() BufferSize {
 }
 
 func (q queue) Read() []byte {
+	result, ok := <-q
+	if ok {
+		return result
+	}
+	return nil
+}
+
+func (q queue) ReadAsync() []byte {
 	select {
 	case result, ok := <-q:
 		if ok {
