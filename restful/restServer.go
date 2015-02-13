@@ -97,6 +97,7 @@ func (rs *RestServer) handleQueueWriteData(resp http.ResponseWriter, req *http.R
 	conn, err := rs.wsUpgrader.Upgrade(resp, req, nil)
 	if err == nil {
 		go func() {
+			defer conn.Close()
 			for {
 				_, data, err := conn.ReadMessage()
 				if err != nil || !queue.Write(data) {
@@ -108,6 +109,7 @@ func (rs *RestServer) handleQueueWriteData(resp http.ResponseWriter, req *http.R
 }
 
 func writeFromQueue(conn *websocket.Conn, queue talaria.Queue) {
+	defer conn.Close()
 	for {
 		data := queue.Read()
 		if data == nil {

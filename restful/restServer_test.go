@@ -95,7 +95,7 @@ var _ = Describe("RestServer", func() {
 		})
 		It("Should close the connection when the queue is removed", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/queues/infiniteQueue/readData"
+			u := "ws://localhost:8080/queues/queueWith5/readData"
 			dialer := &websocket.Dialer{}
 			conn, _, err := dialer.Dial(u, nil)
 			Expect(err).To(BeNil())
@@ -107,9 +107,14 @@ var _ = Describe("RestServer", func() {
 				Expect(err).To(BeNil())
 				Expect(data).To(Equal([]byte{1, 2, 3, 4, 5}))
 			}
-			mqh.infiniteQueue.Close()
-			_, _, err = conn.ReadMessage()
-			Expect(err).To(BeNil())
+
+			mqh.queueWith5.Close()
+			mqh.queueWith5.Write([]byte{1, 2, 3, 4, 5})
+
+			messageType, data, err := conn.ReadMessage()
+			Expect(messageType).ToNot(Equal(websocket.BinaryMessage))
+			Expect(err).ToNot(BeNil())
+			Expect(data).To(BeNil())
 		})
 	})
 	Context("WriteData", func() {
@@ -125,6 +130,25 @@ var _ = Describe("RestServer", func() {
 			expectedData := mqh.queueWriter.Read()
 			Expect(expectedData).To(Equal([]byte{1, 2, 3, 4, 5}))
 		})
+		It("Should close the connection when the queue is removed", func(done Done) {
+			defer close(done)
+			u := "ws://localhost:8080/queues/queueWith5/writeData"
+			dialer := &websocket.Dialer{}
+			conn, _, err := dialer.Dial(u, nil)
+			Expect(err).To(BeNil())
+			Expect(conn).ToNot(BeNil())
+
+			for i := 0; i < 5; i++ {
+				err := conn.WriteMessage(websocket.BinaryMessage, []byte{1, 2, 3, 4, 5})
+				Expect(err).To(BeNil())
+			}
+
+			mqh.queueWith5.Close()
+			testIfCloses := func() error {
+				return conn.WriteMessage(websocket.BinaryMessage, []byte{1, 2, 3, 4, 5})
+			}
+			Eventually(testIfCloses).ShouldNot(BeNil())
+		})
 	})
 })
 
@@ -134,16 +158,27 @@ type mockQueueHolder struct {
 	fetchQueueName  string
 	addBufferSize   talaria.BufferSize
 	queueOf5        talaria.Queue
+	queueWith5      talaria.Queue
 	queueWriter     talaria.Queue
 	infiniteQueue   talaria.Queue
 }
 
 func newMockQueueHolder() *mockQueueHolder {
-	return &mockQueueHolder{
+	m := &mockQueueHolder{
 		queueOf5:      talaria.NewQueue(5),
+		queueWith5:    talaria.NewQueue(5),
 		queueWriter:   talaria.NewQueue(5),
 		infiniteQueue: talaria.NewQueue(5),
 	}
+
+	go func() {
+		for i := 0; i < 5; i++ {
+			if !m.queueWith5.Write([]byte{1, 2, 3, 4, 5}) {
+				break
+			}
+		}
+	}()
+	return m
 }
 
 func (mqh *mockQueueHolder) AddQueue(queueName string, bufferSize talaria.BufferSize) error {
@@ -158,6 +193,8 @@ func (mqh *mockQueueHolder) Fetch(queueName string) talaria.Queue {
 	case "queueOf5":
 		mqh.queueOf5.Write([]byte{1, 2, 3, 4, 5})
 		return mqh.queueOf5
+	case "queueWith5":
+		return mqh.queueWith5
 	case "queueWriter":
 		return mqh.queueWriter
 	case "infiniteQueue":
