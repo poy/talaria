@@ -46,6 +46,7 @@ func (rs *RestServer) start() <-chan error {
 	errChan := make(chan error)
 	once.Do(func() {
 		rs.router.Get("/queues", rs.handleFetchQueue)
+		rs.router.Get("/connect", rs.handleConnect)
 		rs.router.Post("/queues", rs.handleAddQueue)
 		rs.router.Delete("/queues", rs.handleRemove)
 		http.Handle("/", rs.router)
@@ -57,6 +58,21 @@ func (rs *RestServer) start() <-chan error {
 	return errChan
 }
 
+func (rs *RestServer) handleConnect(resp http.ResponseWriter, req *http.Request) {
+	var r, w string
+	if r = req.Header.Get("read"); len(r) > 0 {
+		rs.handleQueueReadData(resp, req, r)
+	}
+
+	if w = req.Header.Get("write"); len(w) > 0 {
+		rs.handleQueueWriteData(resp, req, w)
+	}
+
+	if len(r) == 0 && len(w) == 0 {
+		resp.WriteHeader(http.StatusNotFound)
+	}
+}
+
 func (rs *RestServer) handleFetchQueue(resp http.ResponseWriter, req *http.Request) {
 	parts := fetchUrlParts(req.URL.Path)
 	if len(parts) == 1 {
@@ -65,13 +81,6 @@ func (rs *RestServer) handleFetchQueue(resp http.ResponseWriter, req *http.Reque
 	} else if len(parts) == 2 {
 		rs.handleSingleFetchQueue(resp, parts[1])
 		return
-	} else if len(parts) == 3 {
-		wsType := strings.ToLower(parts[2])
-		if wsType == "readdata" {
-			rs.handleQueueReadData(resp, req, parts[1])
-		} else if wsType == "writedata" {
-			rs.handleQueueWriteData(resp, req, parts[1])
-		}
 	}
 	resp.WriteHeader(http.StatusNotFound)
 }

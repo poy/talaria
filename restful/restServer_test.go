@@ -76,12 +76,14 @@ var _ = Describe("RestServer", func() {
 			Expect(resp.StatusCode).To(Equal(http.StatusBadRequest))
 		})
 	})
-	Context("ReadData", func() {
+	Context("Read Data", func() {
 		It("Should return a websocket that can read data from the queue", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/queues/queueOf5/readData"
+			u := "ws://localhost:8080/connect"
 			dialer := &websocket.Dialer{}
-			conn, _, err := dialer.Dial(u, nil)
+			header := http.Header{}
+			header.Add("read", "queueOf5")
+			conn, _, err := dialer.Dial(u, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 
@@ -95,9 +97,11 @@ var _ = Describe("RestServer", func() {
 		})
 		It("Should close the connection when the queue is removed", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/queues/queueWith5/readData"
+			u := "ws://localhost:8080/connect"
 			dialer := &websocket.Dialer{}
-			conn, _, err := dialer.Dial(u, nil)
+			header := http.Header{}
+			header.Add("read", "queueWith5")
+			conn, _, err := dialer.Dial(u, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 
@@ -117,12 +121,14 @@ var _ = Describe("RestServer", func() {
 			Expect(data).To(BeNil())
 		})
 	})
-	Context("WriteData", func() {
+	Context("Write Data", func() {
 		It("Should return a websocket that can write data to the queue", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/queues/queueWriter/writeData"
+			u := "ws://localhost:8080/connect"
+			header := http.Header{}
+			header.Add("write", "queueWriter")
 			dialer := &websocket.Dialer{}
-			conn, _, err := dialer.Dial(u, nil)
+			conn, _, err := dialer.Dial(u, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 
@@ -132,9 +138,11 @@ var _ = Describe("RestServer", func() {
 		})
 		It("Should close the connection when the queue is removed", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/queues/queueWith5/writeData"
+			u := "ws://localhost:8080/connect"
+			header := http.Header{}
+			header.Add("write", "queueWith5")
 			dialer := &websocket.Dialer{}
-			conn, _, err := dialer.Dial(u, nil)
+			conn, _, err := dialer.Dial(u, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 
