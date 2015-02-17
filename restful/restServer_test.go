@@ -86,6 +86,7 @@ var _ = Describe("RestServer", func() {
 			conn, _, err := dialer.Dial(u, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
+			defer conn.Close()
 
 			messageType, data, err := conn.ReadMessage()
 			Expect(messageType).To(Equal(websocket.BinaryMessage))
@@ -104,6 +105,7 @@ var _ = Describe("RestServer", func() {
 			conn, _, err := dialer.Dial(u, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
+			defer conn.Close()
 
 			for i := 0; i < 5; i++ {
 				messageType, data, err := conn.ReadMessage()
@@ -131,6 +133,7 @@ var _ = Describe("RestServer", func() {
 			conn, _, err := dialer.Dial(u, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
+			defer conn.Close()
 
 			conn.WriteMessage(websocket.BinaryMessage, []byte{1, 2, 3, 4, 5})
 			expectedData := mqh.queueWriter.Read()
@@ -145,6 +148,7 @@ var _ = Describe("RestServer", func() {
 			conn, _, err := dialer.Dial(u, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
+			defer conn.Close()
 
 			for i := 0; i < 5; i++ {
 				err := conn.WriteMessage(websocket.BinaryMessage, []byte{1, 2, 3, 4, 5})
@@ -156,6 +160,30 @@ var _ = Describe("RestServer", func() {
 				return conn.WriteMessage(websocket.BinaryMessage, []byte{1, 2, 3, 4, 5})
 			}
 			Eventually(testIfCloses).ShouldNot(BeNil())
+		})
+	})
+	Context("Read and Write Data", func() {
+		It("Should read from one queue and write to another", func(done Done) {
+			defer close(done)
+
+			u := "ws://localhost:8080/connect"
+			header := http.Header{}
+			header.Add("read", "queueOf5")
+			header.Add("write", "queueWriter")
+			dialer := &websocket.Dialer{}
+			conn, _, err := dialer.Dial(u, header)
+			Expect(err).To(BeNil())
+			Expect(conn).ToNot(BeNil())
+			defer conn.Close()
+
+			messageType, data, err := conn.ReadMessage()
+			Expect(messageType).To(Equal(websocket.BinaryMessage))
+			Expect(err).To(BeNil())
+			Expect(data).To(Equal([]byte{1, 2, 3, 4, 5}))
+
+			conn.WriteMessage(websocket.BinaryMessage, []byte{1, 2, 3, 4, 5})
+			expectedData := mqh.queueWriter.Read()
+			Expect(expectedData).To(Equal([]byte{1, 2, 3, 4, 5}))
 		})
 	})
 })
@@ -199,7 +227,11 @@ func (mqh *mockQueueHolder) Fetch(queueName string) talaria.Queue {
 	mqh.fetchQueueName = queueName
 	switch queueName {
 	case "queueOf5":
-		mqh.queueOf5.Write([]byte{1, 2, 3, 4, 5})
+		go func() {
+			for {
+				mqh.queueOf5.Write([]byte{1, 2, 3, 4, 5})
+			}
+		}()
 		return mqh.queueOf5
 	case "queueWith5":
 		return mqh.queueWith5
@@ -215,7 +247,7 @@ func (mqh *mockQueueHolder) Fetch(queueName string) talaria.Queue {
 		}()
 		return mqh.infiniteQueue
 	default:
-		panic("Unknown test queue: " + queueName)
+		return nil
 	}
 }
 

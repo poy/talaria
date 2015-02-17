@@ -59,17 +59,29 @@ func (rs *RestServer) start() <-chan error {
 }
 
 func (rs *RestServer) handleConnect(resp http.ResponseWriter, req *http.Request) {
-	var r, w string
-	if r = req.Header.Get("read"); len(r) > 0 {
-		rs.handleQueueReadData(resp, req, r)
-	}
-
-	if w = req.Header.Get("write"); len(w) > 0 {
-		rs.handleQueueWriteData(resp, req, w)
-	}
-
-	if len(r) == 0 && len(w) == 0 {
+	cd := newConnectToQueueData(req.Header)
+	var rq, wq talaria.Queue
+	if rq = rs.queueHolder.Fetch(cd.ReadQueue); rq == nil && len(cd.ReadQueue) > 0 {
 		resp.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	if wq = rs.queueHolder.Fetch(cd.WriteQueue); wq == nil && len(cd.WriteQueue) > 0 {
+		resp.WriteHeader(http.StatusNotFound)
+		return
+	}
+
+	conn, err := rs.wsUpgrader.Upgrade(resp, req, nil)
+	if err == nil {
+		if rq != nil {
+			rs.handleQueueReadData(rq, conn)
+		}
+
+		if wq != nil {
+			rs.handleQueueWriteData(wq, conn)
+		} else {
+			go infiniteRead(conn)
+		}
 	}
 }
 
@@ -85,36 +97,20 @@ func (rs *RestServer) handleFetchQueue(resp http.ResponseWriter, req *http.Reque
 	resp.WriteHeader(http.StatusNotFound)
 }
 
-func (rs *RestServer) handleQueueReadData(resp http.ResponseWriter, req *http.Request, name string) {
-	queue := rs.queueHolder.Fetch(name)
-	if queue == nil {
-		resp.WriteHeader(http.StatusNotFound)
-	}
-	conn, err := rs.wsUpgrader.Upgrade(resp, req, nil)
-	if err == nil {
-		go infiniteRead(conn)
-		go writeFromQueue(conn, queue)
-		return
-	}
+func (rs *RestServer) handleQueueReadData(queue talaria.Queue, conn *websocket.Conn) {
+	go writeFromQueue(conn, queue)
 }
 
-func (rs *RestServer) handleQueueWriteData(resp http.ResponseWriter, req *http.Request, name string) {
-	queue := rs.queueHolder.Fetch(name)
-	if queue == nil {
-		resp.WriteHeader(http.StatusNotFound)
-	}
-	conn, err := rs.wsUpgrader.Upgrade(resp, req, nil)
-	if err == nil {
-		go func() {
-			defer conn.Close()
-			for {
-				_, data, err := conn.ReadMessage()
-				if err != nil || !queue.Write(data) {
-					break
-				}
+func (rs *RestServer) handleQueueWriteData(queue talaria.Queue, conn *websocket.Conn) {
+	go func() {
+		defer conn.Close()
+		for {
+			_, data, err := conn.ReadMessage()
+			if err != nil || !queue.Write(data) {
+				break
 			}
-		}()
-	}
+		}
+	}()
 }
 
 func writeFromQueue(conn *websocket.Conn, queue talaria.Queue) {
