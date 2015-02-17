@@ -1,7 +1,6 @@
 package restful_test
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/apoydence/talaria"
@@ -23,11 +22,12 @@ var mqh = func() *mockQueueHolder {
 var _ = Describe("RestServer", func() {
 	Context("AddQueue", func() {
 		It("Should create a new queue", func() {
-			j, _ := json.Marshal(QueueData{
+			qd := QueueData{
 				QueueName: "some-queue",
 				Buffer:    5,
-			})
-			resp, err := http.Post("http://localhost:8080/queues", "application/json", bytes.NewReader(j))
+			}
+
+			resp, err := http.PostForm("http://localhost:8080/queues", qd.ToUrlValues())
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(mqh.addQueueName).To(Equal("some-queue"))

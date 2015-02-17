@@ -5,7 +5,6 @@ import (
 	"github.com/apoydence/talaria"
 	"github.com/gorilla/pat"
 	"github.com/gorilla/websocket"
-	"io"
 	"net/http"
 	"path"
 	"strings"
@@ -172,9 +171,8 @@ func (rs *RestServer) handleAddQueue(resp http.ResponseWriter, req *http.Request
 		return
 	}
 
-	dec := json.NewDecoder(req.Body)
-	var data QueueData
-	if err = dec.Decode(&data); err == io.EOF || err == nil {
+	data, err := ParseQueueData(req.Form)
+	if err == nil {
 		err = rs.queueHolder.AddQueue(data.QueueName, data.Buffer)
 		resp.WriteHeader(fetchStatusCode(err))
 		return
