@@ -2,6 +2,7 @@ package talaria_test
 
 import (
 	. "github.com/apoydence/talaria"
+	"sync"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -29,6 +30,33 @@ var _ = Describe("Queue", func() {
 			queue.Close()
 			data := []byte{1, 2, 3, 4, 5}
 			queue.Write(data)
+		})
+		It("Queue can be written to by multiple go routines", func(done Done) {
+			defer close(done)
+			queue := NewQueue(5)
+			wg := &sync.WaitGroup{}
+			for i := 0; i < 5; i++ {
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					for j := 0; j < 5; j++ {
+						data := []byte{1, 2, 3, 4, 5}
+						queue.Write(data)
+					}
+					wg.Done()
+				}()
+			}
+
+			go func() {
+				wg.Wait()
+				queue.Close()
+			}()
+
+			count := 0
+			for d := queue.Read(); d != nil; d = queue.Read() {
+				count++
+			}
+			Expect(count).To(Equal(25))
 		})
 	})
 	Context("ReadAsync", func() {
