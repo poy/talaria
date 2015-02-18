@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/apoydence/talaria"
+	"github.com/apoydence/talaria/neighbors"
 	. "github.com/apoydence/talaria/restful"
 	"github.com/gorilla/websocket"
 	"io"
@@ -13,21 +14,30 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var mqh = func() *mockQueueHolder {
-	mqh := newMockQueueHolder()
-	StartNewRestServer(mqh, ":8080")
-	return mqh
-}()
+var _ = Describe("RestServer - Single", func() {
+	var httpServer *testHttpServer
+	var mqh *mockQueueHolder
 
-var _ = Describe("RestServer", func() {
+	BeforeEach(func() {
+		mqh = newMockQueueHolder()
+		nh := neighbors.NewNeighborCollection()
+		httpServer = NewTestHttpServer()
+		server := NewRestServer(mqh, nh, ":8080")
+		server.HttpServer = httpServer
+		server.Start()
+	})
+
+	AfterEach(func() {
+		httpServer.Close()
+	})
+
 	Context("AddQueue", func() {
 		It("Should create a new queue", func() {
 			qd := QueueData{
 				QueueName: "some-queue",
 				Buffer:    5,
 			}
-
-			resp, err := http.PostForm("http://localhost:8080/queues", qd.ToUrlValues())
+			resp, err := http.PostForm(httpServer.Endpoint()+"/queues", qd.ToUrlValues())
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
 			Expect(mqh.addQueueName).To(Equal("some-queue"))
@@ -36,7 +46,7 @@ var _ = Describe("RestServer", func() {
 	})
 	Context("Fetch", func() {
 		It("Should return information on the queue", func() {
-			url := "http://localhost:8080/queues/queueOf5"
+			url := httpServer.Endpoint() + "/queues/queueOf5"
 			resp, err := http.Get(url)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -48,7 +58,7 @@ var _ = Describe("RestServer", func() {
 			Expect(data.Buffer).To(BeEquivalentTo(5))
 		})
 		It("Should return information on all the queues", func() {
-			url := "http://localhost:8080/queues"
+			url := httpServer.Endpoint() + "/queues"
 			resp, err := http.Get(url)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
@@ -61,7 +71,7 @@ var _ = Describe("RestServer", func() {
 	})
 	Context("Remove", func() {
 		It("Should call Remove on the QueueHolder", func() {
-			u := "http://localhost:8080/queues/someQueue"
+			u := httpServer.Endpoint() + "/queues/someQueue"
 			req, _ := http.NewRequest("DELETE", u, nil)
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).To(BeNil())
@@ -69,7 +79,7 @@ var _ = Describe("RestServer", func() {
 			Expect(mqh.removeQueueName).To(Equal("someQueue"))
 		})
 		It("Should return a BadRequest if the queue name is left off", func() {
-			u := "http://localhost:8080/queues"
+			u := httpServer.Endpoint() + "/queues"
 			req, _ := http.NewRequest("DELETE", u, nil)
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).To(BeNil())
@@ -79,11 +89,11 @@ var _ = Describe("RestServer", func() {
 	Context("Read Data", func() {
 		It("Should return a websocket that can read data from the queue", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/connect"
+			url := "ws" + httpServer.Endpoint()[4:] + "/connect"
 			dialer := &websocket.Dialer{}
 			header := http.Header{}
 			header.Add("read", "queueOf5")
-			conn, _, err := dialer.Dial(u, header)
+			conn, _, err := dialer.Dial(url, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 			defer conn.Close()
@@ -98,11 +108,11 @@ var _ = Describe("RestServer", func() {
 		})
 		It("Should close the connection when the queue is removed", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/connect"
+			url := "ws" + httpServer.Endpoint()[4:] + "/connect"
 			dialer := &websocket.Dialer{}
 			header := http.Header{}
 			header.Add("read", "queueWith5")
-			conn, _, err := dialer.Dial(u, header)
+			conn, _, err := dialer.Dial(url, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 			defer conn.Close()
@@ -126,11 +136,11 @@ var _ = Describe("RestServer", func() {
 	Context("Write Data", func() {
 		It("Should return a websocket that can write data to the queue", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/connect"
+			url := "ws" + httpServer.Endpoint()[4:] + "/connect"
 			header := http.Header{}
 			header.Add("write", "queueWriter")
 			dialer := &websocket.Dialer{}
-			conn, _, err := dialer.Dial(u, header)
+			conn, _, err := dialer.Dial(url, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 			defer conn.Close()
@@ -141,11 +151,11 @@ var _ = Describe("RestServer", func() {
 		})
 		It("Should close the connection when the queue is removed", func(done Done) {
 			defer close(done)
-			u := "ws://localhost:8080/connect"
+			url := "ws" + httpServer.Endpoint()[4:] + "/connect"
 			header := http.Header{}
 			header.Add("write", "queueWith5")
 			dialer := &websocket.Dialer{}
-			conn, _, err := dialer.Dial(u, header)
+			conn, _, err := dialer.Dial(url, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 			defer conn.Close()
@@ -166,12 +176,12 @@ var _ = Describe("RestServer", func() {
 		It("Should read from one queue and write to another", func(done Done) {
 			defer close(done)
 
-			u := "ws://localhost:8080/connect"
+			url := "ws" + httpServer.Endpoint()[4:] + "/connect"
 			header := http.Header{}
 			header.Add("read", "queueOf5")
 			header.Add("write", "queueWriter")
 			dialer := &websocket.Dialer{}
-			conn, _, err := dialer.Dial(u, header)
+			conn, _, err := dialer.Dial(url, header)
 			Expect(err).To(BeNil())
 			Expect(conn).ToNot(BeNil())
 			defer conn.Close()
@@ -187,6 +197,76 @@ var _ = Describe("RestServer", func() {
 		})
 	})
 })
+
+var _ = PDescribe("RestServer - Distributed", func() {
+	var httpServer *testHttpServer
+	defer func() {
+		httpServer.Close()
+	}()
+
+	var mqh = func(endpoints ...string) (QueueHolder, *mockHttpClient) {
+		mqh := talaria.NewQueueFactory(10)
+		nh := neighbors.NewNeighborCollection(createFakeNeighbors(endpoints...)...)
+		httpClient := NewMockHttpClient(len(endpoints))
+		httpServer = NewTestHttpServer()
+		server := NewRestServer(mqh, nh, ":8080")
+		server.HttpClient = httpClient
+		server.HttpServer = httpServer
+		server.Start()
+		return mqh, httpClient
+	}
+	Context("Fetch", func() {
+		It("Should ask neighbors for queue", func(done Done) {
+			defer close(done)
+			_, httpClient := mqh("a", "b", "c")
+			url := "http://localhost:8080/queues/queueOf5"
+
+			go func() {
+				defer GinkgoRecover()
+				resp, err := http.Get(url)
+				Expect(err).To(BeNil())
+				Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			}()
+
+			results := make([]string, 0)
+			for i := 0; i < 3; i++ {
+				results = append(results, <-httpClient.getUrls)
+			}
+			Expect(results).To(ConsistOf([]string{"a", "b", "c"}))
+
+			/*	dec := json.NewDecoder(resp.Body)
+				var data QueueData
+				err = dec.Decode(&data)
+				Expect(err).To(BeNil())
+				Expect(data.QueueName).To(Equal("queueOf5"))
+				Expect(data.Buffer).To(BeEquivalentTo(5))
+			*/
+		})
+	})
+})
+
+func createFakeNeighbors(endpoints ...string) []neighbors.Neighbor {
+	result := make([]neighbors.Neighbor, 0)
+	for _, e := range endpoints {
+		result = append(result, neighbors.NewNeighbor(e))
+	}
+	return result
+}
+
+type mockHttpClient struct {
+	getUrls chan string
+}
+
+func NewMockHttpClient(chSize int) *mockHttpClient {
+	return &mockHttpClient{
+		getUrls: make(chan string, chSize),
+	}
+}
+
+func (mc *mockHttpClient) Get(url string) (resp *http.Response, err error) {
+	mc.getUrls <- url
+	return nil, nil
+}
 
 type mockQueueHolder struct {
 	addQueueName    string

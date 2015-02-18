@@ -3,15 +3,13 @@ package restful
 import (
 	"encoding/json"
 	"github.com/apoydence/talaria"
+	"github.com/apoydence/talaria/neighbors"
 	"github.com/gorilla/pat"
 	"github.com/gorilla/websocket"
 	"net/http"
 	"path"
 	"strings"
-	"sync"
 )
-
-var once sync.Once
 
 type QueueHolder interface {
 	AddQueue(queueName string, size talaria.BufferSize) error
@@ -20,40 +18,59 @@ type QueueHolder interface {
 	ListQueues() []talaria.QueueListing
 }
 
-type RestServer struct {
-	queueHolder QueueHolder
-	addr        string
-	router      *pat.Router
-	jsonDecoder json.Decoder
-	wsUpgrader  websocket.Upgrader
+type NeighborHolder interface {
+	GetNeighbors(blacklist ...string) []neighbors.Neighbor
 }
 
-func StartNewRestServer(queueHolder QueueHolder, addr string) (*RestServer, <-chan error) {
+type HttpServer interface {
+	ListenAndServe() error
+	SetHandler(handler http.Handler)
+	SetAddr(addr string)
+}
+
+type HttpClient interface {
+	Get(url string) (resp *http.Response, err error)
+}
+
+type RestServer struct {
+	queueHolder    QueueHolder
+	neighborHolder NeighborHolder
+	HttpClient     HttpClient
+	HttpServer     HttpServer
+	addr           string
+	router         *pat.Router
+	jsonDecoder    json.Decoder
+	wsUpgrader     websocket.Upgrader
+}
+
+func NewRestServer(queueHolder QueueHolder, ns NeighborHolder, addr string) *RestServer {
 	server := &RestServer{
-		queueHolder: queueHolder,
-		addr:        addr,
-		router:      pat.New(),
+		queueHolder:    queueHolder,
+		neighborHolder: ns,
+		HttpClient:     &http.Client{},
+		HttpServer:     NewDefaultHttpServer(),
+		addr:           addr,
+		router:         pat.New(),
 		wsUpgrader: websocket.Upgrader{
 			ReadBufferSize:  1024,
 			WriteBufferSize: 1024,
 		},
 	}
-	return server, server.start()
+	return server
 }
 
-func (rs *RestServer) start() <-chan error {
+func (rs *RestServer) Start() <-chan error {
 	errChan := make(chan error)
-	once.Do(func() {
-		rs.router.Get("/queues", rs.handleFetchQueue)
-		rs.router.Get("/connect", rs.handleConnect)
-		rs.router.Post("/queues", rs.handleAddQueue)
-		rs.router.Delete("/queues", rs.handleRemove)
-		http.Handle("/", rs.router)
+	rs.router.Get("/queues", rs.handleFetchQueue)
+	rs.router.Get("/connect", rs.handleConnect)
+	rs.router.Post("/queues", rs.handleAddQueue)
+	rs.router.Delete("/queues", rs.handleRemove)
+	rs.HttpServer.SetHandler(rs.router)
+	rs.HttpServer.SetAddr(rs.addr)
 
-		go func() {
-			errChan <- http.ListenAndServe(rs.addr, nil)
-		}()
-	})
+	go func() {
+		errChan <- rs.HttpServer.ListenAndServe()
+	}()
 	return errChan
 }
 
