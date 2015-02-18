@@ -60,13 +60,13 @@ var _ = Describe("QueueFactory", func() {
 			Expect(set).To(HaveLen(5))
 		})
 	})
-	Context("Remove", func() {
+	Context("RemoveQueue", func() {
 		It("Should remove a queue", func() {
 			factory := NewQueueFactory(10)
 			err := factory.AddQueue("some-queue", 5)
 			Expect(err).To(BeNil())
 			queue1 := factory.Fetch("some-queue")
-			factory.Remove("some-queue")
+			factory.RemoveQueue("some-queue")
 			err = factory.AddQueue("some-queue", 5)
 			Expect(err).To(BeNil())
 			queue2 := factory.Fetch("some-queue")
@@ -82,7 +82,7 @@ var _ = Describe("QueueFactory", func() {
 			for i := 0; i < 5; i++ {
 				wg.Add(1)
 				go func() {
-					factory.Remove("some-queue")
+					factory.RemoveQueue("some-queue")
 					wg.Done()
 				}()
 			}

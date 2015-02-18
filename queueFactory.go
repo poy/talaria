@@ -60,7 +60,7 @@ func (qf *QueueFactory) Fetch(queueName string) Queue {
 	return nil
 }
 
-func (qf *QueueFactory) Remove(queueName string) {
+func (qf *QueueFactory) RemoveQueue(queueName string) {
 	defer qf.locker.Unlock()
 	qf.locker.Lock()
 	delete(qf.queueMap, queueName)
