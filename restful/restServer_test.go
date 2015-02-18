@@ -22,7 +22,7 @@ var _ = Describe("RestServer - Single", func() {
 		mqh = newMockQueueHolder()
 		nh := neighbors.NewNeighborCollection()
 		httpServer = NewTestHttpServer()
-		server := NewRestServer(mqh, nh, ":8080")
+		server := NewRestServer(mqh, nh, "")
 		server.HttpServer = httpServer
 		server.Start()
 	})
