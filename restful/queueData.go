@@ -11,12 +11,14 @@ import (
 type QueueData struct {
 	QueueName string             `json:"queueName"`
 	Buffer    talaria.BufferSize `json:"bufferSize"`
+	Endpoint  string             `json:endpoint`
 }
 
-func NewQueueData(name string, size talaria.BufferSize) QueueData {
+func NewQueueData(name string, size talaria.BufferSize, endpoint string) QueueData {
 	return QueueData{
 		QueueName: name,
 		Buffer:    size,
+		Endpoint:  endpoint,
 	}
 }
 

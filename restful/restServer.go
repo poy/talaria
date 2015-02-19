@@ -30,6 +30,7 @@ type HttpServer interface {
 
 type HttpClient interface {
 	Get(url string) (resp *http.Response, err error)
+	Delete(url string) (resp *http.Response, err error)
 }
 
 type RestServer struct {
@@ -47,7 +48,7 @@ func NewRestServer(queueHolder QueueHolder, ns NeighborHolder, addr string) *Res
 	server := &RestServer{
 		queueHolder:    queueHolder,
 		neighborHolder: ns,
-		HttpClient:     &http.Client{},
+		HttpClient:     NewDefaultHttpClient(),
 		HttpServer:     NewDefaultHttpServer(),
 		addr:           addr,
 		router:         pat.New(),
@@ -155,7 +156,7 @@ func infiniteRead(conn *websocket.Conn) {
 
 func (rs *RestServer) handleMultiFetchQueue(resp http.ResponseWriter, req *http.Request) {
 	for _, q := range rs.queueHolder.ListQueues() {
-		data, err := json.Marshal(NewQueueData(q.Name, q.Q.BufferSize()))
+		data, err := json.Marshal(NewQueueData(q.Name, q.Q.BufferSize(), ""))
 		if err != nil {
 			resp.WriteHeader(http.StatusInternalServerError)
 			return
@@ -186,7 +187,7 @@ func (rs *RestServer) handleSingleFetchQueue(resp http.ResponseWriter, name stri
 func (rs *RestServer) fetchQueue(name string) (QueueData, int, error) {
 	queue := rs.queueHolder.Fetch(name)
 	if queue != nil {
-		return NewQueueData(name, queue.BufferSize()), http.StatusOK, nil
+		return NewQueueData(name, queue.BufferSize(), rs.addr), true, http.StatusOK, nil
 	}
 
 	ns := rs.neighborHolder.GetNeighbors()

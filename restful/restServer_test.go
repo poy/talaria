@@ -229,7 +229,7 @@ var _ = Describe("RestServer - Distributed", func() {
 			defer close(done)
 			setup(func(url string) (resp *http.Response, err error) {
 				if strings.HasPrefix(url, "c") {
-					data, _ := json.Marshal(NewQueueData("queueOf5", 5))
+					data, _ := json.Marshal(NewQueueData("queueOf5", 5, "c"))
 					return &http.Response{
 						StatusCode: http.StatusOK,
 						Body:       ioutil.NopCloser(bytes.NewReader(data)),
@@ -272,19 +272,26 @@ func createFakeNeighbors(endpoints ...string) []neighbors.Neighbor {
 
 type mockHttpClient struct {
 	getUrls chan string
-	handler func(url string) (resp *http.Response, err error)
+	delUrls chan string
+	handler func(url, method string) (resp *http.Response, err error)
 }
 
 func NewMockHttpClient(chSize int, handler func(url string) (resp *http.Response, err error)) *mockHttpClient {
 	return &mockHttpClient{
 		getUrls: make(chan string, chSize),
+		delUrls: make(chan string, chSize),
 		handler: handler,
 	}
 }
 
 func (mc *mockHttpClient) Get(url string) (resp *http.Response, err error) {
 	mc.getUrls <- url
-	return mc.handler(url)
+	return mc.handler(url, "GET")
+}
+
+func (mc *mockHttpClient) Delete(url string) (resp *http.Response, err error) {
+	mc.delUrls <- url
+	return mc.handler(url, "DELETE")
 }
 
 type mockQueueHolder struct {
