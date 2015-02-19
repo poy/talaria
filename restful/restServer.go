@@ -166,7 +166,7 @@ func (rs *RestServer) handleMultiFetchQueue(resp http.ResponseWriter, req *http.
 }
 
 func (rs *RestServer) handleSingleFetchQueue(resp http.ResponseWriter, name string) {
-	queueData, code, err := rs.fetchQueue(name)
+	queueData, _, code, err := rs.fetchQueue(name)
 
 	if code != http.StatusOK {
 		resp.WriteHeader(code)
@@ -184,7 +184,7 @@ func (rs *RestServer) handleSingleFetchQueue(resp http.ResponseWriter, name stri
 	}
 }
 
-func (rs *RestServer) fetchQueue(name string) (QueueData, int, error) {
+func (rs *RestServer) fetchQueue(name string) (QueueData, bool, int, error) {
 	queue := rs.queueHolder.Fetch(name)
 	if queue != nil {
 		return NewQueueData(name, queue.BufferSize(), rs.addr), true, http.StatusOK, nil
@@ -194,7 +194,7 @@ func (rs *RestServer) fetchQueue(name string) (QueueData, int, error) {
 	for _, n := range ns {
 		resp, err := rs.HttpClient.Get(n.Endpoint + "/queues/" + name)
 		if err != nil {
-			return QueueData{}, resp.StatusCode, err
+			return QueueData{}, false, resp.StatusCode, err
 		} else if resp.StatusCode != http.StatusOK {
 			continue
 		}
@@ -202,10 +202,10 @@ func (rs *RestServer) fetchQueue(name string) (QueueData, int, error) {
 		dec := json.NewDecoder(resp.Body)
 		var data QueueData
 		err = dec.Decode(&data)
-		return data, resp.StatusCode, err
+		return data, false, resp.StatusCode, err
 	}
 
-	return QueueData{}, http.StatusNotFound, nil
+	return QueueData{}, false, http.StatusNotFound, nil
 }
 
 func (rs *RestServer) handleAddQueue(resp http.ResponseWriter, req *http.Request) {
@@ -232,7 +232,27 @@ func (rs *RestServer) handleRemove(resp http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	rs.queueHolder.RemoveQueue(name)
+	queue, local, code, err := rs.fetchQueue(name)
+	if local {
+		rs.queueHolder.RemoveQueue(name)
+		resp.WriteHeader(http.StatusOK)
+		return
+	} else if err != nil {
+		resp.WriteHeader(http.StatusInternalServerError)
+		return
+	} else if code != http.StatusOK {
+		resp.WriteHeader(code)
+		return
+	}
+
+	resp2, err := rs.HttpClient.Delete(queue.Endpoint + "/queues/" + name)
+	if err != nil {
+		resp.WriteHeader(http.StatusInternalServerError)
+		return
+	} else if resp2.StatusCode != http.StatusOK {
+		resp.WriteHeader(code)
+	}
+
 	resp.WriteHeader(http.StatusOK)
 }
 

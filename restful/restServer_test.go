@@ -74,12 +74,12 @@ var _ = Describe("RestServer - Single", func() {
 	})
 	Context("Remove", func() {
 		It("Should call Remove on the QueueHolder", func() {
-			u := httpServer.Endpoint() + "/queues/someQueue"
+			u := httpServer.Endpoint() + "/queues/queueOf5"
 			req, _ := http.NewRequest("DELETE", u, nil)
 			resp, err := http.DefaultClient.Do(req)
 			Expect(err).To(BeNil())
 			Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			Expect(mqh.removeQueueName).To(Equal("someQueue"))
+			Expect(mqh.removeQueueName).To(Equal("queueOf5"))
 		})
 		It("Should return a BadRequest if the queue name is left off", func() {
 			u := httpServer.Endpoint() + "/queues"
@@ -215,7 +215,7 @@ var _ = Describe("RestServer - Distributed", func() {
 		httpServer.Close()
 	})
 
-	setup := func(handler func(url string) (resp *http.Response, err error), endpoints ...string) {
+	setup := func(handler func(url, method string) (resp *http.Response, err error), endpoints ...string) {
 		nh := neighbors.NewNeighborCollection(createFakeNeighbors(endpoints...)...)
 		httpClient = NewMockHttpClient(len(endpoints), handler)
 		server := NewRestServer(mqh, nh, "")
@@ -227,7 +227,7 @@ var _ = Describe("RestServer - Distributed", func() {
 	Context("Fetch", func() {
 		It("Should ask neighbors for queue", func(done Done) {
 			defer close(done)
-			setup(func(url string) (resp *http.Response, err error) {
+			setup(func(url, method string) (resp *http.Response, err error) {
 				if strings.HasPrefix(url, "c") {
 					data, _ := json.Marshal(NewQueueData("queueOf5", 5, "c"))
 					return &http.Response{
@@ -260,6 +260,31 @@ var _ = Describe("RestServer - Distributed", func() {
 			Expect(results).To(ConsistOf([]string{"a/queues/queueOf5", "b/queues/queueOf5", "c/queues/queueOf5"}))
 		})
 	})
+	Context("RemoveQueue", func() {
+		It("Should remove a neighbor's queue", func(done Done) {
+			defer close(done)
+			setup(func(url, method string) (resp *http.Response, err error) {
+				code := http.StatusNotFound
+				var body io.ReadCloser
+				if strings.HasPrefix(url, "c") {
+					code = http.StatusOK
+					data, _ := json.Marshal(NewQueueData("queueOf5", 5, "c"))
+					body = ioutil.NopCloser(bytes.NewReader(data))
+				}
+				return &http.Response{
+					StatusCode: code,
+					Body:       body,
+				}, nil
+			}, "a", "b", "c")
+
+			url := httpServer.Endpoint() + "/queues/queueOf5"
+			req, _ := http.NewRequest("DELETE", url, nil)
+			resp, err := http.DefaultClient.Do(req)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			Expect(<-httpClient.delUrls).To(Equal("c/queues/queueOf5"))
+		})
+	})
 })
 
 func createFakeNeighbors(endpoints ...string) []neighbors.Neighbor {
@@ -276,7 +301,7 @@ type mockHttpClient struct {
 	handler func(url, method string) (resp *http.Response, err error)
 }
 
-func NewMockHttpClient(chSize int, handler func(url string) (resp *http.Response, err error)) *mockHttpClient {
+func NewMockHttpClient(chSize int, handler func(url, method string) (resp *http.Response, err error)) *mockHttpClient {
 	return &mockHttpClient{
 		getUrls: make(chan string, chSize),
 		delUrls: make(chan string, chSize),
