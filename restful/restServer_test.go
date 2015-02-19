@@ -1,6 +1,7 @@
 package restful_test
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"github.com/apoydence/talaria"
@@ -8,7 +9,9 @@ import (
 	. "github.com/apoydence/talaria/restful"
 	"github.com/gorilla/websocket"
 	"io"
+	"io/ioutil"
 	"net/http"
+	"strings"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -198,49 +201,63 @@ var _ = Describe("RestServer - Single", func() {
 	})
 })
 
-var _ = PDescribe("RestServer - Distributed", func() {
+var _ = Describe("RestServer - Distributed", func() {
 	var httpServer *testHttpServer
-	defer func() {
-		httpServer.Close()
-	}()
+	var httpClient *mockHttpClient
+	var mqh *talaria.QueueFactory
 
-	var mqh = func(endpoints ...string) (QueueHolder, *mockHttpClient) {
-		mqh := talaria.NewQueueFactory(10)
-		nh := neighbors.NewNeighborCollection(createFakeNeighbors(endpoints...)...)
-		httpClient := NewMockHttpClient(len(endpoints))
+	BeforeEach(func() {
+		mqh = talaria.NewQueueFactory(10)
 		httpServer = NewTestHttpServer()
-		server := NewRestServer(mqh, nh, ":8080")
+	})
+
+	AfterEach(func() {
+		httpServer.Close()
+	})
+
+	setup := func(handler func(url string) (resp *http.Response, err error), endpoints ...string) {
+		nh := neighbors.NewNeighborCollection(createFakeNeighbors(endpoints...)...)
+		httpClient = NewMockHttpClient(len(endpoints), handler)
+		server := NewRestServer(mqh, nh, "")
 		server.HttpClient = httpClient
 		server.HttpServer = httpServer
 		server.Start()
-		return mqh, httpClient
 	}
+
 	Context("Fetch", func() {
 		It("Should ask neighbors for queue", func(done Done) {
 			defer close(done)
-			_, httpClient := mqh("a", "b", "c")
-			url := "http://localhost:8080/queues/queueOf5"
+			setup(func(url string) (resp *http.Response, err error) {
+				if strings.HasPrefix(url, "c") {
+					data, _ := json.Marshal(NewQueueData("queueOf5", 5))
+					return &http.Response{
+						StatusCode: http.StatusOK,
+						Body:       ioutil.NopCloser(bytes.NewReader(data)),
+					}, nil
+				}
 
-			go func() {
-				defer GinkgoRecover()
-				resp, err := http.Get(url)
-				Expect(err).To(BeNil())
-				Expect(resp.StatusCode).To(Equal(http.StatusOK))
-			}()
+				return &http.Response{
+					StatusCode: http.StatusNotFound,
+					Body:       ioutil.NopCloser(strings.NewReader("")),
+				}, nil
+			}, "a", "b", "c")
+			url := httpServer.Endpoint() + "/queues/queueOf5"
+
+			resp, err := http.Get(url)
+			Expect(err).To(BeNil())
+			Expect(resp.StatusCode).To(Equal(http.StatusOK))
+			dec := json.NewDecoder(resp.Body)
+			var data QueueData
+			err = dec.Decode(&data)
+			Expect(err).To(BeNil())
+			Expect(data.QueueName).To(Equal("queueOf5"))
+			Expect(data.Buffer).To(BeEquivalentTo(5))
 
 			results := make([]string, 0)
 			for i := 0; i < 3; i++ {
 				results = append(results, <-httpClient.getUrls)
 			}
-			Expect(results).To(ConsistOf([]string{"a", "b", "c"}))
-
-			/*	dec := json.NewDecoder(resp.Body)
-				var data QueueData
-				err = dec.Decode(&data)
-				Expect(err).To(BeNil())
-				Expect(data.QueueName).To(Equal("queueOf5"))
-				Expect(data.Buffer).To(BeEquivalentTo(5))
-			*/
+			Expect(results).To(ConsistOf([]string{"a/queues/queueOf5", "b/queues/queueOf5", "c/queues/queueOf5"}))
 		})
 	})
 })
@@ -255,17 +272,19 @@ func createFakeNeighbors(endpoints ...string) []neighbors.Neighbor {
 
 type mockHttpClient struct {
 	getUrls chan string
+	handler func(url string) (resp *http.Response, err error)
 }
 
-func NewMockHttpClient(chSize int) *mockHttpClient {
+func NewMockHttpClient(chSize int, handler func(url string) (resp *http.Response, err error)) *mockHttpClient {
 	return &mockHttpClient{
 		getUrls: make(chan string, chSize),
+		handler: handler,
 	}
 }
 
 func (mc *mockHttpClient) Get(url string) (resp *http.Response, err error) {
 	mc.getUrls <- url
-	return nil, nil
+	return mc.handler(url)
 }
 
 type mockQueueHolder struct {
@@ -280,20 +299,19 @@ type mockQueueHolder struct {
 }
 
 func newMockQueueHolder() *mockQueueHolder {
+	queueWith5 := talaria.NewQueue(5)
 	m := &mockQueueHolder{
 		queueOf5:      talaria.NewQueue(5),
-		queueWith5:    talaria.NewQueue(5),
+		queueWith5:    queueWith5,
 		queueWriter:   talaria.NewQueue(5),
 		infiniteQueue: talaria.NewQueue(5),
 	}
 
-	go func() {
-		for i := 0; i < 5; i++ {
-			if !m.queueWith5.Write([]byte{1, 2, 3, 4, 5}) {
-				break
-			}
+	for i := 0; i < 5; i++ {
+		if !queueWith5.Write([]byte{1, 2, 3, 4, 5}) {
+			break
 		}
-	}()
+	}
 	return m
 }
 

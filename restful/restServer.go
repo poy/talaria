@@ -165,20 +165,46 @@ func (rs *RestServer) handleMultiFetchQueue(resp http.ResponseWriter, req *http.
 }
 
 func (rs *RestServer) handleSingleFetchQueue(resp http.ResponseWriter, name string) {
-	queue := rs.queueHolder.Fetch(name)
+	queueData, code, err := rs.fetchQueue(name)
 
-	if queue == nil {
-		resp.WriteHeader(http.StatusNotFound)
+	if code != http.StatusOK {
+		resp.WriteHeader(code)
+		return
+	} else if err != nil {
+		resp.WriteHeader(http.StatusInternalServerError)
 		return
 	}
 
-	var err error
 	var data []byte
-	if data, err = json.Marshal(NewQueueData(name, queue.BufferSize())); err == nil {
+	if data, err = json.Marshal(queueData); err == nil {
 		_, err = resp.Write(data)
 	} else {
 		resp.WriteHeader(http.StatusInternalServerError)
 	}
+}
+
+func (rs *RestServer) fetchQueue(name string) (QueueData, int, error) {
+	queue := rs.queueHolder.Fetch(name)
+	if queue != nil {
+		return NewQueueData(name, queue.BufferSize()), http.StatusOK, nil
+	}
+
+	ns := rs.neighborHolder.GetNeighbors()
+	for _, n := range ns {
+		resp, err := rs.HttpClient.Get(n.Endpoint + "/queues/" + name)
+		if err != nil {
+			return QueueData{}, resp.StatusCode, err
+		} else if resp.StatusCode != http.StatusOK {
+			continue
+		}
+
+		dec := json.NewDecoder(resp.Body)
+		var data QueueData
+		err = dec.Decode(&data)
+		return data, resp.StatusCode, err
+	}
+
+	return QueueData{}, http.StatusNotFound, nil
 }
 
 func (rs *RestServer) handleAddQueue(resp http.ResponseWriter, req *http.Request) {
