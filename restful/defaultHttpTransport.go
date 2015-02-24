@@ -34,12 +34,27 @@ func NewDefaultHttpClient() *defaultHttpClient {
 		httpClient: &http.Client{},
 	}
 }
-
-func (client *defaultHttpClient) Get(url string) (resp *http.Response, err error) {
-	return client.httpClient.Get(url)
+func (client *defaultHttpClient) Get(url string, header http.Header) (*http.Response, error) {
+	return client.do(url, "GET", header)
 }
 
-func (client *defaultHttpClient) Delete(url string) (resp *http.Response, err error) {
-	req, _ := http.NewRequest("DELETE", url, nil)
-	return client.httpClient.Do(req)
+func (client *defaultHttpClient) Delete(url string, header http.Header) (resp *http.Response, err error) {
+	return client.do(url, "DELETE", header)
+}
+
+func (client *defaultHttpClient) do(url, method string, header http.Header) (*http.Response, error) {
+	var req *http.Request
+	var err error
+	req, err = http.NewRequest(method, url, nil)
+	if err == nil {
+		if header != nil {
+			for k, vs := range header {
+				for _, v := range vs {
+					req.Header.Add(k, v)
+				}
+			}
+		}
+		return client.httpClient.Do(req)
+	}
+	return nil, err
 }

@@ -39,3 +39,21 @@ func (t *testHttpServer) Endpoint() string {
 	}
 	return ""
 }
+
+type testHttpClient struct {
+	handler func(url, method string, header http.Header) (*http.Response, error)
+}
+
+func NewTestHttpClient(handler func(url, method string, header http.Header) (*http.Response, error)) *testHttpClient {
+	return &testHttpClient{
+		handler: handler,
+	}
+}
+
+func (c *testHttpClient) Get(url string, header http.Header) (resp *http.Response, err error) {
+	return c.handler(url, "GET", header)
+}
+
+func (c *testHttpClient) Delete(url string, header http.Header) (resp *http.Response, err error) {
+	return c.handler(url, "DELETE", header)
+}

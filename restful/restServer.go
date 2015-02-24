@@ -28,11 +28,6 @@ type HttpServer interface {
 	SetAddr(addr string)
 }
 
-type HttpClient interface {
-	Get(url string) (resp *http.Response, err error)
-	Delete(url string) (resp *http.Response, err error)
-}
-
 type RestServer struct {
 	queueHolder    QueueHolder
 	neighborHolder NeighborHolder
