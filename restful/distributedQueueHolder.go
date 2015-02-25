@@ -1,10 +1,12 @@
 package restful
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/apoydence/talaria"
 	"github.com/apoydence/talaria/neighbors"
 	"net/http"
+	"sync"
 )
 
 type LocalQueueHolder interface {
@@ -78,10 +80,37 @@ func (dqh *distQueueHolder) RemoveQueue(queueName string) {
 	}
 }
 
-func (dqh *distQueueHolder) ListQueues() []talaria.QueueListing {
-	results := make([]talaria.QueueListing, 0)
-	for _, q := range dqh.localQueueHolder.ListQueues() {
-		results = append(results, q)
+func (dqh *distQueueHolder) ListQueues() chan QueueData {
+	results := make(chan QueueData)
+	wg := &sync.WaitGroup{}
+	wg.Add(1)
+	go func() {
+		for q := range dqh.localQueueHolder.ListQueues() {
+			results <- q
+		}
+		wg.Done()
+	}()
+
+	for _, neighbor := range dqh.neighborHolder.GetNeighbors() {
+		wg.Add(1)
+		go func(endpoint string) {
+			defer wg.Done()
+			resp, err := dqh.HttpClient.Get(endpoint, nil)
+			if err == nil {
+				dec := json.NewDecoder(resp.Body)
+				var data QueueData
+				err = dec.Decode(&data)
+				if err == nil {
+					results <- data
+				}
+			}
+		}(neighbor.Endpoint)
 	}
+
+	go func() {
+		wg.Wait()
+		close(results)
+	}()
+
 	return results
 }

@@ -1,8 +1,11 @@
 package restful_test
 
 import (
+	"bytes"
+	"encoding/json"
 	"github.com/apoydence/talaria"
 	. "github.com/apoydence/talaria/restful"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -114,7 +117,8 @@ var _ = FDescribe("DistributedQueueHolder", func() {
 		})
 	})
 	Context("ListQueues", func() {
-		It("Should list the local queues", func() {
+		It("Should list the local queues", func(done Done) {
+			defer close(done)
 			queues := make(map[string]talaria.Queue)
 			queues["queue-a"] = talaria.NewQueue(5)
 			queues["queue-b"] = talaria.NewQueue(5)
@@ -122,17 +126,52 @@ var _ = FDescribe("DistributedQueueHolder", func() {
 			neighborHolder := NewMockNeighborHolder()
 			localQueueHolder := NewMockLocalQueueHolder(queues)
 			holder := NewDistributedQueueHolder("endpoint-x", localQueueHolder, neighborHolder)
-			for _, q := range holder.ListQueues() {
-				v, ok := queues[q.Name]
+			for q := range holder.ListQueues() {
+				v, ok := queues[q.QueueName]
 				Expect(ok).To(BeTrue())
 				Expect(v).ToNot(BeNil())
-				Expect(q.Q).To(Equal(v))
-				queues[q.Name] = nil
+				queues[q.QueueName] = nil
 			}
 
 			for _, v := range queues {
 				Expect(v).To(BeNil())
 			}
+		})
+		It("Should list the local and remote queues", func(done Done) {
+			defer close(done)
+			queues := make(map[string]talaria.Queue)
+			endpoints := make(chan string, 3)
+			chHeaders := make(chan http.Header, 3)
+			mockClient := NewTestHttpClient(func(url, method string, header http.Header) (*http.Response, error) {
+				chHeaders <- header
+				endpoints <- url
+				if method == "GET" {
+					resp := &http.Response{
+						StatusCode: 200,
+					}
+					data, _ := json.Marshal(NewQueueData("queue-"+url[len(url)-1:], 5, url))
+					resp.Body = ioutil.NopCloser(bytes.NewReader(data))
+
+					return resp, nil
+				}
+				panic(method + " should not be called")
+			})
+
+			localQueueHolder := NewMockLocalQueueHolder(queues)
+			neighborHolder := NewMockNeighborHolder("endpoint-a", "endpoint-b", "endpoint-c")
+			holder := NewDistributedQueueHolder("endpoint-x", localQueueHolder, neighborHolder)
+			holder.HttpClient = mockClient
+			allQueueNames := make([]string, 0)
+			for q := range holder.ListQueues() {
+				allQueueNames = append(allQueueNames, q.QueueName)
+			}
+			resultingEndpoints := make([]string, 0)
+			for i := 0; i < 3; i++ {
+				e := <-endpoints
+				resultingEndpoints = append(resultingEndpoints, e)
+			}
+			Expect(resultingEndpoints).To(ConsistOf([]string{"endpoint-a", "endpoint-b", "endpoint-c"}))
+			Expect(allQueueNames).To(ConsistOf([]string{"queue-a", "queue-b", "queue-c"}))
 		})
 	})
 })

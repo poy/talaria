@@ -3,7 +3,6 @@ package restful
 import (
 	"encoding/json"
 	"github.com/apoydence/talaria"
-	"github.com/apoydence/talaria/neighbors"
 	"github.com/gorilla/pat"
 	"github.com/gorilla/websocket"
 	"net/http"
@@ -13,13 +12,13 @@ import (
 
 type QueueHolder interface {
 	AddQueue(queueName string, size talaria.BufferSize) error
-	Fetch(queueName string) talaria.Queue
 	RemoveQueue(queueName string)
-	ListQueues() []talaria.QueueListing
+	ListQueues() chan QueueData
 }
 
-type NeighborHolder interface {
-	GetNeighbors(blacklist ...string) []neighbors.Neighbor
+type RemoteQueueHolder interface {
+	QueueHolder
+	Fetch(queueName string, blacklist ...string) (talaria.Queue, string, int)
 }
 
 type HttpServer interface {
@@ -29,7 +28,7 @@ type HttpServer interface {
 }
 
 type RestServer struct {
-	queueHolder    QueueHolder
+	queueHolder    RemoteQueueHolder
 	neighborHolder NeighborHolder
 	HttpClient     HttpClient
 	HttpServer     HttpServer
@@ -39,7 +38,7 @@ type RestServer struct {
 	wsUpgrader     websocket.Upgrader
 }
 
-func NewRestServer(queueHolder QueueHolder, ns NeighborHolder, addr string) *RestServer {
+func NewRestServer(queueHolder RemoteQueueHolder, ns NeighborHolder, addr string) *RestServer {
 	server := &RestServer{
 		queueHolder:    queueHolder,
 		neighborHolder: ns,
@@ -73,12 +72,12 @@ func (rs *RestServer) Start() <-chan error {
 func (rs *RestServer) handleConnect(resp http.ResponseWriter, req *http.Request) {
 	cd := newConnectToQueueData(req.Header)
 	var rq, wq talaria.Queue
-	if rq = rs.queueHolder.Fetch(cd.ReadQueue); rq == nil && len(cd.ReadQueue) > 0 {
+	if rq, _, _ = rs.queueHolder.Fetch(cd.ReadQueue); rq == nil && len(cd.ReadQueue) > 0 {
 		resp.WriteHeader(http.StatusNotFound)
 		return
 	}
 
-	if wq = rs.queueHolder.Fetch(cd.WriteQueue); wq == nil && len(cd.WriteQueue) > 0 {
+	if wq, _, _ = rs.queueHolder.Fetch(cd.WriteQueue); wq == nil && len(cd.WriteQueue) > 0 {
 		resp.WriteHeader(http.StatusNotFound)
 		return
 	}
@@ -150,14 +149,17 @@ func infiniteRead(conn *websocket.Conn) {
 }
 
 func (rs *RestServer) handleMultiFetchQueue(resp http.ResponseWriter, req *http.Request) {
-	for _, q := range rs.queueHolder.ListQueues() {
-		data, err := json.Marshal(NewQueueData(q.Name, q.Q.BufferSize(), ""))
-		if err != nil {
-			resp.WriteHeader(http.StatusInternalServerError)
-			return
+	/*
+		for q := range rs.queueHolder.ListQueues() {
+			data, err := json.Marshal(NewQueueData(q.Name, q.Q.BufferSize(), ""))
+			if err != nil {
+				resp.WriteHeader(http.StatusInternalServerError)
+				return
+			}
+			resp.Write(data)
 		}
-		resp.Write(data)
-	}
+	*/
+	panic("Not implemented")
 }
 
 func (rs *RestServer) handleSingleFetchQueue(resp http.ResponseWriter, name string) {
@@ -180,14 +182,14 @@ func (rs *RestServer) handleSingleFetchQueue(resp http.ResponseWriter, name stri
 }
 
 func (rs *RestServer) fetchQueue(name string) (QueueData, bool, int, error) {
-	queue := rs.queueHolder.Fetch(name)
+	queue, _, _ := rs.queueHolder.Fetch(name)
 	if queue != nil {
 		return NewQueueData(name, queue.BufferSize(), rs.addr), true, http.StatusOK, nil
 	}
 
 	ns := rs.neighborHolder.GetNeighbors()
 	for _, n := range ns {
-		resp, err := rs.HttpClient.Get(n.Endpoint + "/queues/" + name)
+		resp, err := rs.HttpClient.Get(n.Endpoint+"/queues/"+name, nil)
 		if err != nil {
 			return QueueData{}, false, resp.StatusCode, err
 		} else if resp.StatusCode != http.StatusOK {
@@ -240,7 +242,7 @@ func (rs *RestServer) handleRemove(resp http.ResponseWriter, req *http.Request) 
 		return
 	}
 
-	resp2, err := rs.HttpClient.Delete(queue.Endpoint + "/queues/" + name)
+	resp2, err := rs.HttpClient.Delete(queue.Endpoint+"/queues/"+name, nil)
 	if err != nil {
 		resp.WriteHeader(http.StatusInternalServerError)
 		return

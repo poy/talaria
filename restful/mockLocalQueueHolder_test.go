@@ -1,6 +1,9 @@
 package restful_test
 
-import "github.com/apoydence/talaria"
+import (
+	"github.com/apoydence/talaria"
+	"github.com/apoydence/talaria/restful"
+)
 
 type mockLocalQueueHolder struct {
 	queues          map[string]talaria.Queue
@@ -28,13 +31,13 @@ func (m *mockLocalQueueHolder) RemoveQueue(queueName string) {
 	m.removeQueueName = queueName
 }
 
-func (m *mockLocalQueueHolder) ListQueues() []talaria.QueueListing {
-	results := make([]talaria.QueueListing, 0)
-	for k, v := range m.queues {
-		results = append(results, talaria.QueueListing{
-			Name: k,
-			Q:    v,
-		})
-	}
+func (m *mockLocalQueueHolder) ListQueues() chan restful.QueueData {
+	results := make(chan restful.QueueData)
+	go func() {
+		defer close(results)
+		for k, v := range m.queues {
+			results <- restful.NewQueueData(k, v.BufferSize(), "localhost")
+		}
+	}()
 	return results
 }
