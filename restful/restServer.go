@@ -13,7 +13,7 @@ import (
 type QueueHolder interface {
 	AddQueue(queueName string, size talaria.BufferSize) error
 	RemoveQueue(queueName string)
-	ListQueues() chan QueueData
+	ListQueues(blacklist ...string) chan QueueData
 }
 
 type RemoteQueueHolder interface {

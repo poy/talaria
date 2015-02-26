@@ -50,14 +50,7 @@ func (dqh *distQueueHolder) Fetch(queueName string, blacklist ...string) (talari
 	}
 
 	remoteEndpoint, statusCode := func() (string, int) {
-		headers := make(map[string][]string)
-		ns := make([]string, 0)
-		for _, neighbor := range dqh.neighborHolder.GetNeighbors(blacklist...) {
-			ns = append(ns, neighbor.Endpoint)
-			blacklist = append(blacklist, neighbor.Endpoint)
-		}
-		blacklist = append(blacklist, dqh.endpoint)
-		headers["blacklist"] = blacklist
+		headers, ns := dqh.buildBlacklist(blacklist)
 		for _, neighbor := range ns {
 			url := fmt.Sprintf("%s/queues/%s", neighbor, queueName)
 			resp, err := dqh.HttpClient.Get(url, headers)
@@ -80,7 +73,7 @@ func (dqh *distQueueHolder) RemoveQueue(queueName string) {
 	}
 }
 
-func (dqh *distQueueHolder) ListQueues() chan QueueData {
+func (dqh *distQueueHolder) ListQueues(blacklist ...string) chan QueueData {
 	results := make(chan QueueData)
 	wg := &sync.WaitGroup{}
 	wg.Add(1)
@@ -91,12 +84,14 @@ func (dqh *distQueueHolder) ListQueues() chan QueueData {
 		wg.Done()
 	}()
 
-	for _, neighbor := range dqh.neighborHolder.GetNeighbors() {
+	headers, ns := dqh.buildBlacklist(blacklist)
+
+	for _, neighbor := range ns {
 		wg.Add(1)
 		go func(endpoint string) {
 			defer wg.Done()
-			resp, err := dqh.HttpClient.Get(endpoint, nil)
-			if err == nil {
+			resp, err := dqh.HttpClient.Get(endpoint, headers)
+			if err == nil && resp != nil {
 				dec := json.NewDecoder(resp.Body)
 				var data QueueData
 				err = dec.Decode(&data)
@@ -104,7 +99,7 @@ func (dqh *distQueueHolder) ListQueues() chan QueueData {
 					results <- data
 				}
 			}
-		}(neighbor.Endpoint)
+		}(neighbor)
 	}
 
 	go func() {
@@ -113,4 +108,16 @@ func (dqh *distQueueHolder) ListQueues() chan QueueData {
 	}()
 
 	return results
+}
+
+func (dqh *distQueueHolder) buildBlacklist(blacklist []string) (http.Header, []string) {
+	headers := make(map[string][]string)
+	ns := make([]string, 0)
+	for _, neighbor := range dqh.neighborHolder.GetNeighbors(blacklist...) {
+		ns = append(ns, neighbor.Endpoint)
+		blacklist = append(blacklist, neighbor.Endpoint)
+	}
+	blacklist = append(blacklist, dqh.endpoint)
+	headers["blacklist"] = blacklist
+	return headers, ns
 }

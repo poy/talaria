@@ -172,6 +172,30 @@ var _ = FDescribe("DistributedQueueHolder", func() {
 			}
 			Expect(resultingEndpoints).To(ConsistOf([]string{"endpoint-a", "endpoint-b", "endpoint-c"}))
 			Expect(allQueueNames).To(ConsistOf([]string{"queue-a", "queue-b", "queue-c"}))
+			Eventually(chHeaders).Should(Receive(HaveKeyWithValue("blacklist", []string{"endpoint-a", "endpoint-b", "endpoint-c", "endpoint-x"})))
+		})
+		It("Should should ask remote queues that is on the blacklist", func(done Done) {
+			defer close(done)
+			queues := make(map[string]talaria.Queue)
+			localQueueHolder := NewMockLocalQueueHolder(queues)
+			neighborHolder := NewMockNeighborHolder("endpoint-a", "endpoint-b", "endpoint-c")
+
+			mockClient := NewTestHttpClient(func(url, method string, header http.Header) (*http.Response, error) {
+				if method == "GET" {
+					resp := &http.Response{
+						StatusCode: 200,
+					}
+					resp.Body = ioutil.NopCloser(bytes.NewReader([]byte{}))
+					return resp, nil
+				}
+				panic(method + " should not be called")
+			})
+
+			holder := NewDistributedQueueHolder("endpoint-x", localQueueHolder, neighborHolder)
+			holder.HttpClient = mockClient
+			holder.ListQueues("endpoint-b")
+
+			Expect(neighborHolder.lastBlacklist).To(Equal([]string{"endpoint-b"}))
 		})
 	})
 })

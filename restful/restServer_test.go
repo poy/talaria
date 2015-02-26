@@ -422,7 +422,7 @@ func (mqh *mockQueueHolder) RemoveQueue(queueName string) {
 	mqh.removeQueueName = queueName
 }
 
-func (mqh *mockQueueHolder) ListQueues() chan QueueData {
+func (mqh *mockQueueHolder) ListQueues(blacklist ...string) chan QueueData {
 	/*
 		qs := make([]talaria.QueueListing, 0)
 		for i := 0; i < 3; i++ {

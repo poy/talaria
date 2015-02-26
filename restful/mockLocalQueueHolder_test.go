@@ -31,7 +31,7 @@ func (m *mockLocalQueueHolder) RemoveQueue(queueName string) {
 	m.removeQueueName = queueName
 }
 
-func (m *mockLocalQueueHolder) ListQueues() chan restful.QueueData {
+func (m *mockLocalQueueHolder) ListQueues(blacklist ...string) chan restful.QueueData {
 	results := make(chan restful.QueueData)
 	go func() {
 		defer close(results)
