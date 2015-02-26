@@ -6,8 +6,10 @@ import (
 )
 
 type mockLocalQueueHolder struct {
-	queues          map[string]talaria.Queue
-	removeQueueName string
+	queues             map[string]talaria.Queue
+	removeQueueName    string
+	addQueueName       string
+	addQueueBufferSize talaria.BufferSize
 }
 
 func NewMockLocalQueueHolder(queues map[string]talaria.Queue) *mockLocalQueueHolder {
@@ -17,6 +19,8 @@ func NewMockLocalQueueHolder(queues map[string]talaria.Queue) *mockLocalQueueHol
 }
 
 func (m *mockLocalQueueHolder) AddQueue(queueName string, size talaria.BufferSize) error {
+	m.addQueueName = queueName
+	m.addQueueBufferSize = size
 	return nil
 }
 

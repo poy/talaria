@@ -40,6 +40,7 @@ func NewDistributedQueueHolder(endpoint string, localQueueHolder LocalQueueHolde
 }
 
 func (dqh *distQueueHolder) AddQueue(queueName string, size talaria.BufferSize) error {
+	dqh.localQueueHolder.AddQueue(queueName, size)
 	return nil
 }
 

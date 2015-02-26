@@ -198,4 +198,17 @@ var _ = FDescribe("DistributedQueueHolder", func() {
 			Expect(neighborHolder.lastBlacklist).To(Equal([]string{"endpoint-b"}))
 		})
 	})
+	Context("AddQueue", func() {
+		It("Should add a local queue", func(done Done) {
+			defer close(done)
+			queues := make(map[string]talaria.Queue)
+			localQueueHolder := NewMockLocalQueueHolder(queues)
+			neighborHolder := NewMockNeighborHolder("endpoint-a", "endpoint-b", "endpoint-c")
+			holder := NewDistributedQueueHolder("endpoint-x", localQueueHolder, neighborHolder)
+			err := holder.AddQueue("some-name", 5)
+			Expect(err).To(BeNil())
+			Expect(localQueueHolder.addQueueName).To(Equal("some-name"))
+			Expect(localQueueHolder.addQueueBufferSize).To(BeEquivalentTo(5))
+		})
+	})
 })
