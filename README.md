@@ -1,4 +1,4 @@
-talaria
+Talaria
 =======
 
-Simple and fast network channels for Golang.
+Think kafka without Zookeepr (and in Go).
