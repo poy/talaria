@@ -1,4 +1,4 @@
 Talaria
 =======
 
-Think kafka without Zookeepr (and in Go).
+Think Kafka without Zookeeper (and in Go).
