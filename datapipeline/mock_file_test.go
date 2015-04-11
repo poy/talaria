@@ -1,4 +1,4 @@
-package talaria_test
+package datapipeline_test
 
 import "fmt"
 

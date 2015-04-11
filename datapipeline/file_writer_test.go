@@ -1,8 +1,8 @@
-package talaria_test
+package datapipeline_test
 
 import (
 	"encoding/binary"
-	"github.com/apoydence/talaria"
+	"github.com/apoydence/talaria/datapipeline"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -10,7 +10,7 @@ import (
 
 var _ = Describe("FileWriter", func() {
 	var (
-		fileWriter  *talaria.FileWriter
+		fileWriter  *datapipeline.FileWriter
 		mockFileGen mockFileGenerator
 		fileBuffers [][]byte
 		closeChan   chan int
@@ -21,14 +21,14 @@ var _ = Describe("FileWriter", func() {
 		fileIndex := 0
 		closeChan = make(chan int, 5)
 
-		mockFileGen = mockFileGenerator(func() talaria.WriteSeekCloser {
+		mockFileGen = mockFileGenerator(func() datapipeline.WriteSeekCloser {
 			buffer := make([]byte, 1024)
 			fileBuffers = append(fileBuffers, buffer)
 			m := newMockFile(buffer, fileIndex, closeChan)
 			fileIndex++
 			return m
 		})
-		fileWriter = talaria.NewFileWriter(mockFileGen, 1024)
+		fileWriter = datapipeline.NewFileWriter(mockFileGen, 1024)
 	})
 
 	It("should write the count in the first 4 bytes", func() {

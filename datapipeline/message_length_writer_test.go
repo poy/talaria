@@ -1,10 +1,10 @@
-package talaria_test
+package datapipeline_test
 
 import (
 	"bytes"
 
 	"encoding/binary"
-	"github.com/apoydence/talaria"
+	"github.com/apoydence/talaria/datapipeline"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -12,7 +12,7 @@ import (
 
 var _ = Describe("MessageLengthWriter", func() {
 	var (
-		messageLengthWriter *talaria.MessageLengthWriter
+		messageLengthWriter *datapipeline.MessageLengthWriter
 		mockWriter          *writeWrapper
 	)
 
@@ -20,7 +20,7 @@ var _ = Describe("MessageLengthWriter", func() {
 		mockWriter = &writeWrapper{
 			buffer: &bytes.Buffer{},
 		}
-		messageLengthWriter = talaria.NewMessageLengthWriter(mockWriter)
+		messageLengthWriter = datapipeline.NewMessageLengthWriter(mockWriter)
 	})
 
 	It("Should write the length of the data", func() {
