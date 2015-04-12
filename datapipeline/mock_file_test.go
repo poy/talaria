@@ -7,12 +7,14 @@ type mockFile struct {
 	index     int64
 	fileNum   int
 	closeChan chan int
+	ErrorChan chan error
 }
 
 func newMockFile(buffer []byte, fileNum int, closeChan chan int) *mockFile {
 	return &mockFile{
 		buffer:    buffer,
 		closeChan: closeChan,
+		ErrorChan: make(chan error, 5),
 		fileNum:   fileNum,
 	}
 }
@@ -27,7 +29,14 @@ func (m *mockFile) Write(data []byte) (int, error) {
 		m.index++
 	}
 
-	return len(data), nil
+	var err error
+	select {
+	case err = <-m.ErrorChan:
+	default:
+		err = nil
+	}
+
+	return len(data), err
 }
 
 func (m *mockFile) Seek(offset int64, whence int) (int64, error) {

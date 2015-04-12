@@ -4,8 +4,8 @@ Talaria
 Think Kafka without Zookeeper (and in Go).
 
 ### Data Pipeline Architecture
-Producer -> MessageLengthWriter -> FileWriter --> FileListeners (Not Implemented) -> Consumer (Not Implemented)
-                                              \-> ReplicatedFile (Not Implemented)
+Producer -> DataCombiner -> MessageLengthWriter -> FileWriter --> FileListeners (Not Implemented) -> Consumer (Not Implemented)
+                                                              \-> ReplicatedFile (Not Implemented)
 
 ##### `Producer`
 The producer is the entry point to the data pipeline.  There are different producer types, each having unique ways to submit data:
@@ -18,6 +18,9 @@ The producer is the entry point to the data pipeline.  There are different produ
 
 > #### Non-Network (Not Implemented)
 >> This is the best method if Talaria is embedded and not networked.
+
+##### `DataCombiner`
+The `DataCombiner` takes data from multiple producers, that want to write to the same place, and combines it.  It is a fan-in.
 
 ##### `MessageLengthWriter`
 The `MessageLengthWriter` appends the data length to each message.  This is necessary for the `Consumer` to properly read the data.
