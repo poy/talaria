@@ -10,17 +10,17 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("MessageLengthWriter", func() {
+var _ = Describe("MetaWriter", func() {
 	var (
-		messageLengthWriter *datapipeline.MessageLengthWriter
-		mockWriter          *writeWrapper
+		metaWriter *datapipeline.MetaWriter
+		mockWriter *writeWrapper
 	)
 
 	BeforeEach(func() {
 		mockWriter = &writeWrapper{
 			buffer: &bytes.Buffer{},
 		}
-		messageLengthWriter = datapipeline.NewMessageLengthWriter(mockWriter)
+		metaWriter = datapipeline.NewMetaWriter(mockWriter)
 	})
 
 	It("Should write the length of the data", func() {
@@ -28,7 +28,7 @@ var _ = Describe("MessageLengthWriter", func() {
 		expectedDataBuffer := &bytes.Buffer{}
 		binary.Write(expectedDataBuffer, binary.LittleEndian, uint32(5))
 		binary.Write(expectedDataBuffer, binary.LittleEndian, expectedData)
-		n, err := messageLengthWriter.Write(expectedData)
+		n, err := metaWriter.Write(expectedData)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(n).To(Equal(4 + len(expectedData)))
