@@ -1,0 +1,23 @@
+package messages;
+
+message Client{
+	enum MessageType{
+		FetchFile = 1;
+		WriteToFile = 2;
+	}
+
+	required uint64 messageId = 1;
+	required MessageType messageType = 2;
+
+	optional FetchFile fetchFile = 3;
+	optional WriteToFile writeToFile = 4;
+}
+
+message FetchFile{
+	required string name = 1;
+}
+
+message WriteToFile{
+	required uint64 fileId = 1;
+	required bytes data = 2;
+}

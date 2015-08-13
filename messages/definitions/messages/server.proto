@@ -1,0 +1,30 @@
+package messages;
+
+message Server{
+	enum MessageType{
+		Error = 1;
+		FileLocation = 2;
+		FileOffset = 3;
+	}
+
+	required uint64 messageId = 1;
+	required MessageType messageType = 2;
+
+	optional Error error = 3;
+	optional FileLocation fileLocation = 4;
+	optional FileOffset fileOffset = 5;
+}
+
+message Error{
+	required string message = 1;
+}
+
+message FileLocation{
+	required bool local = 1;
+	optional uint64 fileId = 2;
+	optional string uri = 3;
+}
+
+message FileOffset{
+	required int64 offset = 1;
+}
