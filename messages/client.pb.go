@@ -13,6 +13,7 @@
 		Client
 		FetchFile
 		WriteToFile
+		ReadFromFile
 */
 package messages
 
@@ -32,17 +33,20 @@ var _ = math.Inf
 type Client_MessageType int32
 
 const (
-	Client_FetchFile   Client_MessageType = 1
-	Client_WriteToFile Client_MessageType = 2
+	Client_FetchFile    Client_MessageType = 1
+	Client_WriteToFile  Client_MessageType = 2
+	Client_ReadFromFile Client_MessageType = 3
 )
 
 var Client_MessageType_name = map[int32]string{
 	1: "FetchFile",
 	2: "WriteToFile",
+	3: "ReadFromFile",
 }
 var Client_MessageType_value = map[string]int32{
-	"FetchFile":   1,
-	"WriteToFile": 2,
+	"FetchFile":    1,
+	"WriteToFile":  2,
+	"ReadFromFile": 3,
 }
 
 func (x Client_MessageType) Enum() *Client_MessageType {
@@ -67,6 +71,7 @@ type Client struct {
 	MessageType      *Client_MessageType `protobuf:"varint,2,req,name=messageType,enum=messages.Client_MessageType" json:"messageType,omitempty"`
 	FetchFile        *FetchFile          `protobuf:"bytes,3,opt,name=fetchFile" json:"fetchFile,omitempty"`
 	WriteToFile      *WriteToFile        `protobuf:"bytes,4,opt,name=writeToFile" json:"writeToFile,omitempty"`
+	ReadFromFile     *ReadFromFile       `protobuf:"bytes,5,opt,name=readFromFile" json:"readFromFile,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
 }
 
@@ -98,6 +103,13 @@ func (m *Client) GetFetchFile() *FetchFile {
 func (m *Client) GetWriteToFile() *WriteToFile {
 	if m != nil {
 		return m.WriteToFile
+	}
+	return nil
+}
+
+func (m *Client) GetReadFromFile() *ReadFromFile {
+	if m != nil {
+		return m.ReadFromFile
 	}
 	return nil
 }
@@ -140,6 +152,30 @@ func (m *WriteToFile) GetData() []byte {
 		return m.Data
 	}
 	return nil
+}
+
+type ReadFromFile struct {
+	FileId           *uint64 `protobuf:"varint,1,req,name=fileId" json:"fileId,omitempty"`
+	Offset           *int64  `protobuf:"varint,2,req,name=offset" json:"offset,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *ReadFromFile) Reset()         { *m = ReadFromFile{} }
+func (m *ReadFromFile) String() string { return proto.CompactTextString(m) }
+func (*ReadFromFile) ProtoMessage()    {}
+
+func (m *ReadFromFile) GetFileId() uint64 {
+	if m != nil && m.FileId != nil {
+		return *m.FileId
+	}
+	return 0
+}
+
+func (m *ReadFromFile) GetOffset() int64 {
+	if m != nil && m.Offset != nil {
+		return *m.Offset
+	}
+	return 0
 }
 
 func init() {
@@ -249,6 +285,33 @@ func (m *Client) Unmarshal(data []byte) error {
 				m.WriteToFile = &WriteToFile{}
 			}
 			if err := m.WriteToFile.Unmarshal(data[index:postIndex]); err != nil {
+				return err
+			}
+			index = postIndex
+		case 5:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ReadFromFile", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ReadFromFile == nil {
+				m.ReadFromFile = &ReadFromFile{}
+			}
+			if err := m.ReadFromFile.Unmarshal(data[index:postIndex]); err != nil {
 				return err
 			}
 			index = postIndex
@@ -421,6 +484,82 @@ func (m *WriteToFile) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *ReadFromFile) Unmarshal(data []byte) error {
+	l := len(data)
+	index := 0
+	for index < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if index >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[index]
+			index++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FileId", wireType)
+			}
+			var v uint64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.FileId = &v
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Offset", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Offset = &v
+		default:
+			var sizeOfWire int
+			for {
+				sizeOfWire++
+				wire >>= 7
+				if wire == 0 {
+					break
+				}
+			}
+			index -= sizeOfWire
+			skippy, err := github_com_gogo_protobuf_proto.Skip(data[index:])
+			if err != nil {
+				return err
+			}
+			if (index + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, data[index:index+skippy]...)
+			index += skippy
+		}
+	}
+	return nil
+}
 func (m *Client) Size() (n int) {
 	var l int
 	_ = l
@@ -436,6 +575,10 @@ func (m *Client) Size() (n int) {
 	}
 	if m.WriteToFile != nil {
 		l = m.WriteToFile.Size()
+		n += 1 + l + sovClient(uint64(l))
+	}
+	if m.ReadFromFile != nil {
+		l = m.ReadFromFile.Size()
 		n += 1 + l + sovClient(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -466,6 +609,21 @@ func (m *WriteToFile) Size() (n int) {
 	if m.Data != nil {
 		l = len(m.Data)
 		n += 1 + l + sovClient(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ReadFromFile) Size() (n int) {
+	var l int
+	_ = l
+	if m.FileId != nil {
+		n += 1 + sovClient(uint64(*m.FileId))
+	}
+	if m.Offset != nil {
+		n += 1 + sovClient(uint64(*m.Offset))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -531,6 +689,16 @@ func (m *Client) MarshalTo(data []byte) (n int, err error) {
 		}
 		i += n2
 	}
+	if m.ReadFromFile != nil {
+		data[i] = 0x2a
+		i++
+		i = encodeVarintClient(data, i, uint64(m.ReadFromFile.Size()))
+		n3, err := m.ReadFromFile.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n3
+	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)
 	}
@@ -589,6 +757,37 @@ func (m *WriteToFile) MarshalTo(data []byte) (n int, err error) {
 		i++
 		i = encodeVarintClient(data, i, uint64(len(m.Data)))
 		i += copy(data[i:], m.Data)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(data[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ReadFromFile) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *ReadFromFile) MarshalTo(data []byte) (n int, err error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.FileId != nil {
+		data[i] = 0x8
+		i++
+		i = encodeVarintClient(data, i, uint64(*m.FileId))
+	}
+	if m.Offset != nil {
+		data[i] = 0x10
+		i++
+		i = encodeVarintClient(data, i, uint64(*m.Offset))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

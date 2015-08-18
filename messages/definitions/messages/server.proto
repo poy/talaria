@@ -5,6 +5,7 @@ message Server{
 		Error = 1;
 		FileLocation = 2;
 		FileOffset = 3;
+		ReadData = 4;
 	}
 
 	required uint64 messageId = 1;
@@ -13,6 +14,7 @@ message Server{
 	optional Error error = 3;
 	optional FileLocation fileLocation = 4;
 	optional FileOffset fileOffset = 5;
+	optional ReadData readData = 6;
 }
 
 message Error{
@@ -27,4 +29,9 @@ message FileLocation{
 
 message FileOffset{
 	required int64 offset = 1;
+}
+
+message ReadData{
+	required bytes data = 1;
+	required int64 offset = 2;
 }

@@ -8,13 +8,16 @@ import (
 type LogLevel int
 
 const (
-	ERROR LogLevel = iota
+	CRITICAL LogLevel = iota
+	ERROR
 	INFO
 	DEBUG
 )
 
 func (l LogLevel) String() string {
 	switch l {
+	case CRITICAL:
+		return "CRITICAL"
 	case ERROR:
 		return "ERROR"
 	case INFO:
@@ -34,6 +37,8 @@ func (l *LogLevel) UnmarshalJSON(data []byte) error {
 	data = bytes.Trim(data, `"`)
 	strData := string(data)
 	switch strData {
+	case "CRITICAL":
+		*l = CRITICAL
 	case "ERROR":
 		*l = ERROR
 	case "INFO":

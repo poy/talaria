@@ -1,4 +1,4 @@
-package main_test
+package broker_test
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTalaria(t *testing.T) {
+func TestBroker(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Talaria Suite")
+	RunSpecs(t, "Broker Suite")
 }

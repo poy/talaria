@@ -4,6 +4,7 @@ message Client{
 	enum MessageType{
 		FetchFile = 1;
 		WriteToFile = 2;
+		ReadFromFile = 3;
 	}
 
 	required uint64 messageId = 1;
@@ -11,6 +12,7 @@ message Client{
 
 	optional FetchFile fetchFile = 3;
 	optional WriteToFile writeToFile = 4;
+	optional ReadFromFile readFromFile = 5;
 }
 
 message FetchFile{
@@ -20,4 +22,9 @@ message FetchFile{
 message WriteToFile{
 	required uint64 fileId = 1;
 	required bytes data = 2;
+}
+
+message ReadFromFile{
+	required uint64 fileId = 1;
+	required int64 offset = 2;
 }

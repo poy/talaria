@@ -23,17 +23,20 @@ const (
 	Server_Error        Server_MessageType = 1
 	Server_FileLocation Server_MessageType = 2
 	Server_FileOffset   Server_MessageType = 3
+	Server_ReadData     Server_MessageType = 4
 )
 
 var Server_MessageType_name = map[int32]string{
 	1: "Error",
 	2: "FileLocation",
 	3: "FileOffset",
+	4: "ReadData",
 }
 var Server_MessageType_value = map[string]int32{
 	"Error":        1,
 	"FileLocation": 2,
 	"FileOffset":   3,
+	"ReadData":     4,
 }
 
 func (x Server_MessageType) Enum() *Server_MessageType {
@@ -59,6 +62,7 @@ type Server struct {
 	Error            *Error              `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 	FileLocation     *FileLocation       `protobuf:"bytes,4,opt,name=fileLocation" json:"fileLocation,omitempty"`
 	FileOffset       *FileOffset         `protobuf:"bytes,5,opt,name=fileOffset" json:"fileOffset,omitempty"`
+	ReadData         *ReadData           `protobuf:"bytes,6,opt,name=readData" json:"readData,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
 }
 
@@ -97,6 +101,13 @@ func (m *Server) GetFileLocation() *FileLocation {
 func (m *Server) GetFileOffset() *FileOffset {
 	if m != nil {
 		return m.FileOffset
+	}
+	return nil
+}
+
+func (m *Server) GetReadData() *ReadData {
+	if m != nil {
+		return m.ReadData
 	}
 	return nil
 }
@@ -159,6 +170,30 @@ func (m *FileOffset) String() string { return proto.CompactTextString(m) }
 func (*FileOffset) ProtoMessage()    {}
 
 func (m *FileOffset) GetOffset() int64 {
+	if m != nil && m.Offset != nil {
+		return *m.Offset
+	}
+	return 0
+}
+
+type ReadData struct {
+	Data             []byte `protobuf:"bytes,1,req,name=data" json:"data,omitempty"`
+	Offset           *int64 `protobuf:"varint,2,req,name=offset" json:"offset,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *ReadData) Reset()         { *m = ReadData{} }
+func (m *ReadData) String() string { return proto.CompactTextString(m) }
+func (*ReadData) ProtoMessage()    {}
+
+func (m *ReadData) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
+
+func (m *ReadData) GetOffset() int64 {
 	if m != nil && m.Offset != nil {
 		return *m.Offset
 	}
@@ -299,6 +334,33 @@ func (m *Server) Unmarshal(data []byte) error {
 				m.FileOffset = &FileOffset{}
 			}
 			if err := m.FileOffset.Unmarshal(data[index:postIndex]); err != nil {
+				return err
+			}
+			index = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ReadData", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ReadData == nil {
+				m.ReadData = &ReadData{}
+			}
+			if err := m.ReadData.Unmarshal(data[index:postIndex]); err != nil {
 				return err
 			}
 			index = postIndex
@@ -549,6 +611,87 @@ func (m *FileOffset) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *ReadData) Unmarshal(data []byte) error {
+	l := len(data)
+	index := 0
+	for index < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if index >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[index]
+			index++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Data", wireType)
+			}
+			var byteLen int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				byteLen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + byteLen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.Data = append([]byte{}, data[index:postIndex]...)
+			index = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Offset", wireType)
+			}
+			var v int64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (int64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Offset = &v
+		default:
+			var sizeOfWire int
+			for {
+				sizeOfWire++
+				wire >>= 7
+				if wire == 0 {
+					break
+				}
+			}
+			index -= sizeOfWire
+			skippy, err := github_com_gogo_protobuf_proto.Skip(data[index:])
+			if err != nil {
+				return err
+			}
+			if (index + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, data[index:index+skippy]...)
+			index += skippy
+		}
+	}
+	return nil
+}
 func (m *Server) Size() (n int) {
 	var l int
 	_ = l
@@ -568,6 +711,10 @@ func (m *Server) Size() (n int) {
 	}
 	if m.FileOffset != nil {
 		l = m.FileOffset.Size()
+		n += 1 + l + sovServer(uint64(l))
+	}
+	if m.ReadData != nil {
+		l = m.ReadData.Size()
 		n += 1 + l + sovServer(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -611,6 +758,22 @@ func (m *FileLocation) Size() (n int) {
 func (m *FileOffset) Size() (n int) {
 	var l int
 	_ = l
+	if m.Offset != nil {
+		n += 1 + sovServer(uint64(*m.Offset))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ReadData) Size() (n int) {
+	var l int
+	_ = l
+	if m.Data != nil {
+		l = len(m.Data)
+		n += 1 + l + sovServer(uint64(l))
+	}
 	if m.Offset != nil {
 		n += 1 + sovServer(uint64(*m.Offset))
 	}
@@ -687,6 +850,16 @@ func (m *Server) MarshalTo(data []byte) (n int, err error) {
 			return 0, err
 		}
 		i += n3
+	}
+	if m.ReadData != nil {
+		data[i] = 0x32
+		i++
+		i = encodeVarintServer(data, i, uint64(m.ReadData.Size()))
+		n4, err := m.ReadData.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)
@@ -780,6 +953,38 @@ func (m *FileOffset) MarshalTo(data []byte) (n int, err error) {
 	_ = l
 	if m.Offset != nil {
 		data[i] = 0x8
+		i++
+		i = encodeVarintServer(data, i, uint64(*m.Offset))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(data[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ReadData) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *ReadData) MarshalTo(data []byte) (n int, err error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Data != nil {
+		data[i] = 0xa
+		i++
+		i = encodeVarintServer(data, i, uint64(len(m.Data)))
+		i += copy(data[i:], m.Data)
+	}
+	if m.Offset != nil {
+		data[i] = 0x10
 		i++
 		i = encodeVarintServer(data, i, uint64(*m.Offset))
 	}

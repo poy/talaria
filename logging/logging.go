@@ -39,7 +39,11 @@ func Log(name string) Logger {
 	}
 }
 
-func (l Logger) Error(msg string, values ...interface{}) {
+func (l Logger) Error(msg string, err error) {
+	l.log.Error(fmt.Sprintf("%s: %v", msg, err))
+}
+
+func (l Logger) Errorf(msg string, values ...interface{}) {
 	l.log.Error(msg, values...)
 }
 
@@ -51,16 +55,18 @@ func (l Logger) Debug(msg string, values ...interface{}) {
 	l.log.Debug(msg, values...)
 }
 
-func (l Logger) Fatal(msg string, values ...interface{}) {
-	l.log.Fatal(fmt.Sprintf(msg, values...))
+func (l Logger) Fatal(msg string, err error) {
+	l.log.Fatal(fmt.Sprintf("%s: %v", msg, err))
 }
 
-func (l Logger) Panic(msg string, values ...interface{}) {
-	l.log.Panic(fmt.Sprintf(msg, values...))
+func (l Logger) Panic(msg string, err error) {
+	l.log.Panic(fmt.Sprintf("%s: %v", msg, err))
 }
 
 func convertLogLevel(level LogLevel) gologging.Level {
 	switch level {
+	case CRITICAL:
+		return gologging.CRITICAL
 	case ERROR:
 		return gologging.ERROR
 	case INFO:
