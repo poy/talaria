@@ -22,7 +22,7 @@ func NewSegmentedFileWriter(dir string, desiredLength, maxSegments uint64) *Segm
 	log := logging.Log("SegmentedFileWriter")
 	err := os.MkdirAll(dir, 0777)
 	if err != nil {
-		log.Fatal("Failed to create directory", err)
+		log.Panic("Failed to create directory", err)
 	}
 
 	return &SegmentedFileWriter{
@@ -40,7 +40,7 @@ func (s *SegmentedFileWriter) Write(data []byte) (int, error) {
 		s.closeFile(s.file)
 		s.file, err = os.Create(path.Join(s.dir, fmt.Sprintf("%d", s.nextIndex)))
 		if err != nil {
-			s.log.Fatal("Failed to create file", err)
+			s.log.Panic("Failed to create file", err)
 		}
 		s.nextIndex++
 		s.currentLength = 0
@@ -57,7 +57,7 @@ func (s *SegmentedFileWriter) rollSegments() {
 		deletePath := path.Join(s.dir, fmt.Sprintf("%d", s.nextIndex-1-s.maxSegments))
 		err := os.Remove(deletePath)
 		if err != nil {
-			s.log.Fatal("Failed to delete file", err)
+			s.log.Panic("Failed to delete file", err)
 		}
 	}
 }
@@ -69,11 +69,11 @@ func (s *SegmentedFileWriter) closeFile(file *os.File) {
 
 	err := file.Sync()
 	if err != nil {
-		s.log.Fatal("Failed to sync file", err)
+		s.log.Panic("Failed to sync file", err)
 	}
 
 	err = file.Close()
 	if err != nil {
-		s.log.Fatal("Failed to close file", err)
+		s.log.Panic("Failed to close file", err)
 	}
 }

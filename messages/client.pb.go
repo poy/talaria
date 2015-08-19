@@ -156,7 +156,6 @@ func (m *WriteToFile) GetData() []byte {
 
 type ReadFromFile struct {
 	FileId           *uint64 `protobuf:"varint,1,req,name=fileId" json:"fileId,omitempty"`
-	Offset           *int64  `protobuf:"varint,2,req,name=offset" json:"offset,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -167,13 +166,6 @@ func (*ReadFromFile) ProtoMessage()    {}
 func (m *ReadFromFile) GetFileId() uint64 {
 	if m != nil && m.FileId != nil {
 		return *m.FileId
-	}
-	return 0
-}
-
-func (m *ReadFromFile) GetOffset() int64 {
-	if m != nil && m.Offset != nil {
-		return *m.Offset
 	}
 	return 0
 }
@@ -520,23 +512,6 @@ func (m *ReadFromFile) Unmarshal(data []byte) error {
 				}
 			}
 			m.FileId = &v
-		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Offset", wireType)
-			}
-			var v int64
-			for shift := uint(0); ; shift += 7 {
-				if index >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := data[index]
-				index++
-				v |= (int64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.Offset = &v
 		default:
 			var sizeOfWire int
 			for {
@@ -621,9 +596,6 @@ func (m *ReadFromFile) Size() (n int) {
 	_ = l
 	if m.FileId != nil {
 		n += 1 + sovClient(uint64(*m.FileId))
-	}
-	if m.Offset != nil {
-		n += 1 + sovClient(uint64(*m.Offset))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -783,11 +755,6 @@ func (m *ReadFromFile) MarshalTo(data []byte) (n int, err error) {
 		data[i] = 0x8
 		i++
 		i = encodeVarintClient(data, i, uint64(*m.FileId))
-	}
-	if m.Offset != nil {
-		data[i] = 0x10
-		i++
-		i = encodeVarintClient(data, i, uint64(*m.Offset))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

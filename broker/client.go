@@ -71,26 +71,26 @@ func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	return serverMsg.FileOffset.GetOffset(), nil
 }
 
-func (c *Client) ReadFromFile(fileId uint64, offset int64) ([]byte, int64, error) {
-	err := c.writeReadFromFile(c.nextId(), fileId, offset)
+func (c *Client) ReadFromFile(fileId uint64) ([]byte, error) {
+	err := c.writeReadFromFile(c.nextId(), fileId)
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	serverMsg, err := c.readMessage()
 	if err != nil {
-		return nil, 0, err
+		return nil, err
 	}
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return nil, 0, fmt.Errorf(serverMsg.Error.GetMessage())
+		return nil, fmt.Errorf(serverMsg.Error.GetMessage())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_ReadData {
-		return nil, 0, fmt.Errorf("Unexpected MessageType: %v", serverMsg.GetMessageType())
+		return nil, fmt.Errorf("Unexpected MessageType: %v", serverMsg.GetMessageType())
 	}
 
-	return serverMsg.ReadData.GetData(), serverMsg.ReadData.GetOffset(), nil
+	return serverMsg.ReadData.GetData(), nil
 }
 
 func (c *Client) nextId() uint64 {
@@ -147,14 +147,13 @@ func (c *Client) writeWriteToFile(msgId, fileId uint64, data []byte) error {
 	return c.writeMessage(msg)
 }
 
-func (c *Client) writeReadFromFile(msgId, fileId uint64, offset int64) error {
+func (c *Client) writeReadFromFile(msgId, fileId uint64) error {
 	messageType := messages.Client_ReadFromFile
 	msg := &messages.Client{
 		MessageType: &messageType,
 		MessageId:   &msgId,
 		ReadFromFile: &messages.ReadFromFile{
 			FileId: &fileId,
-			Offset: &offset,
 		},
 	}
 	return c.writeMessage(msg)

@@ -170,18 +170,16 @@ var _ = Describe("Broker", func() {
 			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			mockController.readFileOffsetCh <- 0
 			mockController.readFileDataCh <- nil
 			mockController.readFileErrCh <- fmt.Errorf("some-error")
 
-			readFromFile := buildReadFromFile(99, 8, 101)
+			readFromFile := buildReadFromFile(99, 8)
 			data, err := proto.Marshal(readFromFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			conn.WriteMessage(websocket.BinaryMessage, data)
 
 			Eventually(mockController.readFileIdCh).Should(Receive(BeEquivalentTo(8)))
-			Eventually(mockController.readFileOffsetCh).Should(Receive(BeEquivalentTo(101)))
 
 			_, data, err = conn.ReadMessage()
 			Expect(err).ToNot(HaveOccurred())
@@ -195,24 +193,22 @@ var _ = Describe("Broker", func() {
 			Expect(server.Error.GetMessage()).To(Equal("some-error"))
 		})
 
-		It("returns the data and offset", func(done Done) {
+		It("returns the data", func(done Done) {
 			defer close(done)
 			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			expectedData := []byte("some-data")
-			mockController.readFileOffsetCh <- 110
 			mockController.readFileDataCh <- expectedData
 			mockController.readFileErrCh <- nil
 
-			readFromFile := buildReadFromFile(99, 8, 101)
+			readFromFile := buildReadFromFile(99, 8)
 			data, err := proto.Marshal(readFromFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			conn.WriteMessage(websocket.BinaryMessage, data)
 
 			Eventually(mockController.readFileIdCh).Should(Receive(BeEquivalentTo(8)))
-			Eventually(mockController.readFileOffsetCh).Should(Receive(BeEquivalentTo(101)))
 
 			_, data, err = conn.ReadMessage()
 			Expect(err).ToNot(HaveOccurred())
@@ -224,7 +220,6 @@ var _ = Describe("Broker", func() {
 			Expect(server.GetMessageType()).To(Equal(messages.Server_ReadData))
 			Expect(server.ReadData).ToNot(BeNil())
 			Expect(server.ReadData.GetData()).To(Equal(expectedData))
-			Expect(server.ReadData.GetOffset()).To(BeEquivalentTo(110))
 		})
 	})
 })
@@ -252,14 +247,13 @@ func buildWriteToFile(msgId, fileId uint64, data []byte) *messages.Client {
 	}
 }
 
-func buildReadFromFile(msgId, fileId uint64, offset int64) *messages.Client {
+func buildReadFromFile(msgId, fileId uint64) *messages.Client {
 	messageType := messages.Client_ReadFromFile
 	return &messages.Client{
 		MessageType: &messageType,
 		MessageId:   &msgId,
 		ReadFromFile: &messages.ReadFromFile{
 			FileId: &fileId,
-			Offset: &offset,
 		},
 	}
 }

@@ -97,7 +97,7 @@ var _ = FDescribe("FileController", func() {
 
 	Context("ReadFromFile", func() {
 		It("Returns an error for an unknown file ID", func() {
-			_, _, err := fileController.ReadFromFile(0, 99)
+			_, err := fileController.ReadFromFile(0)
 			Expect(err).To(HaveOccurred())
 			Expect(mockFileProvider.writerNameCh).ToNot(Receive())
 		})
@@ -115,23 +115,15 @@ var _ = FDescribe("FileController", func() {
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
 
 			By("Reading from the first offset")
-			data, offset, err := fileController.ReadFromFile(fileId1, broker.FirstOffset)
+			data, err := fileController.ReadFromFile(fileId1)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(offset).To(BeEquivalentTo(len(expectedData)))
-			Expect(data).To(Equal(expectedData))
-
-			By("Reading from the first offset again")
-			data, offset, err = fileController.ReadFromFile(fileId1, broker.FirstOffset)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(offset).To(BeEquivalentTo(len(expectedData)))
 			Expect(data).To(Equal(expectedData))
 
 			By("Reading from the next offset")
 			writeToFile(file, expectedData, int64(-len(expectedData)), 2)
 
-			data, offset, err = fileController.ReadFromFile(fileId1, broker.NextOffset)
+			data, err = fileController.ReadFromFile(fileId1)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(offset).To(BeEquivalentTo(2 * len(expectedData)))
 			Expect(data).To(Equal(expectedData))
 		})
 	})

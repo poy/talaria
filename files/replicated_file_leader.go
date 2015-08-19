@@ -40,7 +40,7 @@ func NewReplicatedFileLeader(writer io.Writer, httpStarter HttpStarter) *Replica
 func (r *ReplicatedFileLeader) Write(data []byte) (int, error) {
 	n, err := r.writer.Write(data)
 	if err != nil {
-		r.log.Fatal("Unable to write data", err)
+		r.log.Panic("Unable to write data", err)
 	}
 
 	r.writeToClients(data)

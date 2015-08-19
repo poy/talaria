@@ -77,7 +77,7 @@ func (s *SegmentedFileReader) openFile(number int) *os.File {
 func (s *SegmentedFileReader) fetchNextNumber() (int, bool) {
 	files, err := ioutil.ReadDir(s.dir)
 	if err != nil {
-		s.log.Fatal("Unable to read directory", err)
+		s.log.Panic("Unable to read directory", err)
 	}
 
 	fileNames := make([]int, 0)

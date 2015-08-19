@@ -5,21 +5,15 @@ import (
 	"io"
 )
 
-const (
-	FirstOffset = iota
-	NextOffset
-)
-
 type IoProvider interface {
 	ProvideWriter(name string) io.Writer
-	ProvideReader(name string) io.ReadSeeker
+	ProvideReader(name string) io.Reader
 }
 
 type ioInfo struct {
 	writer       io.Writer
-	reader       io.ReadSeeker
+	reader       io.Reader
 	writerOffset int64
-	readerOffset int64
 	buffer       []byte
 }
 
@@ -63,31 +57,14 @@ func (f *FileController) WriteToFile(fileId uint64, data []byte) (int64, error) 
 	return ioInfo.writerOffset, err
 }
 
-func (f *FileController) ReadFromFile(fileId uint64, offset int64) ([]byte, int64, error) {
+func (f *FileController) ReadFromFile(fileId uint64) ([]byte, error) {
 	ioInfo, ok := f.fileIdMap[fileId]
 	if !ok {
-		return nil, 0, fmt.Errorf("Unknown file ID: %d", fileId)
-	}
-
-	offset, err := f.setOffset(ioInfo, offset)
-	if err != nil {
-		return nil, 0, err
+		return nil, fmt.Errorf("Unknown file ID: %d", fileId)
 	}
 
 	n, err := ioInfo.reader.Read(ioInfo.buffer)
-	ioInfo.readerOffset = offset + int64(n)
-	return ioInfo.buffer[:n], ioInfo.readerOffset, err
-}
-
-func (f *FileController) setOffset(ioInfo *ioInfo, offset int64) (int64, error) {
-	switch offset {
-	case FirstOffset:
-		return ioInfo.reader.Seek(0, 0)
-	case NextOffset:
-		return ioInfo.readerOffset, nil
-	}
-
-	return 0, nil
+	return ioInfo.buffer[:n], err
 }
 
 func (f *FileController) nextId() uint64 {

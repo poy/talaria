@@ -120,7 +120,7 @@ var _ = FDescribe("Client", func() {
 
 			go func() {
 				defer GinkgoRecover()
-				_, _, err := client.ReadFromFile(8, 101)
+				_, err := client.ReadFromFile(8)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("some-error"))
 			}()
@@ -130,21 +130,19 @@ var _ = FDescribe("Client", func() {
 			Expect(client.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
 			Expect(client.ReadFromFile).ToNot(BeNil())
 			Expect(client.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
-			Expect(client.ReadFromFile.GetOffset()).To(BeEquivalentTo(101))
 		})
 
 		It("Returns the data and offset", func(done Done) {
 			defer close(done)
 
 			expectedData := []byte("some-data")
-			mockServer.serverCh <- buildReadData(99, expectedData, 110)
+			mockServer.serverCh <- buildReadData(99, expectedData)
 
 			go func() {
 				defer GinkgoRecover()
-				data, offset, err := client.ReadFromFile(8, 101)
+				data, err := client.ReadFromFile(8)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(data).To(Equal(expectedData))
-				Expect(offset).To(BeEquivalentTo(110))
 			}()
 
 			var client *messages.Client
@@ -152,7 +150,6 @@ var _ = FDescribe("Client", func() {
 			Expect(client.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
 			Expect(client.ReadFromFile).ToNot(BeNil())
 			Expect(client.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
-			Expect(client.ReadFromFile.GetOffset()).To(BeEquivalentTo(101))
 		})
 	})
 
@@ -204,14 +201,13 @@ func buildFileOffset(messageId uint64, offset int64) []byte {
 	return data
 }
 
-func buildReadData(messageId uint64, data []byte, offset int64) []byte {
+func buildReadData(messageId uint64, data []byte) []byte {
 	msgType := messages.Server_ReadData
 	server := &messages.Server{
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(messageId),
 		ReadData: &messages.ReadData{
-			Data:   data,
-			Offset: proto.Int64(offset),
+			Data: data,
 		},
 	}
 

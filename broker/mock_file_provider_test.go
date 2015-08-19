@@ -6,7 +6,7 @@ type mockFileProvider struct {
 	writerNameCh chan string
 	readerNameCh chan string
 	writerCh     chan io.Writer
-	readerCh     chan io.ReadSeeker
+	readerCh     chan io.Reader
 }
 
 func newMockFileProvider() *mockFileProvider {
@@ -14,7 +14,7 @@ func newMockFileProvider() *mockFileProvider {
 		writerNameCh: make(chan string, 100),
 		readerNameCh: make(chan string, 100),
 		writerCh:     make(chan io.Writer, 100),
-		readerCh:     make(chan io.ReadSeeker, 100),
+		readerCh:     make(chan io.Reader, 100),
 	}
 }
 
@@ -23,7 +23,7 @@ func (m *mockFileProvider) ProvideWriter(name string) io.Writer {
 	return <-m.writerCh
 }
 
-func (m *mockFileProvider) ProvideReader(name string) io.ReadSeeker {
+func (m *mockFileProvider) ProvideReader(name string) io.Reader {
 	m.readerNameCh <- name
 	return <-m.readerCh
 }

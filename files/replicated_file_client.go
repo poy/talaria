@@ -21,7 +21,7 @@ func NewReplicatedFileClient(url string, writer io.Writer) *ReplicatedFileClient
 
 	conn, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		r.log.Fatal("Unable to dial leader", err)
+		r.log.Panic("Unable to dial leader", err)
 	}
 
 	go r.run(conn)

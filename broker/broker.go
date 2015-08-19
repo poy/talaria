@@ -17,7 +17,7 @@ const (
 type Controller interface {
 	FetchFile(name string) (uint64, error)
 	WriteToFile(id uint64, data []byte) (int64, error)
-	ReadFromFile(id uint64, offset int64) ([]byte, int64, error)
+	ReadFromFile(id uint64) ([]byte, error)
 }
 
 type Broker struct {
@@ -86,13 +86,13 @@ func (b *Broker) writeToFile(message *messages.Client, conn *websocket.Conn) {
 }
 
 func (b *Broker) readFromFile(message *messages.Client, conn *websocket.Conn) {
-	data, offset, err := b.controller.ReadFromFile(message.ReadFromFile.GetFileId(), message.ReadFromFile.GetOffset())
+	data, err := b.controller.ReadFromFile(message.ReadFromFile.GetFileId())
 	if err != nil {
 		b.writeError(err.Error(), message, conn)
 		return
 	}
 
-	b.writeReadData(data, offset, message, conn)
+	b.writeReadData(data, message, conn)
 }
 
 func (b *Broker) writeMessage(message *messages.Server, conn *websocket.Conn) {
@@ -144,14 +144,13 @@ func (b *Broker) writeFileOffset(offset int64, message *messages.Client, conn *w
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeReadData(data []byte, offset int64, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) writeReadData(data []byte, message *messages.Client, conn *websocket.Conn) {
 	msgType := messages.Server_ReadData
 	server := &messages.Server{
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(message.GetMessageId()),
 		ReadData: &messages.ReadData{
-			Data:   data,
-			Offset: proto.Int64(offset),
+			Data: data,
 		},
 	}
 	b.writeMessage(server, conn)
