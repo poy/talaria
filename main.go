@@ -2,9 +2,7 @@ package main
 
 import (
 	"fmt"
-	"net/http"
 	"os"
-	"time"
 
 	"github.com/apoydence/talaria/broker"
 	"github.com/apoydence/talaria/logging"
@@ -58,18 +56,12 @@ func main() {
 
 func run(c *cli.Context) {
 	validateFlags(c)
-	log := getLogger(c)
+	setLogLevel(c)
 
-	provider := broker.NewFileProvider(c.String(dataDir), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)), time.Second)
-	controller := broker.NewFileController(provider)
-	broker := broker.NewBroker(controller)
-
-	brokerPort := c.Int(port)
-	log.Info("Starting broker on port %d", brokerPort)
-	http.ListenAndServe(fmt.Sprintf(":%d", brokerPort), broker)
+	broker.StartBrokerServer(c.String(dataDir), c.Int(port), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)))
 }
 
-func getLogger(c *cli.Context) logging.Logger {
+func setLogLevel(c *cli.Context) {
 	logFlag := c.String(logLevel)
 	var logLevel logging.LogLevel
 	err := logLevel.UnmarshalJSON([]byte(logFlag))
@@ -78,8 +70,6 @@ func getLogger(c *cli.Context) logging.Logger {
 	}
 
 	logging.SetLevel(logLevel)
-
-	return logging.Log("main")
 }
 
 func validateFlags(c *cli.Context) {
