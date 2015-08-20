@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("FileController", func() {
+var _ = Describe("FileController", func() {
 	var (
 		tmpDir           string
 		mockFileProvider *mockFileProvider

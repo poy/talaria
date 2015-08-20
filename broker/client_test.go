@@ -12,7 +12,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("Client", func() {
+var _ = Describe("Client", func() {
 	var (
 		recorder   *httptest.ResponseRecorder
 		req        *http.Request

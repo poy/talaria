@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = FDescribe("FileProvider", func() {
+var _ = Describe("FileProvider", func() {
 	var (
 		tmpDir       string
 		fileProvider *broker.FileProvider
