@@ -3,45 +3,25 @@ package systemtests_test
 import (
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"sync"
 	"time"
 
 	"github.com/apoydence/talaria/broker"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"github.com/onsi/gomega/gexec"
 )
 
 var _ = Describe("SingleClientSingleBroker", func() {
-	AfterSuite(func() {
-		gexec.CleanupBuildArtifacts()
-	})
 
 	var (
-		path    string
-		session *gexec.Session
-		tmpDir  string
-		URL     string
+		URL string
 	)
-
-	BeforeSuite(func() {
-		var err error
-		path, err = gexec.Build("github.com/apoydence/talaria")
-		Expect(err).ToNot(HaveOccurred())
-	})
 
 	BeforeEach(func() {
 		var err error
 		tmpDir, err = ioutil.TempDir("/tmp", "systemtalaria")
 		Expect(err).ToNot(HaveOccurred())
-
-		cmd := exec.Command(path, "-d", tmpDir, "-logLevel", "CRITICAL")
-		session, err = gexec.Start(cmd, os.Stdout, os.Stdout)
-		Expect(err).ToNot(HaveOccurred())
-		Consistently(session.Exited, 1).ShouldNot(BeClosed())
-
-		URL = "ws://localhost:8888"
+		URL = startTalaria(tmpDir)
 	})
 
 	AfterEach(func() {
