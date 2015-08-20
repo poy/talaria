@@ -9,19 +9,21 @@ import (
 	"github.com/apoydence/talaria/broker"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 )
 
 var _ = Describe("SingleClientSingleBroker", func() {
 
 	var (
-		URL string
+		URL     string
+		session *gexec.Session
 	)
 
 	BeforeEach(func() {
 		var err error
 		tmpDir, err = ioutil.TempDir("/tmp", "systemtalaria")
 		Expect(err).ToNot(HaveOccurred())
-		URL = startTalaria(tmpDir)
+		URL, session = startTalaria(tmpDir)
 	})
 
 	AfterEach(func() {

@@ -17,10 +17,9 @@ func TestSystemtests(t *testing.T) {
 }
 
 var (
-	path    string
-	session *gexec.Session
-	tmpDir  string
-	URL     string
+	path   string
+	tmpDir string
+	URL    string
 )
 
 var _ = BeforeSuite(func() {
@@ -33,11 +32,10 @@ var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
 
-func startTalaria(tmpDir string) string {
-	var err error
+func startTalaria(tmpDir string) (string, *gexec.Session) {
 	cmd := exec.Command(path, "-d", tmpDir, "-logLevel", "CRITICAL")
-	session, err = gexec.Start(cmd, os.Stdout, os.Stdout)
+	session, err := gexec.Start(cmd, os.Stdout, os.Stdout)
 	Expect(err).ToNot(HaveOccurred())
 	Consistently(session.Exited, 1).ShouldNot(BeClosed())
-	return "ws://localhost:8888"
+	return "ws://localhost:8888", session
 }
