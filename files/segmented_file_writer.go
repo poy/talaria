@@ -24,6 +24,7 @@ func NewSegmentedFileWriter(dir string, desiredLength, maxSegments uint64) *Segm
 	if err != nil {
 		log.Panic("Failed to create directory", err)
 	}
+	log.Debug("Created directory %s", dir)
 
 	return &SegmentedFileWriter{
 		dir:           dir,
@@ -48,7 +49,6 @@ func (s *SegmentedFileWriter) Write(data []byte) (int, error) {
 	}
 
 	s.currentLength += uint64(len(data))
-
 	return s.file.Write(data)
 }
 

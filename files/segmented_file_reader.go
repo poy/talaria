@@ -16,6 +16,7 @@ import (
 type SegmentedFileReader struct {
 	dir         string
 	file        *os.File
+	lastOffset  int64
 	currentFile int
 	pollTime    time.Duration
 	log         logging.Logger
@@ -34,7 +35,9 @@ func (s *SegmentedFileReader) Read(buffer []byte) (int, error) {
 	file := s.fetchFile()
 
 	n, err := file.Read(buffer)
+	s.lastOffset += int64(n)
 	if err == io.EOF {
+		s.file.Close()
 		s.file = nil
 		return s.Read(buffer)
 	}
@@ -61,6 +64,15 @@ func (s *SegmentedFileReader) fetchFile() *os.File {
 		}
 
 		time.Sleep(s.pollTime)
+
+		file = s.openFile(s.currentFile)
+		if file != nil {
+			_, err := file.Seek(s.lastOffset, 0)
+			if err != nil {
+				s.log.Panic("Unable to set offset", err)
+			}
+			return file
+		}
 	}
 
 }

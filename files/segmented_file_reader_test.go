@@ -89,6 +89,7 @@ var _ = Describe("SegmentedFileReader", func() {
 
 		go func() {
 			for i := 0; i < 5; i++ {
+				time.Sleep(100 * time.Millisecond)
 				n, err := segmentedFileWriter.Write(expectedData[i : i+1])
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(1))
@@ -97,12 +98,13 @@ var _ = Describe("SegmentedFileReader", func() {
 
 		buffer := make([]byte, 1024)
 		var results []byte
+
 		for len(results) < 5 {
 			n, err := segmentedFileReader.Read(buffer)
 			Expect(err).ToNot(HaveOccurred())
 			results = append(results, buffer[:n]...)
 		}
 		Expect(results).To(Equal(expectedData[:5]))
-	})
+	}, 5)
 
 })
