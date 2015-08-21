@@ -5,6 +5,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sync"
+	"time"
 
 	"github.com/apoydence/talaria/files"
 	. "github.com/onsi/ginkgo"
@@ -40,11 +42,44 @@ var _ = Describe("SegmentedFileWriter", func() {
 			n, err := segmentedFile.Write(expectedData)
 			Expect(n).To(Equal(len(expectedData)))
 			Expect(err).ToNot(HaveOccurred())
+
 			file, err := os.Open(path.Join(tmpDir, "0"))
 			Expect(err).ToNot(HaveOccurred())
+
 			data, err := ioutil.ReadAll(file)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
+		})
+
+		It("writes data from multiple go routines", func(done Done) {
+			defer close(done)
+			expectedData := []byte("some-data")
+			count := 5
+			wg := sync.WaitGroup{}
+			wg.Add(count)
+
+			segmentedFile = files.NewSegmentedFileWriter(tmpDir, uint64(200*count*len(expectedData)), 10)
+
+			for i := 0; i < count; i++ {
+				go func() {
+					defer wg.Done()
+					for j := 0; j < 100; j++ {
+						n, err := segmentedFile.Write(expectedData)
+						Expect(n).To(Equal(len(expectedData)))
+						Expect(err).ToNot(HaveOccurred())
+						time.Sleep(time.Millisecond)
+					}
+				}()
+			}
+
+			wg.Wait()
+
+			file, err := os.Open(path.Join(tmpDir, "0"))
+			Expect(err).ToNot(HaveOccurred())
+
+			data, err := ioutil.ReadAll(file)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(HaveLen(count * 100 * len(expectedData)))
 		})
 
 		It("writes data to a series of files after enough data has been written", func(done Done) {

@@ -52,6 +52,7 @@ func (s *SegmentedFileReader) fetchFile() *os.File {
 
 		file := s.openFile(s.currentFile + 1)
 		if file != nil {
+			s.lastOffset = 0
 			return file
 		}
 
@@ -59,6 +60,7 @@ func (s *SegmentedFileReader) fetchFile() *os.File {
 		if ok {
 			file = s.openFile(next)
 			if file != nil {
+				s.lastOffset = 0
 				return file
 			}
 		}

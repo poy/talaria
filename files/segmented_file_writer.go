@@ -4,11 +4,13 @@ import (
 	"fmt"
 	"os"
 	"path"
+	"sync"
 
 	"github.com/apoydence/talaria/logging"
 )
 
 type SegmentedFileWriter struct {
+	lock          sync.Mutex
 	dir           string
 	file          *os.File
 	desiredLength uint64
@@ -36,6 +38,9 @@ func NewSegmentedFileWriter(dir string, desiredLength, maxSegments uint64) *Segm
 }
 
 func (s *SegmentedFileWriter) Write(data []byte) (int, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
 	var err error
 	if s.currentLength >= s.desiredLength {
 		s.closeFile(s.file)

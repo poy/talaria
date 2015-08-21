@@ -22,30 +22,35 @@ type Controller interface {
 	ReadFromFile(id uint64) ([]byte, error)
 }
 
+type ControllerProvider interface {
+	Provide() Controller
+}
+
 func StartBrokerServer(dataDir string, brokerPort int, segmentLength, numSegments uint64) {
 	log := logging.Log("BrokerServer")
 	provider := NewFileProvider(dataDir, segmentLength, numSegments, time.Second)
-	controller := NewFileController(provider)
-	broker := NewBroker(controller)
+	controllerProvider := newControllerProvider(provider)
+	broker := NewBroker(controllerProvider)
 
 	log.Info("Starting broker on port %d", brokerPort)
 	http.ListenAndServe(fmt.Sprintf(":%d", brokerPort), broker)
 }
 
 type Broker struct {
-	log        logging.Logger
-	upgrader   websocket.Upgrader
-	controller Controller
+	log                logging.Logger
+	upgrader           websocket.Upgrader
+	controllerProvider ControllerProvider
 }
 
-func NewBroker(controller Controller) *Broker {
+func NewBroker(controllerProvider ControllerProvider) *Broker {
 	return &Broker{
-		log:        logging.Log("Broker"),
-		controller: controller,
+		log:                logging.Log("Broker"),
+		controllerProvider: controllerProvider,
 	}
 }
 
 func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
+	controller := b.controllerProvider.Provide()
 	conn, err := b.upgrader.Upgrade(writer, req, nil)
 	if err != nil {
 		b.log.Error("Unable to upgrade websocket", err)
@@ -68,17 +73,17 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 
 		switch message.GetMessageType() {
 		case messages.Client_FetchFile:
-			b.fetchFile(message, conn)
+			b.fetchFile(controller, message, conn)
 		case messages.Client_WriteToFile:
-			b.writeToFile(message, conn)
+			b.writeToFile(controller, message, conn)
 		case messages.Client_ReadFromFile:
-			b.readFromFile(message, conn)
+			b.readFromFile(controller, message, conn)
 		}
 	}
 }
 
-func (b *Broker) fetchFile(message *messages.Client, conn *websocket.Conn) {
-	fileId, err := b.controller.FetchFile(message.GetFetchFile().GetName())
+func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
+	fileId, err := controller.FetchFile(message.GetFetchFile().GetName())
 	if err != nil {
 		b.writeError(err.Error(), message, conn)
 		return
@@ -87,8 +92,8 @@ func (b *Broker) fetchFile(message *messages.Client, conn *websocket.Conn) {
 	b.writeFileLocation(fileId, message, conn)
 }
 
-func (b *Broker) writeToFile(message *messages.Client, conn *websocket.Conn) {
-	offset, err := b.controller.WriteToFile(message.WriteToFile.GetFileId(), message.WriteToFile.GetData())
+func (b *Broker) writeToFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
+	offset, err := controller.WriteToFile(message.WriteToFile.GetFileId(), message.WriteToFile.GetData())
 	if err != nil {
 		b.writeError(err.Error(), message, conn)
 		return
@@ -97,8 +102,8 @@ func (b *Broker) writeToFile(message *messages.Client, conn *websocket.Conn) {
 	b.writeFileOffset(offset, message, conn)
 }
 
-func (b *Broker) readFromFile(message *messages.Client, conn *websocket.Conn) {
-	data, err := b.controller.ReadFromFile(message.ReadFromFile.GetFileId())
+func (b *Broker) readFromFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
+	data, err := controller.ReadFromFile(message.ReadFromFile.GetFileId())
 	if err != nil {
 		b.writeError(err.Error(), message, conn)
 		return

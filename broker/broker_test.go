@@ -15,19 +15,22 @@ import (
 
 var _ = Describe("Broker", func() {
 	var (
-		mockController *mockController
-		recorder       *httptest.ResponseRecorder
-		server         *httptest.Server
-		handler        *broker.Broker
-		wsUrl          string
+		mockControllerProvider *mockControllerProvider
+		mockController         *mockController
+		recorder               *httptest.ResponseRecorder
+		server                 *httptest.Server
+		handler                *broker.Broker
+		wsUrl                  string
 	)
 
 	BeforeEach(func() {
+		mockControllerProvider = newMockControllerProvider()
 		mockController = newMockController()
 		recorder = httptest.NewRecorder()
-		handler = broker.NewBroker(mockController)
+		handler = broker.NewBroker(mockControllerProvider)
 		server = httptest.NewServer(handler)
 		wsUrl = "ws" + server.URL[4:]
+		mockControllerProvider.controllerCh <- mockController
 	})
 
 	AfterEach(func() {
@@ -35,9 +38,10 @@ var _ = Describe("Broker", func() {
 		server.Close()
 	})
 
-	It("Accepts websocket connections", func() {
+	It("Accepts websocket connections and grabs a controller", func() {
 		_, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 		Expect(err).ToNot(HaveOccurred())
+		Expect(mockControllerProvider.controllerCh).To(BeEmpty())
 	})
 
 	Context("FetchFile", func() {
