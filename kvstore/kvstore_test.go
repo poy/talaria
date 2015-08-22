@@ -12,13 +12,15 @@ import (
 
 var _ = Describe("Kvstore", func() {
 	var (
+		clientAddr    string
 		kv            *kvstore.KVStore
 		key           string
 		keyWithPrefix string
 	)
 
 	BeforeEach(func() {
-		kv = kvstore.New()
+		clientAddr = "some-addr"
+		kv = kvstore.New(clientAddr)
 		key = "some-key"
 		keyWithPrefix = fmt.Sprintf("%s-%s", kvstore.Prefix, key)
 	})
@@ -71,7 +73,7 @@ var _ = Describe("Kvstore", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(pair).ToNot(BeNil())
 			Expect(pair.Key).To(Equal(keyWithPrefix))
-			Expect(pair.Value).To(Equal([]byte("127.0.0.1")))
+			Expect(pair.Value).To(Equal([]byte(clientAddr)))
 			Expect(pair.Session).ToNot(BeEmpty())
 			Expect(acquired).To(BeTrue())
 		})

@@ -15,12 +15,14 @@ type KvStore interface {
 type Orchestrator struct {
 	partManager PartitionManager
 	kvStore     KvStore
+	clientAddr  string
 }
 
-func New(partManager PartitionManager, kvStore KvStore) *Orchestrator {
+func New(clientAddr string, partManager PartitionManager, kvStore KvStore) *Orchestrator {
 	orch := &Orchestrator{
 		partManager: partManager,
 		kvStore:     kvStore,
+		clientAddr:  clientAddr,
 	}
 
 	kvStore.ListenForAnnouncements(orch.participateInElection)
@@ -28,10 +30,10 @@ func New(partManager PartitionManager, kvStore KvStore) *Orchestrator {
 	return orch
 }
 
-func (o *Orchestrator) FetchLeader(name string) string {
+func (o *Orchestrator) FetchLeader(name string) (string, bool) {
 	uri, ok := o.kvStore.FetchLeader(name)
 	if ok {
-		return uri
+		return uri, o.clientAddr == uri
 	}
 
 	results := make(chan string, 1)
@@ -42,7 +44,8 @@ func (o *Orchestrator) FetchLeader(name string) string {
 
 	o.kvStore.Announce(name)
 
-	return <-results
+	result := <-results
+	return result, result == o.clientAddr
 }
 
 func (o *Orchestrator) participateInElection(name string) {

@@ -12,14 +12,16 @@ var _ = Describe("Orchestrator", func() {
 		mockKvStore     *mockKvStore
 		mockPartManager *mockPartitionManager
 		key             string
+		clientAddr      string
 		orch            *orchestrator.Orchestrator
 	)
 
 	BeforeEach(func() {
 		key = "some-key"
+		clientAddr = "some-addr"
 		mockKvStore = newMockKvStore()
 		mockPartManager = newMockPartitionManager()
-		orch = orchestrator.New(mockPartManager, mockKvStore)
+		orch = orchestrator.New(clientAddr, mockPartManager, mockKvStore)
 	})
 
 	Context("FetchLeader", func() {
@@ -28,9 +30,10 @@ var _ = Describe("Orchestrator", func() {
 			mockKvStore.fetchLeaderTx <- expectedLeader
 			mockKvStore.fetchLeaderOk <- true
 
-			leaderUri := orch.FetchLeader(key)
+			leaderUri, local := orch.FetchLeader(key)
 
 			Expect(leaderUri).To(Equal(expectedLeader))
+			Expect(local).To(BeFalse())
 			Expect(mockKvStore.fetchLeaderRx).To(Receive(Equal(key)))
 		})
 
@@ -41,7 +44,8 @@ var _ = Describe("Orchestrator", func() {
 			mockKvStore.fetchLeaderOk <- false
 
 			go func() {
-				results <- orch.FetchLeader(key)
+				leader, _ := orch.FetchLeader(key)
+				results <- leader
 			}()
 
 			Eventually(mockKvStore.listenNameCh).Should(Receive(Equal(key)))

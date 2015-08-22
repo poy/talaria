@@ -24,23 +24,18 @@ type KVStore struct {
 	sessionName string
 }
 
-func New() *KVStore {
+func New(clientAddr string) *KVStore {
 	log := logging.Log("KVStore")
 	client, err := api.NewClient(api.DefaultConfig())
 	if err != nil {
 		log.Panic("Unable to create client", err)
 	}
 
-	self, err := client.Agent().Self()
-	if err != nil {
-		log.Panic("Unable to fetch agent information", err)
-	}
-
 	return &KVStore{
 		log:         log,
 		client:      client,
 		kv:          client.KV(),
-		clientAddr:  self["Config"]["ClientAddr"].(string),
+		clientAddr:  clientAddr,
 		sessionName: registerSession(client, log),
 	}
 }

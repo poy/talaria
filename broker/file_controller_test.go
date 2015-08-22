@@ -14,6 +14,7 @@ import (
 var _ = Describe("FileController", func() {
 	var (
 		tmpDir           string
+		mockOrchestrator *mockOrchestrator
 		mockFileProvider *mockFileProvider
 		fileController   *broker.FileController
 	)
@@ -23,8 +24,9 @@ var _ = Describe("FileController", func() {
 		tmpDir, err = ioutil.TempDir("/tmp", "seg")
 		Expect(err).ToNot(HaveOccurred())
 
+		mockOrchestrator = newMockOrchestrator()
 		mockFileProvider = newMockFileProvider()
-		fileController = broker.NewFileController(mockFileProvider)
+		fileController = broker.NewFileController(mockFileProvider, mockOrchestrator)
 	})
 
 	AfterEach(func() {
@@ -40,18 +42,48 @@ var _ = Describe("FileController", func() {
 			mockFileProvider.readerCh <- nil
 
 			By("Giving the same for the same file name")
+			populateLocalOrch(mockOrchestrator)
 			fileIdA, err := fileController.FetchFile("some-name-1")
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).To(BeNil())
 
 			fileIdB, err := fileController.FetchFile("some-name-1")
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).To(BeNil())
 			Expect(fileIdA).To(Equal(fileIdB))
 
 			By("Giving a different ID for a different name")
+			populateLocalOrch(mockOrchestrator)
 			fileIdC, err := fileController.FetchFile("some-name-2")
-			Expect(err).ToNot(HaveOccurred())
+			Expect(err).To(BeNil())
 			Expect(fileIdC).ToNot(Equal(fileIdA))
 		})
+
+		It("asks the orchestrator for the leader", func(done Done) {
+			defer close(done)
+
+			populateProvider := func() {
+				mockFileProvider.writerCh <- nil
+				mockFileProvider.writerCh <- nil
+				mockFileProvider.readerCh <- nil
+				mockFileProvider.readerCh <- nil
+			}
+
+			By("Not returning an error for a local file")
+			populateProvider()
+			populateLocalOrch(mockOrchestrator)
+			_, err := fileController.FetchFile("some-name-1")
+			Expect(err).To(BeNil())
+			Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-1")))
+
+			By("Returning an error for a non-local file")
+			populateProvider()
+			expectedUri := "http://uri.b"
+			mockOrchestrator.uriCh <- expectedUri
+			mockOrchestrator.localCh <- false
+			_, err = fileController.FetchFile("some-name-2")
+			Expect(err).To(HaveOccurred())
+			Expect(err.Uri).To(Equal(expectedUri))
+			Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-2")))
+		}, 2)
 	})
 
 	Context("WriteToFile", func() {
@@ -62,18 +94,20 @@ var _ = Describe("FileController", func() {
 		})
 
 		It("Writes to the correct writer", func() {
+			populateLocalOrch(mockOrchestrator)
+			populateLocalOrch(mockOrchestrator)
 			mockFileProvider.writerCh <- createFile(tmpDir, "some-name-1")
 			mockFileProvider.writerCh <- createFile(tmpDir, "some-name-2")
 			mockFileProvider.readerCh <- nil
 			mockFileProvider.readerCh <- nil
 			expectedData := []byte("some-data")
 
-			fileId1, err := fileController.FetchFile("some-name-1")
-			Expect(err).ToNot(HaveOccurred())
+			fileId1, ffErr := fileController.FetchFile("some-name-1")
+			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
 
-			fileId2, err := fileController.FetchFile("some-name-2")
-			Expect(err).ToNot(HaveOccurred())
+			fileId2, ffErr := fileController.FetchFile("some-name-2")
+			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-2")))
 
 			By("Writing to the same file twice")
@@ -103,6 +137,7 @@ var _ = Describe("FileController", func() {
 		})
 
 		It("Reads from the correct file", func() {
+			populateLocalOrch(mockOrchestrator)
 			mockFileProvider.writerCh <- nil
 			file := createFile(tmpDir, "some-name-1")
 			mockFileProvider.readerCh <- file
@@ -110,8 +145,8 @@ var _ = Describe("FileController", func() {
 
 			writeToFile(file, expectedData, 0, 0)
 
-			fileId1, err := fileController.FetchFile("some-name-1")
-			Expect(err).ToNot(HaveOccurred())
+			fileId1, ffErr := fileController.FetchFile("some-name-1")
+			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
 
 			By("Reading from the first offset")
@@ -129,6 +164,11 @@ var _ = Describe("FileController", func() {
 	})
 
 })
+
+func populateLocalOrch(orch *mockOrchestrator) {
+	orch.uriCh <- "http://uri.local"
+	orch.localCh <- true
+}
 
 func createFile(dir, name string) *os.File {
 	file, err := os.Create(path.Join(dir, name))

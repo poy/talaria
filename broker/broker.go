@@ -3,7 +3,6 @@ package broker
 import (
 	"fmt"
 	"net/http"
-	"time"
 
 	"github.com/apoydence/talaria/logging"
 	"github.com/apoydence/talaria/messages"
@@ -17,7 +16,7 @@ const (
 )
 
 type Controller interface {
-	FetchFile(name string) (uint64, error)
+	FetchFile(name string) (uint64, *FetchFileError)
 	WriteToFile(id uint64, data []byte) (int64, error)
 	ReadFromFile(id uint64) ([]byte, error)
 }
@@ -26,10 +25,10 @@ type ControllerProvider interface {
 	Provide() Controller
 }
 
-func StartBrokerServer(dataDir string, brokerPort int, segmentLength, numSegments uint64) {
+func StartBrokerServer(brokerPort int, orch Orchestrator, provider IoProvider) {
 	log := logging.Log("BrokerServer")
-	provider := NewFileProvider(dataDir, segmentLength, numSegments, time.Second)
-	controllerProvider := newControllerProvider(provider)
+	//provider := NewFileProvider(dataDir, segmentLength, numSegments, time.Second)
+	controllerProvider := newControllerProvider(provider, orch)
 	broker := NewBroker(controllerProvider)
 
 	log.Info("Starting broker on port %d", brokerPort)

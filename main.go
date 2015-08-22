@@ -2,10 +2,14 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"time"
 
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/kvstore"
 	"github.com/apoydence/talaria/logging"
+	"github.com/apoydence/talaria/orchestrator"
 	"github.com/codegangsta/cli"
 )
 
@@ -58,7 +62,12 @@ func run(c *cli.Context) {
 	validateFlags(c)
 	setLogLevel(c)
 
-	broker.StartBrokerServer(c.String(dataDir), c.Int(port), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)))
+	clientAddr := fmt.Sprintf("localhost:%d", c.Int(port))
+	kvStore := kvstore.New(clientAddr)
+	ioProvider := broker.NewFileProvider(c.String(dataDir), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)), time.Second)
+	orch := orchestrator.New(clientAddr, ioWrapper(ioProvider.ProvideWriter), kvStore)
+
+	broker.StartBrokerServer(c.Int(port), orch, ioProvider)
 }
 
 func setLogLevel(c *cli.Context) {
@@ -82,4 +91,10 @@ func quit(msg string, c *cli.Context) {
 	fmt.Println(msg)
 	cli.ShowAppHelp(c)
 	os.Exit(1)
+}
+
+type ioWrapper func(name string) io.Writer
+
+func (i ioWrapper) Add(name string) {
+	i(name)
 }

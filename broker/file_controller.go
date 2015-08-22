@@ -10,6 +10,10 @@ type IoProvider interface {
 	ProvideReader(name string) io.Reader
 }
 
+type Orchestrator interface {
+	FetchLeader(name string) (string, bool)
+}
+
 type ioInfo struct {
 	writer       io.Writer
 	reader       io.Reader
@@ -18,23 +22,30 @@ type ioInfo struct {
 }
 
 type FileController struct {
-	fileNameMap map[string]uint64
-	fileIdMap   map[uint64]*ioInfo
-	nextFileId  uint64
-	ioProvider  IoProvider
+	fileNameMap  map[string]uint64
+	fileIdMap    map[uint64]*ioInfo
+	nextFileId   uint64
+	ioProvider   IoProvider
+	orchestrator Orchestrator
 }
 
-func NewFileController(ioProvider IoProvider) *FileController {
+func NewFileController(ioProvider IoProvider, orchestrator Orchestrator) *FileController {
 	return &FileController{
-		fileNameMap: make(map[string]uint64),
-		fileIdMap:   make(map[uint64]*ioInfo),
-		ioProvider:  ioProvider,
+		fileNameMap:  make(map[string]uint64),
+		fileIdMap:    make(map[uint64]*ioInfo),
+		ioProvider:   ioProvider,
+		orchestrator: orchestrator,
 	}
 }
 
-func (f *FileController) FetchFile(name string) (uint64, error) {
+func (f *FileController) FetchFile(name string) (uint64, *FetchFileError) {
 	fileId, ok := f.fileNameMap[name]
 	if !ok {
+		uri, local := f.orchestrator.FetchLeader(name)
+		if !local {
+			return 0, NewFetchFileError("Redirect to the correct broker", uri)
+		}
+
 		fileId = f.nextId()
 		f.fileNameMap[name] = fileId
 		f.fileIdMap[fileId] = &ioInfo{

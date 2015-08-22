@@ -52,7 +52,7 @@ var _ = Describe("Broker", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			mockController.fetchFileIdCh <- 0
-			mockController.fetchFileErrCh <- fmt.Errorf("some-error")
+			mockController.fetchFileErrCh <- broker.NewFetchFileError("some-error", "")
 
 			fetchFile := buildFetchFile(99, "some-file")
 			data, err := proto.Marshal(fetchFile)
@@ -113,7 +113,7 @@ var _ = Describe("Broker", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			mockController.writeFileOffsetCh <- 0
-			mockController.fetchFileErrCh <- fmt.Errorf("some-error")
+			mockController.writeFileErrCh <- fmt.Errorf("some-error")
 
 			expectedData := []byte("some-data")
 			writeToFile := buildWriteToFile(99, 8, expectedData)
@@ -143,7 +143,7 @@ var _ = Describe("Broker", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			mockController.writeFileOffsetCh <- 77
-			mockController.fetchFileErrCh <- nil
+			mockController.writeFileErrCh <- nil
 
 			expectedData := []byte("some-data")
 			writeToFile := buildWriteToFile(99, 8, expectedData)
