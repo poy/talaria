@@ -38,18 +38,28 @@ var _ = Describe("Kvstore", func() {
 
 	Context("Announcements", func() {
 		It("Invokes callback when announcement is made", func() {
-			results := make(chan string, 10)
+			results1 := make(chan string, 10)
+			results2 := make(chan string, 10)
+			resultsOther := make(chan string, 10)
 
 			kv.ListenForAnnouncements(func(value string) {
-				results <- value
+				if value == "some-name-1" {
+					results1 <- value
+				} else if value == "some-name-2" {
+					results2 <- value
+				} else {
+					resultsOther <- value
+				}
 			})
 
 			go kv.Announce("some-name-1")
 			go kv.Announce("some-name-1")
 			go kv.Announce("some-name-2")
-			Eventually(results, 3).Should(Receive(Equal("some-name-1")))
-			Eventually(results, 3).Should(Receive(Equal("some-name-1")))
-			Eventually(results, 3).Should(Receive(Equal("some-name-2")))
+
+			Eventually(results1, 3).Should(Receive())
+			Eventually(results1, 3).Should(Receive())
+			Eventually(results2, 3).Should(Receive())
+			Consistently(resultsOther).ShouldNot(Receive())
 		})
 
 		It("Invokes callback when announcement is already made", func() {

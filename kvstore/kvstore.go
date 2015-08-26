@@ -86,12 +86,12 @@ func (k *KVStore) ListenForLeader(name string, callback func(name, uri string)) 
 }
 
 func (k *KVStore) listenForLeader(name string, callback func(name, uri string)) {
-	pairs, meta, err := k.kv.List(fmt.Sprintf("%s-%s", Prefix, name), nil)
+	pair, meta, err := k.kv.Get(fmt.Sprintf("%s-%s", Prefix, name), nil)
 	if err != nil {
 		k.log.Panic("Unable to list keys", err)
 	}
 
-	for _, pair := range pairs {
+	if pair != nil {
 		callback(stripLeaderPrefix(pair.Key), string(pair.Value))
 	}
 
@@ -100,12 +100,13 @@ func (k *KVStore) listenForLeader(name string, callback func(name, uri string)) 
 	}
 	for {
 		options.WaitIndex = meta.LastIndex
-		pairs, meta, err = k.kv.List(fmt.Sprintf("%s-%s", Prefix, name), &options)
+		pair, meta, err = k.kv.Get(fmt.Sprintf("%s-%s", Prefix, name), &options)
 		if err != nil {
 			k.log.Error("Unable to get leader", err)
 			return
 		}
-		for _, pair := range pairs {
+
+		if pair != nil {
 			callback(stripLeaderPrefix(pair.Key), string(pair.Value))
 		}
 	}
