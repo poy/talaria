@@ -1,38 +1,16 @@
 Talaria
 =======
 
-Think Kafka without Zookeeper (and in Go).
+Talaria is a message queue that uses files (Yes files... Get over it). You can only write to the end of a file, but you can read from anywhere (as long as the segment hasn't been deleted). This implies that while each write still has an ack, the read doesn't. So ideally it's fast... Also, if your reader croaks, the one that picks up the load can pick up where the otherone left off or a little before or whatever.
 
-### Data Pipeline Architecture
-Producer -> DataCombiner -> MessageLengthWriter -> FileWriter --> FileListeners (Not Implemented) -> Consumer (Not Implemented)
-                                                              \-> ReplicatedFile (Not Implemented)
+###Files?
+Yep... File IO isn't as bad as you might think... In fact it's definately better than the network IO. Also, if you feel like writing it to a persistent disk, then you can make deployments a little simpler. You can also use a SSD and help throughput.
 
-##### `Producer`
-The producer is the entry point to the data pipeline.  There are different producer types, each having unique ways to submit data:
+###Distributed?
+Also yep... Each file has a leader and replicas (or once that is implemented at least...). So your client will connect to all the brokers and then decide who to write to based on what file you write to and read from. When a leader goes down, then the first replica picks up the role and the clients will talk to it. So a client only talks to the leader of a file. A strong use of Talaria is to write to many files and distribute the load across them. 
 
-> #### Websockets (Not Implemented)
->> Websockets is the best fit for the REST API.  It only uses the write functionality (and therefore the server never writes anything to the websocket).
+###Use Case?
+Data! The idea behind Talaria is to write and read lots of data.
 
-> #### TCP (Not Implemented)
->> This is the most optimal method, but is less RESTful.  The server simply reads from the TCP stream.
-
-> #### Non-Network (Not Implemented)
->> This is the best method if Talaria is embedded and not networked.
-
-##### `DataCombiner`
-The `DataCombiner` takes data from multiple producers, that want to write to the same place, and combines it.  It is a fan-in.
-
-##### `MessageLengthWriter`
-The `MessageLengthWriter` appends the data length to each message.  This is necessary for the `Consumer` to properly read the data.
-
-##### `FileWriter`
-The `FileWriter` breaks up the data into blocks.  Each file does not exceed the set length, and records on closing how many writes it had.
-
-##### `FileListeners`
-The `FileListeners` writes to each of the listening `Consumers`.
-
-##### `ReplicatedFile`
-The `ReplicatedFile` replicates the files across the cluster. This protects the data against failures by copying to different locations.
-
-##### `Consumer`
-The `Consumer` reads from the data pipeline and returns the data to the client.  The consumer starts from a specific index, and reads data as it is available.  If the `Consumer` reaches the end of the file, it waits for additional data.  There are different `Consumer` types, see the `Producer` types.
+###Contribute?
+Do it! Pull requests encouraged!
