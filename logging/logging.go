@@ -40,7 +40,7 @@ func Log(name string) Logger {
 }
 
 func (l Logger) Error(msg string, err error) {
-	l.log.Error(fmt.Sprintf("%s: %v", msg, err))
+	l.log.Error("%s: %v", msg, err)
 }
 
 func (l Logger) Errorf(msg string, values ...interface{}) {
@@ -56,11 +56,11 @@ func (l Logger) Debug(msg string, values ...interface{}) {
 }
 
 func (l Logger) Fatal(msg string, err error) {
-	l.log.Fatal(fmt.Sprintf("%s: %v", msg, err))
+	l.log.Fatalf("%s: %v", msg, err)
 }
 
 func (l Logger) Panic(msg string, err error) {
-	l.log.Panic(fmt.Sprintf("%s: %v", msg, err))
+	l.log.Panicf("%s: %v", msg, err)
 }
 
 func convertLogLevel(level LogLevel) gologging.Level {
