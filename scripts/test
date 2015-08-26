@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
+
+SRC_DIR=$( cd "${DIR}/.." && pwd )
+cd $SRC_DIR
+
+ginkgo unfocus
+goimports -w .
+go vet ./...
+ginkgo -r -race
