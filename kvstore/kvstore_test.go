@@ -44,12 +44,12 @@ var _ = Describe("Kvstore", func() {
 				results <- value
 			})
 
-			kv.Announce("some-name-1")
-			kv.Announce("some-name-1")
-			kv.Announce("some-name-2")
-			Eventually(results).Should(Receive(Equal("some-name-1")))
-			Eventually(results).Should(Receive(Equal("some-name-1")))
-			Eventually(results).Should(Receive(Equal("some-name-2")))
+			go kv.Announce("some-name-1")
+			go kv.Announce("some-name-1")
+			go kv.Announce("some-name-2")
+			Eventually(results, 3).Should(Receive(Equal("some-name-1")))
+			Eventually(results, 3).Should(Receive(Equal("some-name-1")))
+			Eventually(results, 3).Should(Receive(Equal("some-name-2")))
 		})
 
 		It("Invokes callback when announcement is already made", func() {

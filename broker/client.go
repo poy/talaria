@@ -14,17 +14,17 @@ type Client struct {
 	nextFileId uint64
 }
 
-func NewClient(URL string) *Client {
+func NewClient(URL string) (*Client, error) {
 	log := logging.Log("Client")
 	conn, _, err := websocket.DefaultDialer.Dial(URL, nil)
 	if err != nil {
-		log.Panic("Failed to connect", err)
+		return nil, err
 	}
 
 	return &Client{
 		log:  log,
 		conn: conn,
-	}
+	}, nil
 }
 
 func (c *Client) FetchFile(name string) (uint64, error) {

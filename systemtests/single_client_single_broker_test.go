@@ -15,8 +15,9 @@ import (
 var _ = Describe("SingleClientSingleBroker", func() {
 
 	var (
-		URL     string
 		session *gexec.Session
+		client  *broker.Client
+		URL     string
 	)
 
 	BeforeEach(func() {
@@ -24,6 +25,7 @@ var _ = Describe("SingleClientSingleBroker", func() {
 		tmpDir, err = ioutil.TempDir("/tmp", "systemtalaria")
 		Expect(err).ToNot(HaveOccurred())
 		URL, session = startTalaria(tmpDir)
+		client = startClient(URL)
 	})
 
 	AfterEach(func() {
@@ -34,7 +36,6 @@ var _ = Describe("SingleClientSingleBroker", func() {
 	})
 
 	It("Writes and reads from a single file", func() {
-		client := broker.NewClient(URL)
 		fileId, err := client.FetchFile("some-file")
 		Expect(err).ToNot(HaveOccurred())
 		for i := byte(0); i < 100; i++ {
@@ -49,9 +50,10 @@ var _ = Describe("SingleClientSingleBroker", func() {
 		}
 	})
 
-	It("Writes and reads from a single file at the same time", func() {
-		clientW := broker.NewClient(URL)
-		clientR := broker.NewClient(URL)
+	It("Writes and reads from a single file at the same time", func(done Done) {
+		defer close(done)
+		clientW := startClient(URL)
+		clientR := startClient(URL)
 		fileIdW, err := clientW.FetchFile("some-file")
 		Expect(err).ToNot(HaveOccurred())
 		fileIdR, err := clientR.FetchFile("some-file")
@@ -65,8 +67,8 @@ var _ = Describe("SingleClientSingleBroker", func() {
 			defer wg.Done()
 			for i := 0; i < 10; i++ {
 				_, err = clientW.WriteToFile(fileIdW, []byte{byte(i)})
-				time.Sleep(time.Millisecond)
 				Expect(err).ToNot(HaveOccurred())
+				time.Sleep(time.Millisecond)
 			}
 		}()
 
@@ -80,6 +82,6 @@ var _ = Describe("SingleClientSingleBroker", func() {
 		for i := 0; i < 10; i++ {
 			Expect(result[i]).To(BeEquivalentTo(i))
 		}
-	})
+	}, 5)
 
 })

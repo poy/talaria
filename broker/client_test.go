@@ -26,7 +26,9 @@ var _ = Describe("Client", func() {
 		req, _ = http.NewRequest("GET", "http://some.url", nil)
 		mockServer = newMockServer()
 		server = httptest.NewServer(mockServer)
-		client = broker.NewClient("ws" + server.URL[4:])
+		var err error
+		client, err = broker.NewClient("ws" + server.URL[4:])
+		Expect(err).ToNot(HaveOccurred())
 	})
 
 	Context("FetchFile", func() {

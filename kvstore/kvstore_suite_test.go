@@ -2,6 +2,7 @@ package kvstore_test
 
 import (
 	"io/ioutil"
+	"os"
 	"os/exec"
 	"testing"
 
@@ -49,4 +50,6 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	consulSession.Kill()
 	consulSession.Wait("60s", "200ms")
+	Expect(os.RemoveAll(tmpDir)).To(Succeed())
+	gexec.CleanupBuildArtifacts()
 })

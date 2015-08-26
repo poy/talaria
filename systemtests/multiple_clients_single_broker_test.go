@@ -3,10 +3,9 @@ package systemtests_test
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"sync"
 	"time"
-
-	"github.com/apoydence/talaria/broker"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -30,7 +29,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 		session.Kill()
 		session.Wait("10s", "100ms")
 
-		//		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	It("Writes and reads from separate files", func(done Done) {
@@ -40,7 +39,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 
 		runTest := func(name string) {
 			defer wg.Done()
-			client := broker.NewClient(URL)
+			client := startClient(URL)
 			fileId, err := client.FetchFile(name)
 			Expect(err).ToNot(HaveOccurred())
 			for i := byte(0); i < 100; i++ {
@@ -63,9 +62,9 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 				runTest(fmt.Sprintf("some-file-%d", num))
 			}(i)
 		}
-	})
+	}, 10)
 
-	FIt("Writes and reads from the same file", func(done Done) {
+	It("Writes and reads from the same file", func(done Done) {
 		defer close(done)
 		wg := sync.WaitGroup{}
 		defer wg.Wait()
@@ -74,8 +73,8 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 
 		runTest := func(value byte) {
 			defer wg.Done()
-			clientW := broker.NewClient(URL)
-			clientR := broker.NewClient(URL)
+			clientW := startClient(URL)
+			clientR := startClient(URL)
 			fileIdW, err := clientW.FetchFile("some-name")
 			Expect(err).ToNot(HaveOccurred())
 			fileIdR, err := clientR.FetchFile("some-name")

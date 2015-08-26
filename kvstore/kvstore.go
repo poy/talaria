@@ -2,6 +2,7 @@ package kvstore
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
 	"sync"
 	"time"
@@ -70,7 +71,7 @@ func (k *KVStore) Acquire(key string) bool {
 
 func (k *KVStore) Announce(name string) {
 	pair := &api.KVPair{
-		Key:   fmt.Sprintf("%s", AnnouncePrefix),
+		Key:   fmt.Sprintf("%s-%d", AnnouncePrefix, rand.Int63()),
 		Value: []byte(name),
 	}
 
@@ -85,24 +86,26 @@ func (k *KVStore) ListenForLeader(name string, callback func(name, uri string)) 
 }
 
 func (k *KVStore) listenForLeader(name string, callback func(name, uri string)) {
-	pair, meta, err := k.kv.Get(fmt.Sprintf("%s-%s", Prefix, name), nil)
+	pairs, meta, err := k.kv.List(fmt.Sprintf("%s-%s", Prefix, name), nil)
 	if err != nil {
 		k.log.Panic("Unable to list keys", err)
 	}
 
-	if pair != nil {
+	for _, pair := range pairs {
 		callback(stripLeaderPrefix(pair.Key), string(pair.Value))
 	}
 
-	var options api.QueryOptions
+	options := api.QueryOptions{
+		RequireConsistent: true,
+	}
 	for {
 		options.WaitIndex = meta.LastIndex
-		pair, meta, err = k.kv.Get(fmt.Sprintf("%s-%s", Prefix, name), &options)
+		pairs, meta, err = k.kv.List(fmt.Sprintf("%s-%s", Prefix, name), &options)
 		if err != nil {
 			k.log.Error("Unable to get leader", err)
 			return
 		}
-		if pair != nil {
+		for _, pair := range pairs {
 			callback(stripLeaderPrefix(pair.Key), string(pair.Value))
 		}
 	}
@@ -134,6 +137,7 @@ func (k *KVStore) listenForAnnouncements(callback func(name string)) {
 			k.log.Error("Unable to list keys", err)
 			return
 		}
+
 		for _, pair := range pairs {
 			callback(string(pair.Value))
 		}

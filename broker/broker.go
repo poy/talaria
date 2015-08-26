@@ -27,7 +27,6 @@ type ControllerProvider interface {
 
 func StartBrokerServer(brokerPort int, orch Orchestrator, provider IoProvider) {
 	log := logging.Log("BrokerServer")
-	//provider := NewFileProvider(dataDir, segmentLength, numSegments, time.Second)
 	controllerProvider := newControllerProvider(provider, orch)
 	broker := NewBroker(controllerProvider)
 
