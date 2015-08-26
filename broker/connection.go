@@ -8,26 +8,26 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-type Client struct {
+type Connection struct {
 	log        logging.Logger
 	conn       *websocket.Conn
 	nextFileId uint64
 }
 
-func NewClient(URL string) (*Client, error) {
-	log := logging.Log("Client")
+func NewConnection(URL string) (*Connection, error) {
+	log := logging.Log("Connection")
 	conn, _, err := websocket.DefaultDialer.Dial(URL, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Client{
+	return &Connection{
 		log:  log,
 		conn: conn,
 	}, nil
 }
 
-func (c *Client) FetchFile(name string) (uint64, error) {
+func (c *Connection) FetchFile(name string) (uint64, error) {
 	err := c.writeFetchFile(c.nextId(), name)
 	if err != nil {
 		return 0, err
@@ -49,7 +49,7 @@ func (c *Client) FetchFile(name string) (uint64, error) {
 	return serverMsg.FileLocation.GetFileId(), nil
 }
 
-func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
+func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	err := c.writeWriteToFile(c.nextId(), fileId, data)
 	if err != nil {
 		return 0, err
@@ -71,7 +71,7 @@ func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	return serverMsg.FileOffset.GetOffset(), nil
 }
 
-func (c *Client) ReadFromFile(fileId uint64) ([]byte, error) {
+func (c *Connection) ReadFromFile(fileId uint64) ([]byte, error) {
 	err := c.writeReadFromFile(c.nextId(), fileId)
 	if err != nil {
 		return nil, err
@@ -93,12 +93,12 @@ func (c *Client) ReadFromFile(fileId uint64) ([]byte, error) {
 	return serverMsg.ReadData.GetData(), nil
 }
 
-func (c *Client) nextId() uint64 {
+func (c *Connection) nextId() uint64 {
 	c.nextFileId++
 	return c.nextFileId
 }
 
-func (c *Client) readMessage() (*messages.Server, error) {
+func (c *Connection) readMessage() (*messages.Server, error) {
 	_, data, err := c.conn.ReadMessage()
 	if err != nil {
 		return nil, err
@@ -113,7 +113,7 @@ func (c *Client) readMessage() (*messages.Server, error) {
 	return server, nil
 }
 
-func (c *Client) writeMessage(msg *messages.Client) error {
+func (c *Connection) writeMessage(msg *messages.Client) error {
 	data, err := msg.Marshal()
 	if err != nil {
 		c.log.Panic("Unable to marshal message", err)
@@ -122,7 +122,7 @@ func (c *Client) writeMessage(msg *messages.Client) error {
 	return c.conn.WriteMessage(websocket.BinaryMessage, data)
 }
 
-func (c *Client) writeFetchFile(id uint64, name string) error {
+func (c *Connection) writeFetchFile(id uint64, name string) error {
 	messageType := messages.Client_FetchFile
 	msg := &messages.Client{
 		MessageType: &messageType,
@@ -134,7 +134,7 @@ func (c *Client) writeFetchFile(id uint64, name string) error {
 	return c.writeMessage(msg)
 }
 
-func (c *Client) writeWriteToFile(msgId, fileId uint64, data []byte) error {
+func (c *Connection) writeWriteToFile(msgId, fileId uint64, data []byte) error {
 	messageType := messages.Client_WriteToFile
 	msg := &messages.Client{
 		MessageType: &messageType,
@@ -147,7 +147,7 @@ func (c *Client) writeWriteToFile(msgId, fileId uint64, data []byte) error {
 	return c.writeMessage(msg)
 }
 
-func (c *Client) writeReadFromFile(msgId, fileId uint64) error {
+func (c *Connection) writeReadFromFile(msgId, fileId uint64) error {
 	messageType := messages.Client_ReadFromFile
 	msg := &messages.Client{
 		MessageType: &messageType,

@@ -12,12 +12,12 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = Describe("SingleClientSingleBroker", func() {
+var _ = Describe("SingleConnectionSingleBroker", func() {
 
 	var (
-		session *gexec.Session
-		client  *broker.Client
-		URL     string
+		session    *gexec.Session
+		connection *broker.Connection
+		URL        string
 	)
 
 	BeforeEach(func() {
@@ -25,7 +25,7 @@ var _ = Describe("SingleClientSingleBroker", func() {
 		tmpDir, err = ioutil.TempDir("/tmp", "systemtalaria")
 		Expect(err).ToNot(HaveOccurred())
 		URL, session = startTalaria(tmpDir)
-		client = startClient(URL)
+		connection = startConnection(URL)
 	})
 
 	AfterEach(func() {
@@ -36,14 +36,14 @@ var _ = Describe("SingleClientSingleBroker", func() {
 	})
 
 	It("Writes and reads from a single file", func() {
-		fileId, err := client.FetchFile("some-file")
+		fileId, err := connection.FetchFile("some-file")
 		Expect(err).ToNot(HaveOccurred())
 		for i := byte(0); i < 100; i++ {
-			_, err = client.WriteToFile(fileId, []byte{i})
+			_, err = connection.WriteToFile(fileId, []byte{i})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
-		data, err := client.ReadFromFile(fileId)
+		data, err := connection.ReadFromFile(fileId)
 		Expect(err).ToNot(HaveOccurred())
 		for i := 0; i < 100; i++ {
 			Expect(data[i]).To(BeEquivalentTo(i))
@@ -52,11 +52,11 @@ var _ = Describe("SingleClientSingleBroker", func() {
 
 	It("Writes and reads from a single file at the same time", func(done Done) {
 		defer close(done)
-		clientW := startClient(URL)
-		clientR := startClient(URL)
-		fileIdW, err := clientW.FetchFile("some-file")
+		connectionW := startConnection(URL)
+		connectionR := startConnection(URL)
+		fileIdW, err := connectionW.FetchFile("some-file")
 		Expect(err).ToNot(HaveOccurred())
-		fileIdR, err := clientR.FetchFile("some-file")
+		fileIdR, err := connectionR.FetchFile("some-file")
 		Expect(err).ToNot(HaveOccurred())
 
 		wg := sync.WaitGroup{}
@@ -66,7 +66,7 @@ var _ = Describe("SingleClientSingleBroker", func() {
 			defer GinkgoRecover()
 			defer wg.Done()
 			for i := 0; i < 10; i++ {
-				_, err = clientW.WriteToFile(fileIdW, []byte{byte(i)})
+				_, err = connectionW.WriteToFile(fileIdW, []byte{byte(i)})
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(time.Millisecond)
 			}
@@ -74,7 +74,7 @@ var _ = Describe("SingleClientSingleBroker", func() {
 
 		var result []byte
 		for len(result) < 10 {
-			data, err := clientR.ReadFromFile(fileIdR)
+			data, err := connectionR.ReadFromFile(fileIdR)
 			Expect(err).ToNot(HaveOccurred())
 			result = append(result, data...)
 		}

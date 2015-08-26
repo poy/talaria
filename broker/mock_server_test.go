@@ -10,15 +10,15 @@ import (
 )
 
 type mockServer struct {
-	serverCh chan []byte
-	clientCh chan *messages.Client
-	upgrader websocket.Upgrader
+	serverCh     chan []byte
+	connectionCh chan *messages.Client
+	upgrader     websocket.Upgrader
 }
 
 func newMockServer() *mockServer {
 	return &mockServer{
-		serverCh: make(chan []byte, 100),
-		clientCh: make(chan *messages.Client, 100),
+		serverCh:     make(chan []byte, 100),
+		connectionCh: make(chan *messages.Client, 100),
 	}
 }
 
@@ -26,8 +26,8 @@ func (m *mockServer) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	conn, err := m.upgrader.Upgrade(writer, req, nil)
 	Expect(err).ToNot(HaveOccurred())
 
-	clientMsg := readMessage(conn)
-	m.clientCh <- clientMsg
+	connectionMsg := readMessage(conn)
+	m.connectionCh <- connectionMsg
 
 	serverMsg := <-m.serverCh
 

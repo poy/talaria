@@ -81,15 +81,15 @@ func startTalaria(tmpDir string) (string, *gexec.Session) {
 	return URL, session
 }
 
-func startClient(URL string) *broker.Client {
-	var client *broker.Client
+func startConnection(URL string) *broker.Connection {
+	var connection *broker.Connection
 	f := func() error {
 		var err error
-		client, err = broker.NewClient(URL)
+		connection, err = broker.NewConnection(URL)
 		return err
 	}
 	Eventually(f, 5).ShouldNot(HaveOccurred())
-	return client
+	return connection
 }
 
 func startConsul() {
