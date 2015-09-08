@@ -17,6 +17,7 @@ message Client{
 
 message FetchFile{
 	required string name = 1;
+	required uint64 fileId = 2;
 }
 
 message WriteToFile{

@@ -34,9 +34,10 @@ func newMockController() *mockController {
 	}
 }
 
-func (m *mockController) FetchFile(name string) (uint64, *broker.FetchFileError) {
+func (m *mockController) FetchFile(fileId uint64, name string) *broker.FetchFileError {
 	m.fetchFileCh <- name
-	return <-m.fetchFileIdCh, <-m.fetchFileErrCh
+	m.fetchFileIdCh <- fileId
+	return <-m.fetchFileErrCh
 }
 
 func (m *mockController) WriteToFile(id uint64, data []byte) (int64, error) {

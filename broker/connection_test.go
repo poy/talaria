@@ -32,38 +32,62 @@ var _ = Describe("Connection", func() {
 	})
 
 	Context("FetchFile", func() {
-		It("Returns an error", func(done Done) {
+
+		AfterEach(func() {
+			connection.Close()
+			server.Close()
+		})
+
+		It("returns an error", func(done Done) {
 			defer close(done)
 
 			mockServer.serverCh <- buildError(99, "some-error")
 
 			go func() {
 				defer GinkgoRecover()
-				_, err := connection.FetchFile("some-file")
+				err := connection.FetchFile(9, "some-file")
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("some-error"))
 			}()
 
 			var connection *messages.Client
-			Eventually(mockServer.connectionCh).Should(Receive(&connection))
+			Eventually(mockServer.clientCh).Should(Receive(&connection))
 			Expect(connection.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(connection.FetchFile.GetName()).To(Equal("some-file"))
 		})
 
-		It("Returns the file ID", func(done Done) {
+		It("returns the file ID", func(done Done) {
 			defer close(done)
 
-			mockServer.serverCh <- buildFileLocation(99, 8)
+			mockServer.serverCh <- buildFileLocation(99)
 
 			go func() {
 				defer GinkgoRecover()
-				fileId, err := connection.FetchFile("some-file")
-				Expect(err).ToNot(HaveOccurred())
-				Expect(fileId).To(BeEquivalentTo(8))
+				err := connection.FetchFile(9, "some-file")
+				Expect(err).To(BeNil())
 			}()
 
 			var connection *messages.Client
-			Eventually(mockServer.connectionCh).Should(Receive(&connection))
+			Eventually(mockServer.clientCh).Should(Receive(&connection))
+			Expect(connection.GetMessageType()).To(Equal(messages.Client_FetchFile))
+			Expect(connection.FetchFile).ToNot(BeNil())
+			Expect(connection.FetchFile.GetName()).To(Equal("some-file"))
+		})
+
+		It("Returns a redirect error", func(done Done) {
+			defer close(done)
+
+			mockServer.serverCh <- buildRemoteFileLocation(99, "http://some.uri")
+
+			go func() {
+				defer GinkgoRecover()
+				err := connection.FetchFile(9, "some-file")
+				Expect(err).ToNot(BeNil())
+				Expect(err.Uri).To(Equal("http://some.uri"))
+			}()
+
+			var connection *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&connection))
 			Expect(connection.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(connection.FetchFile).ToNot(BeNil())
 			Expect(connection.FetchFile.GetName()).To(Equal("some-file"))
@@ -71,6 +95,12 @@ var _ = Describe("Connection", func() {
 	})
 
 	Context("WriteToFile", func() {
+
+		AfterEach(func() {
+			connection.Close()
+			server.Close()
+		})
+
 		It("Returns an error", func(done Done) {
 			defer close(done)
 
@@ -85,7 +115,7 @@ var _ = Describe("Connection", func() {
 			}()
 
 			var connection *messages.Client
-			Eventually(mockServer.connectionCh).Should(Receive(&connection))
+			Eventually(mockServer.clientCh).Should(Receive(&connection))
 			Expect(connection.GetMessageType()).To(Equal(messages.Client_WriteToFile))
 			Expect(connection.WriteToFile).ToNot(BeNil())
 			Expect(connection.WriteToFile.GetFileId()).To(BeEquivalentTo(8))
@@ -106,7 +136,7 @@ var _ = Describe("Connection", func() {
 			}()
 
 			var connection *messages.Client
-			Eventually(mockServer.connectionCh).Should(Receive(&connection))
+			Eventually(mockServer.clientCh).Should(Receive(&connection))
 			Expect(connection.GetMessageType()).To(Equal(messages.Client_WriteToFile))
 			Expect(connection.WriteToFile).ToNot(BeNil())
 			Expect(connection.WriteToFile.GetFileId()).To(BeEquivalentTo(8))
@@ -115,6 +145,12 @@ var _ = Describe("Connection", func() {
 	})
 
 	Context("ReadFromFile", func() {
+
+		AfterEach(func() {
+			connection.Close()
+			server.Close()
+		})
+
 		It("Returns an error", func(done Done) {
 			defer close(done)
 
@@ -128,7 +164,7 @@ var _ = Describe("Connection", func() {
 			}()
 
 			var connection *messages.Client
-			Eventually(mockServer.connectionCh).Should(Receive(&connection))
+			Eventually(mockServer.clientCh).Should(Receive(&connection))
 			Expect(connection.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
 			Expect(connection.ReadFromFile).ToNot(BeNil())
 			Expect(connection.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
@@ -148,10 +184,18 @@ var _ = Describe("Connection", func() {
 			}()
 
 			var connection *messages.Client
-			Eventually(mockServer.connectionCh).Should(Receive(&connection))
+			Eventually(mockServer.clientCh).Should(Receive(&connection))
 			Expect(connection.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
 			Expect(connection.ReadFromFile).ToNot(BeNil())
 			Expect(connection.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
+		})
+	})
+
+	Context("Close", func() {
+		It("closes the connection to the server", func(done Done) {
+			defer close(done)
+			connection.Close()
+			server.Close()
 		})
 	})
 
@@ -172,14 +216,29 @@ func buildError(messageId uint64, errStr string) []byte {
 	return data
 }
 
-func buildFileLocation(messageId, fileId uint64) []byte {
+func buildFileLocation(messageId uint64) []byte {
 	msgType := messages.Server_FileLocation
 	server := &messages.Server{
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(messageId),
 		FileLocation: &messages.FileLocation{
-			Local:  proto.Bool(true),
-			FileId: proto.Uint64(fileId),
+			Local: proto.Bool(true),
+		},
+	}
+
+	data, err := server.Marshal()
+	Expect(err).ToNot(HaveOccurred())
+	return data
+}
+
+func buildRemoteFileLocation(messageId uint64, uri string) []byte {
+	msgType := messages.Server_FileLocation
+	server := &messages.Server{
+		MessageType: &msgType,
+		MessageId:   proto.Uint64(messageId),
+		FileLocation: &messages.FileLocation{
+			Local: proto.Bool(false),
+			Uri:   proto.String(uri),
 		},
 	}
 

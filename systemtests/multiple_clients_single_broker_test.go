@@ -34,21 +34,22 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 
 	It("Writes and reads from separate files", func(done Done) {
 		defer close(done)
-		wg := sync.WaitGroup{}
+		var wg sync.WaitGroup
 		defer wg.Wait()
 
 		runTest := func(name string) {
 			defer wg.Done()
-			connection := startConnection(URL)
-			fileId, err := connection.FetchFile(name)
+			client := startClient(URL)
+			fileId, err := client.FetchFile(name)
 			Expect(err).ToNot(HaveOccurred())
 			for i := byte(0); i < 100; i++ {
-				_, err = connection.WriteToFile(fileId, []byte{i})
+				_, err = client.WriteToFile(fileId, []byte{i})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			data, err := connection.ReadFromFile(fileId)
+			data, err := client.ReadFromFile(fileId)
 			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(HaveLen(100))
 			for i := 0; i < 100; i++ {
 				Expect(data[i]).To(BeEquivalentTo(i))
 			}
@@ -66,23 +67,23 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 
 	It("Writes and reads from the same file", func(done Done) {
 		defer close(done)
-		wg := sync.WaitGroup{}
+		var wg sync.WaitGroup
 		defer wg.Wait()
 		count := 2
 		wg.Add(count)
 
 		runTest := func(value byte) {
 			defer wg.Done()
-			connectionW := startConnection(URL)
-			connectionR := startConnection(URL)
-			fileIdW, err := connectionW.FetchFile("some-name")
+			clientW := startClient(URL)
+			clientR := startClient(URL)
+			fileIdW, err := clientW.FetchFile("some-name")
 			Expect(err).ToNot(HaveOccurred())
-			fileIdR, err := connectionR.FetchFile("some-name")
+			fileIdR, err := clientR.FetchFile("some-name")
 			Expect(err).ToNot(HaveOccurred())
 			go func() {
 				defer GinkgoRecover()
 				for i := 0; i < 100; i++ {
-					_, err = connectionW.WriteToFile(fileIdW, []byte{value})
+					_, err = clientW.WriteToFile(fileIdW, []byte{value})
 					Expect(err).ToNot(HaveOccurred())
 					time.Sleep(time.Millisecond)
 				}
@@ -90,7 +91,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 
 			valueCount := 0
 			for i := 0; i < count*100; {
-				data, err := connectionR.ReadFromFile(fileIdR)
+				data, err := clientR.ReadFromFile(fileIdR)
 				Expect(err).ToNot(HaveOccurred())
 				i += len(data)
 				for _, d := range data {

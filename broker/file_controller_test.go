@@ -43,18 +43,13 @@ var _ = Describe("FileController", func() {
 
 			By("Giving the same for the same file name")
 			populateLocalOrch(mockOrchestrator)
-			fileIdA, err := fileController.FetchFile("some-name-1")
+			err := fileController.FetchFile(3, "some-name-1")
 			Expect(err).To(BeNil())
-
-			fileIdB, err := fileController.FetchFile("some-name-1")
-			Expect(err).To(BeNil())
-			Expect(fileIdA).To(Equal(fileIdB))
 
 			By("Giving a different ID for a different name")
 			populateLocalOrch(mockOrchestrator)
-			fileIdC, err := fileController.FetchFile("some-name-2")
+			err = fileController.FetchFile(4, "some-name-2")
 			Expect(err).To(BeNil())
-			Expect(fileIdC).ToNot(Equal(fileIdA))
 		})
 
 		It("asks the orchestrator for the leader", func(done Done) {
@@ -70,7 +65,7 @@ var _ = Describe("FileController", func() {
 			By("Not returning an error for a local file")
 			populateProvider()
 			populateLocalOrch(mockOrchestrator)
-			_, err := fileController.FetchFile("some-name-1")
+			err := fileController.FetchFile(3, "some-name-1")
 			Expect(err).To(BeNil())
 			Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-1")))
 
@@ -79,15 +74,32 @@ var _ = Describe("FileController", func() {
 			expectedUri := "http://uri.b"
 			mockOrchestrator.uriCh <- expectedUri
 			mockOrchestrator.localCh <- false
-			_, err = fileController.FetchFile("some-name-2")
+			err = fileController.FetchFile(4, "some-name-2")
 			Expect(err).To(HaveOccurred())
 			Expect(err.Uri).To(Equal(expectedUri))
 			Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-2")))
 		}, 2)
+
+		It("returns an error if the same file ID is used more than once", func() {
+			mockFileProvider.writerCh <- nil
+			mockFileProvider.readerCh <- nil
+
+			populateLocalOrch(mockOrchestrator)
+			err := fileController.FetchFile(3, "some-name-1")
+			Expect(err).To(BeNil())
+
+			By("not returning an error for the same name")
+			err = fileController.FetchFile(3, "some-name-1")
+			Expect(err).To(BeNil())
+
+			By("returning an error for a different name")
+			err = fileController.FetchFile(3, "some-name-2")
+			Expect(err).To(HaveOccurred())
+		})
 	})
 
 	Context("WriteToFile", func() {
-		It("Returns an error for an unknown file ID", func() {
+		It("seturns an error for an unknown file ID", func() {
 			_, err := fileController.WriteToFile(0, []byte("some-data"))
 			Expect(err).To(HaveOccurred())
 			Expect(mockFileProvider.writerNameCh).ToNot(Receive())
@@ -102,11 +114,13 @@ var _ = Describe("FileController", func() {
 			mockFileProvider.readerCh <- nil
 			expectedData := []byte("some-data")
 
-			fileId1, ffErr := fileController.FetchFile("some-name-1")
+			var fileId1 uint64 = 3
+			ffErr := fileController.FetchFile(fileId1, "some-name-1")
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
 
-			fileId2, ffErr := fileController.FetchFile("some-name-2")
+			var fileId2 uint64 = 4
+			ffErr = fileController.FetchFile(fileId2, "some-name-2")
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-2")))
 
@@ -130,7 +144,7 @@ var _ = Describe("FileController", func() {
 	})
 
 	Context("ReadFromFile", func() {
-		It("Returns an error for an unknown file ID", func() {
+		It("returns an error for an unknown file ID", func() {
 			_, err := fileController.ReadFromFile(0)
 			Expect(err).To(HaveOccurred())
 			Expect(mockFileProvider.writerNameCh).ToNot(Receive())
@@ -145,7 +159,8 @@ var _ = Describe("FileController", func() {
 
 			writeToFile(file, expectedData, 0, 0)
 
-			fileId1, ffErr := fileController.FetchFile("some-name-1")
+			var fileId1 uint64 = 3
+			ffErr := fileController.FetchFile(fileId1, "some-name-1")
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
 

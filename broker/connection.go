@@ -9,9 +9,9 @@ import (
 )
 
 type Connection struct {
-	log        logging.Logger
-	conn       *websocket.Conn
-	nextFileId uint64
+	log       logging.Logger
+	conn      *websocket.Conn
+	messageId uint64
 }
 
 func NewConnection(URL string) (*Connection, error) {
@@ -27,30 +27,34 @@ func NewConnection(URL string) (*Connection, error) {
 	}, nil
 }
 
-func (c *Connection) FetchFile(name string) (uint64, error) {
-	err := c.writeFetchFile(c.nextId(), name)
+func (c *Connection) FetchFile(fileId uint64, name string) *FetchFileError {
+	err := c.writeFetchFile(c.nextMsgId(), name)
 	if err != nil {
-		return 0, err
+		return NewFetchFileError(err.Error(), "")
 	}
 
 	serverMsg, err := c.readMessage()
 	if err != nil {
-		return 0, err
+		return NewFetchFileError(err.Error(), "")
 	}
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return 0, fmt.Errorf(serverMsg.Error.GetMessage())
+		return NewFetchFileError(serverMsg.Error.GetMessage(), "")
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileLocation {
-		return 0, fmt.Errorf("Unexpected MessageType: %v", serverMsg.GetMessageType())
+		return NewFetchFileError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "")
 	}
 
-	return serverMsg.FileLocation.GetFileId(), nil
+	if !serverMsg.FileLocation.GetLocal() {
+		return NewFetchFileError("Redirect", serverMsg.FileLocation.GetUri())
+	}
+
+	return nil
 }
 
 func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, error) {
-	err := c.writeWriteToFile(c.nextId(), fileId, data)
+	err := c.writeWriteToFile(c.nextMsgId(), fileId, data)
 	if err != nil {
 		return 0, err
 	}
@@ -72,7 +76,7 @@ func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, error) {
 }
 
 func (c *Connection) ReadFromFile(fileId uint64) ([]byte, error) {
-	err := c.writeReadFromFile(c.nextId(), fileId)
+	err := c.writeReadFromFile(c.nextMsgId(), fileId)
 	if err != nil {
 		return nil, err
 	}
@@ -93,9 +97,13 @@ func (c *Connection) ReadFromFile(fileId uint64) ([]byte, error) {
 	return serverMsg.ReadData.GetData(), nil
 }
 
-func (c *Connection) nextId() uint64 {
-	c.nextFileId++
-	return c.nextFileId
+func (c *Connection) Close() {
+	c.conn.Close()
+}
+
+func (c *Connection) nextMsgId() uint64 {
+	c.messageId++
+	return c.messageId
 }
 
 func (c *Connection) readMessage() (*messages.Server, error) {

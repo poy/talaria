@@ -130,8 +130,7 @@ func (m *Error) GetMessage() string {
 
 type FileLocation struct {
 	Local            *bool   `protobuf:"varint,1,req,name=local" json:"local,omitempty"`
-	FileId           *uint64 `protobuf:"varint,2,opt,name=fileId" json:"fileId,omitempty"`
-	Uri              *string `protobuf:"bytes,3,opt,name=uri" json:"uri,omitempty"`
+	Uri              *string `protobuf:"bytes,2,opt,name=uri" json:"uri,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -144,13 +143,6 @@ func (m *FileLocation) GetLocal() bool {
 		return *m.Local
 	}
 	return false
-}
-
-func (m *FileLocation) GetFileId() uint64 {
-	if m != nil && m.FileId != nil {
-		return *m.FileId
-	}
-	return 0
 }
 
 func (m *FileLocation) GetUri() string {
@@ -490,23 +482,6 @@ func (m *FileLocation) Unmarshal(data []byte) error {
 			b := bool(v != 0)
 			m.Local = &b
 		case 2:
-			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FileId", wireType)
-			}
-			var v uint64
-			for shift := uint(0); ; shift += 7 {
-				if index >= l {
-					return io.ErrUnexpectedEOF
-				}
-				b := data[index]
-				index++
-				v |= (uint64(b) & 0x7F) << shift
-				if b < 0x80 {
-					break
-				}
-			}
-			m.FileId = &v
-		case 3:
 			if wireType != 2 {
 				return fmt.Errorf("proto: wrong wireType = %d for field Uri", wireType)
 			}
@@ -742,9 +717,6 @@ func (m *FileLocation) Size() (n int) {
 	if m.Local != nil {
 		n += 2
 	}
-	if m.FileId != nil {
-		n += 1 + sovServer(uint64(*m.FileId))
-	}
 	if m.Uri != nil {
 		l = len(*m.Uri)
 		n += 1 + l + sovServer(uint64(l))
@@ -919,13 +891,8 @@ func (m *FileLocation) MarshalTo(data []byte) (n int, err error) {
 		}
 		i++
 	}
-	if m.FileId != nil {
-		data[i] = 0x10
-		i++
-		i = encodeVarintServer(data, i, uint64(*m.FileId))
-	}
 	if m.Uri != nil {
-		data[i] = 0x1a
+		data[i] = 0x12
 		i++
 		i = encodeVarintServer(data, i, uint64(len(*m.Uri)))
 		i += copy(data[i:], *m.Uri)

@@ -23,8 +23,7 @@ message Error{
 
 message FileLocation{
 	required bool local = 1;
-	optional uint64 fileId = 2;
-	optional string uri = 3;
+	optional string uri = 2;
 }
 
 message FileOffset{

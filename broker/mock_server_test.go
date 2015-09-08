@@ -6,38 +6,53 @@ import (
 	"github.com/apoydence/talaria/messages"
 	"github.com/gorilla/websocket"
 
+	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 type mockServer struct {
-	serverCh     chan []byte
-	connectionCh chan *messages.Client
-	upgrader     websocket.Upgrader
+	serverCh          chan []byte
+	connEstablishedCh chan struct{}
+	clientCh          chan *messages.Client
+	upgrader          websocket.Upgrader
 }
 
 func newMockServer() *mockServer {
 	return &mockServer{
-		serverCh:     make(chan []byte, 100),
-		connectionCh: make(chan *messages.Client, 100),
+		serverCh:          make(chan []byte, 100),
+		clientCh:          make(chan *messages.Client, 100),
+		connEstablishedCh: make(chan struct{}),
 	}
 }
 
 func (m *mockServer) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
+	defer GinkgoRecover()
 	conn, err := m.upgrader.Upgrade(writer, req, nil)
 	Expect(err).ToNot(HaveOccurred())
+	close(m.connEstablishedCh)
 
-	connectionMsg := readMessage(conn)
-	m.connectionCh <- connectionMsg
+	for {
+		clientMsg := m.readMessage(conn)
+		if clientMsg == nil {
+			return
+		}
+		m.clientCh <- clientMsg
 
-	serverMsg := <-m.serverCh
+		serverMsg := <-m.serverCh
+		if serverMsg == nil {
+			return
+		}
 
-	err = conn.WriteMessage(websocket.BinaryMessage, serverMsg)
-	Expect(err).ToNot(HaveOccurred())
+		err = conn.WriteMessage(websocket.BinaryMessage, serverMsg)
+		Expect(err).ToNot(HaveOccurred())
+	}
 }
 
-func readMessage(conn *websocket.Conn) *messages.Client {
+func (m *mockServer) readMessage(conn *websocket.Conn) *messages.Client {
 	_, data, err := conn.ReadMessage()
-	Expect(err).ToNot(HaveOccurred())
+	if err != nil {
+		return nil
+	}
 
 	var msg messages.Client
 	err = msg.Unmarshal(data)

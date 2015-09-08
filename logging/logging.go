@@ -40,7 +40,7 @@ func Log(name string) Logger {
 }
 
 func (l Logger) Error(msg string, err error) {
-	l.log.Error("%s: %v", msg, err)
+	l.log.Error(fmt.Sprintf("%s: %v", msg, err))
 }
 
 func (l Logger) Errorf(msg string, values ...interface{}) {
