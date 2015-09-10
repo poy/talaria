@@ -7,7 +7,6 @@ import (
 	"os/exec"
 
 	"github.com/apoydence/talaria/broker"
-	"github.com/apoydence/talaria/kvstore"
 	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -38,39 +37,19 @@ var _ = BeforeSuite(func() {
 	var err error
 	path, err = gexec.Build("github.com/apoydence/talaria")
 	Expect(err).ToNot(HaveOccurred())
-	startConsul()
 })
 
 var _ = AfterSuite(func() {
-	consulSession.Kill()
-	consulSession.Wait("60s", "200ms")
-	Expect(os.RemoveAll(consulTmpDir)).To(Succeed())
 	gexec.CleanupBuildArtifacts()
 })
 
 var _ = BeforeEach(func() {
-	sessions, _, err := consulClient.Session().List(nil)
-	Expect(err).ToNot(HaveOccurred())
-	for _, s := range sessions {
-		keys, _, err := consulClient.KV().Keys("", "", nil)
-		for _, k := range keys {
-			pair := &api.KVPair{
-				Key:     k,
-				Session: s.ID,
-			}
-			consulClient.KV().Release(pair, nil)
-		}
-
-		_, err = consulClient.Session().Destroy(s.ID, nil)
-		Expect(err).ToNot(HaveOccurred())
+	if consulSession != nil {
+		consulSession.Kill()
+		consulSession.Wait("60s", "200ms")
+		Expect(os.RemoveAll(consulTmpDir)).To(Succeed())
 	}
-
-	err = consulClient.Agent().CheckDeregister(kvstore.CheckName)
-	Expect(err).ToNot(HaveOccurred())
-	_, err = consulClient.KV().DeleteTree(kvstore.Prefix, nil)
-	Expect(err).ToNot(HaveOccurred())
-	_, err = consulClient.KV().DeleteTree(kvstore.AnnouncePrefix, nil)
-	Expect(err).ToNot(HaveOccurred())
+	startConsul()
 })
 
 func startTalaria(tmpDir string) (string, *gexec.Session) {

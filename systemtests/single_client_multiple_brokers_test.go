@@ -46,7 +46,8 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 		client.Close()
 	})
 
-	It("Writes and reads from a single file", func() {
+	It("Writes and reads from a single file", func(done Done) {
+		defer close(done)
 		fileId, err := client.FetchFile("some-file")
 		Expect(err).ToNot(HaveOccurred())
 
@@ -60,6 +61,6 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 		for i := 0; i < 100; i++ {
 			Expect(data[i]).To(BeEquivalentTo(i))
 		}
-	})
+	}, 5)
 
 })
