@@ -20,7 +20,7 @@ var _ = Describe("Kvstore", func() {
 
 	BeforeEach(func() {
 		clientAddr = "some-addr"
-		kv = kvstore.New(clientAddr)
+		kv = kvstore.New(clientAddr, 9999)
 		key = "some-key"
 		keyWithPrefix = fmt.Sprintf("%s-%s", kvstore.Prefix, key)
 	})

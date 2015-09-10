@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"io"
+	"math/rand"
 	"os"
 	"time"
 
@@ -19,9 +20,12 @@ const (
 	segmentLength = "segmentLength"
 	numSegments   = "numSegments"
 	port          = "port"
+	healthPort    = "healthPort"
 )
 
 func main() {
+	rand.Seed(time.Now().UnixNano())
+
 	app := cli.NewApp()
 	app.Name = "talaria"
 	app.Usage = "Distribute your data"
@@ -53,6 +57,11 @@ func main() {
 			Value: 8888,
 			Usage: "The port to use",
 		},
+		cli.IntFlag{
+			Name:  healthPort + ", hp",
+			Value: 8889,
+			Usage: "The port to use for health checking",
+		},
 	}
 
 	app.Run(os.Args)
@@ -62,8 +71,8 @@ func run(c *cli.Context) {
 	validateFlags(c)
 	setLogLevel(c)
 
-	clientAddr := fmt.Sprintf("localhost:%d", c.Int(port))
-	kvStore := kvstore.New(clientAddr)
+	clientAddr := fmt.Sprintf("http://localhost:%d", c.Int(port))
+	kvStore := kvstore.New(clientAddr, c.Int(healthPort))
 	ioProvider := broker.NewFileProvider(c.String(dataDir), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)), time.Second)
 	orch := orchestrator.New(clientAddr, ioWrapper(ioProvider.ProvideWriter), kvStore)
 

@@ -2,7 +2,10 @@ package broker
 
 import (
 	"fmt"
+	"net/url"
 	"sync"
+
+	"github.com/apoydence/talaria/logging"
 )
 
 type connInfo struct {
@@ -11,6 +14,7 @@ type connInfo struct {
 }
 
 type Client struct {
+	log          logging.Logger
 	syncFetchIdx sync.Mutex
 	nextFetchIdx uint64
 
@@ -21,8 +25,10 @@ type Client struct {
 }
 
 func NewClient(URLs ...string) (*Client, error) {
+	log := logging.Log("Client")
 	var conns []*connInfo
 	for _, URL := range URLs {
+		verifyUrl(URL, log)
 		conn, err := NewConnection(URL)
 		if err != nil {
 			return nil, err
@@ -34,6 +40,7 @@ func NewClient(URLs ...string) (*Client, error) {
 	}
 
 	return &Client{
+		log:     log,
 		conns:   conns,
 		fileIds: make(map[uint64]*connInfo),
 	}, nil
@@ -123,4 +130,11 @@ func (c *Client) fetchConnection(URL string) *connInfo {
 		}
 	}
 	return nil
+}
+
+func verifyUrl(URL string, log logging.Logger) {
+	u, _ := url.Parse(URL)
+	if u == nil || u.Host == "" {
+		log.Panicf("Invalid URL: %s", URL)
+	}
 }

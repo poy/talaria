@@ -59,8 +59,16 @@ func (l Logger) Fatal(msg string, err error) {
 	l.log.Fatalf("%s: %v", msg, err)
 }
 
+func (l Logger) Fatalf(msg string, values ...interface{}) {
+	l.log.Fatalf(msg, values...)
+}
+
 func (l Logger) Panic(msg string, err error) {
 	l.log.Panicf("%s: %v", msg, err)
+}
+
+func (l Logger) Panicf(msg string, values ...interface{}) {
+	l.log.Panicf(msg, values...)
 }
 
 func convertLogLevel(level LogLevel) gologging.Level {

@@ -83,12 +83,12 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
 	fetchFile := message.GetFetchFile()
 	err := controller.FetchFile(fetchFile.GetFileId(), fetchFile.GetName())
-	if err != nil {
+	if err != nil && err.Uri == "" {
 		b.writeError(err.Error(), message, conn)
 		return
 	}
 
-	b.writeFileLocation(message, conn)
+	b.writeFileLocation(err, message, conn)
 }
 
 func (b *Broker) writeToFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
@@ -135,13 +135,19 @@ func (b *Broker) writeError(errStr string, message *messages.Client, conn *webso
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeFileLocation(message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) writeFileLocation(fetchFileErr *FetchFileError, message *messages.Client, conn *websocket.Conn) {
+	var uri string
+	if fetchFileErr != nil {
+		uri = fetchFileErr.Uri
+	}
+
 	msgType := messages.Server_FileLocation
 	server := &messages.Server{
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(message.GetMessageId()),
 		FileLocation: &messages.FileLocation{
-			Local: proto.Bool(true),
+			Local: proto.Bool(uri == ""),
+			Uri:   proto.String(uri),
 		},
 	}
 	b.writeMessage(server, conn)

@@ -46,7 +46,7 @@ var _ = Describe("Broker", func() {
 
 	Context("FetchFile", func() {
 
-		It("Reports an error", func(done Done) {
+		It("reports an error", func(done Done) {
 			defer close(done)
 			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -75,7 +75,7 @@ var _ = Describe("Broker", func() {
 			Expect(server.Error.GetMessage()).To(Equal("some-error"))
 		})
 
-		It("Reports the file ID", func(done Done) {
+		It("reports the file ID", func(done Done) {
 			defer close(done)
 			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -102,6 +102,39 @@ var _ = Describe("Broker", func() {
 			Expect(server.GetMessageType()).To(Equal(messages.Server_FileLocation))
 			Expect(server.Error).To(BeNil())
 			Expect(server.FileLocation).ToNot(BeNil())
+			Expect(server.FileLocation.GetLocal()).To(BeTrue())
+		})
+
+		It("reports the redirected URI", func(done Done) {
+			defer close(done)
+			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			expectedUri := "http://some.url"
+			mockController.fetchFileIdCh <- 8
+			mockController.fetchFileErrCh <- broker.NewFetchFileError("some-error", expectedUri)
+
+			fetchFile := buildFetchFile(99, "some-file")
+			data, err := proto.Marshal(fetchFile)
+			Expect(err).ToNot(HaveOccurred())
+
+			conn.WriteMessage(websocket.BinaryMessage, data)
+
+			Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+
+			_, data, err = conn.ReadMessage()
+			Expect(err).ToNot(HaveOccurred())
+
+			server := &messages.Server{}
+			err = server.Unmarshal(data)
+			Expect(err).ToNot(HaveOccurred())
+
+			Expect(server.GetMessageId()).To(BeEquivalentTo(99))
+			Expect(server.GetMessageType()).To(Equal(messages.Server_FileLocation))
+			Expect(server.Error).To(BeNil())
+			Expect(server.FileLocation).ToNot(BeNil())
+			Expect(server.FileLocation.GetUri()).To(Equal(expectedUri))
+			Expect(server.FileLocation.GetLocal()).To(BeFalse())
 		})
 	})
 

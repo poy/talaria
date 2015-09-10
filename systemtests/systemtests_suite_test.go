@@ -25,6 +25,7 @@ var (
 	path            string
 	tmpDir          string
 	nextTalariaPort int
+	nextHealthPort  int
 
 	consulTmpDir  string
 	consulSession *gexec.Session
@@ -33,6 +34,7 @@ var (
 
 var _ = BeforeSuite(func() {
 	nextTalariaPort = 8888
+	nextHealthPort = 9999
 	var err error
 	path, err = gexec.Build("github.com/apoydence/talaria")
 	Expect(err).ToNot(HaveOccurred())
@@ -72,20 +74,21 @@ var _ = BeforeEach(func() {
 })
 
 func startTalaria(tmpDir string) (string, *gexec.Session) {
-	cmd := exec.Command(path, "-d", tmpDir, "-logLevel", "CRITICAL", "-port", fmt.Sprintf("%d", nextTalariaPort))
+	cmd := exec.Command(path, "-d", tmpDir, "-logLevel", "CRITICAL", "-port", fmt.Sprintf("%d", nextTalariaPort), "-healthPort", fmt.Sprintf("%d", nextHealthPort))
 	session, err := gexec.Start(cmd, os.Stdout, os.Stdout)
 	Expect(err).ToNot(HaveOccurred())
 	Consistently(session.Exited, 1).ShouldNot(BeClosed())
 	URL := fmt.Sprintf("ws://localhost:%d", nextTalariaPort)
 	nextTalariaPort++
+	nextHealthPort++
 	return URL, session
 }
 
-func startClient(URL string) *broker.Client {
+func startClient(URLs ...string) *broker.Client {
 	var client *broker.Client
 	f := func() error {
 		var err error
-		client, err = broker.NewClient(URL)
+		client, err = broker.NewClient(URLs...)
 		return err
 	}
 	Eventually(f, 5).ShouldNot(HaveOccurred())

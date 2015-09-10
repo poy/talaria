@@ -25,19 +25,21 @@ type KVStore struct {
 	sessionName string
 }
 
-func New(clientAddr string) *KVStore {
+func New(clientAddr string, healthPort int) *KVStore {
 	log := logging.Log("KVStore")
 	client, err := api.NewClient(api.DefaultConfig())
 	if err != nil {
 		log.Panic("Unable to create client", err)
 	}
 
+	healthCheckName := fmt.Sprintf("%s-%d", CheckName, rand.Int63())
+
 	return &KVStore{
 		log:         log,
 		client:      client,
 		kv:          client.KV(),
 		clientAddr:  clientAddr,
-		sessionName: registerSession(client, log),
+		sessionName: registerSession(healthPort, healthCheckName, client, log),
 	}
 }
 
@@ -55,18 +57,7 @@ func (k *KVStore) FetchLeader(key string) (string, bool) {
 }
 
 func (k *KVStore) Acquire(key string) bool {
-	pair := &api.KVPair{
-		Key:     fmt.Sprintf("%s-%s", Prefix, key),
-		Value:   []byte(k.clientAddr),
-		Session: k.sessionName,
-	}
-
-	ok, _, err := k.kv.Acquire(pair, nil)
-	if err != nil {
-		k.log.Panic("Error acquiring key", err)
-	}
-
-	return ok
+	return k.tryAcquire(key)
 }
 
 func (k *KVStore) Announce(name string) {
@@ -83,6 +74,27 @@ func (k *KVStore) Announce(name string) {
 
 func (k *KVStore) ListenForLeader(name string, callback func(name, uri string)) {
 	go k.listenForLeader(name, callback)
+}
+
+func (k *KVStore) tryAcquire(key string) bool {
+	pair := &api.KVPair{
+		Key:     fmt.Sprintf("%s-%s", Prefix, key),
+		Value:   []byte(k.clientAddr),
+		Session: k.sessionName,
+	}
+
+	var ok bool
+	var err error
+	for i := 0; i < 5; i++ {
+		ok, _, err = k.kv.Acquire(pair, nil)
+		if err == nil {
+			return ok
+		}
+		time.Sleep(time.Second)
+	}
+
+	k.log.Panic("Error acquiring key", err)
+	return false
 }
 
 func (k *KVStore) listenForLeader(name string, callback func(name, uri string)) {
@@ -145,20 +157,20 @@ func (k *KVStore) listenForAnnouncements(callback func(name string)) {
 	}
 }
 
-func registerSession(client *api.Client, log logging.Logger) string {
-	go setupHealthCheckEndpoint(log)
+func registerSession(healthPort int, healthCheckName string, client *api.Client, log logging.Logger) string {
+	go setupHealthCheckEndpoint(healthPort, log)
 
 	checkReg := &api.AgentCheckRegistration{
-		Name: CheckName,
+		Name: healthCheckName,
 	}
-	checkReg.AgentServiceCheck.HTTP = "http://localhost:9999"
+	checkReg.AgentServiceCheck.HTTP = fmt.Sprintf("http://localhost:%d", healthPort)
 	checkReg.AgentServiceCheck.Interval = "1s"
 
 	err := client.Agent().CheckRegister(checkReg)
 	if err != nil {
 		log.Panic("Failed to register health check", err)
 	}
-	waitForHealthy(client.Health(), log)
+	waitForHealthy(healthCheckName, client.Health(), log)
 
 	sessionEntry := &api.SessionEntry{
 		Checks: []string{checkReg.Name},
@@ -169,10 +181,20 @@ func registerSession(client *api.Client, log logging.Logger) string {
 		log.Panic("Unable to create session", err)
 	}
 
+	for {
+		entry, _, err := client.Session().Info(session, nil)
+		if err != nil {
+			log.Panic("Unable to read session info", err)
+		}
+		if entry != nil {
+			break
+		}
+	}
+
 	return session
 }
 
-func waitForHealthy(health *api.Health, log logging.Logger) {
+func waitForHealthy(healthCheckName string, health *api.Health, log logging.Logger) {
 	for {
 		checks, _, err := health.State("passing", nil)
 		if err != nil {
@@ -180,7 +202,7 @@ func waitForHealthy(health *api.Health, log logging.Logger) {
 		}
 
 		for _, check := range checks {
-			if check.Name == CheckName {
+			if check.Name == healthCheckName {
 				return
 			}
 		}
@@ -191,10 +213,10 @@ func waitForHealthy(health *api.Health, log logging.Logger) {
 
 var setupHealthCheckOnce sync.Once
 
-func setupHealthCheckEndpoint(log logging.Logger) {
+func setupHealthCheckEndpoint(healthPort int, log logging.Logger) {
 	setupHealthCheckOnce.Do(func() {
 		http.HandleFunc("/", serviceHealthCheck)
-		err := http.ListenAndServe(":9999", nil)
+		err := http.ListenAndServe(fmt.Sprintf(":%d", healthPort), nil)
 		if err != nil {
 			log.Panic("Unable to start health check listener", err)
 		}
@@ -202,4 +224,5 @@ func setupHealthCheckEndpoint(log logging.Logger) {
 }
 
 func serviceHealthCheck(http.ResponseWriter, *http.Request) {
+	// NOP
 }

@@ -33,9 +33,11 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		session.Wait("10s", "100ms")
 
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
+		client.Close()
 	})
 
-	It("Writes and reads from a single file", func() {
+	It("Writes and reads from a single file", func(done Done) {
+		defer close(done)
 		fileId, err := client.FetchFile("some-file")
 		Expect(err).ToNot(HaveOccurred())
 		for i := byte(0); i < 100; i++ {
@@ -48,7 +50,7 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		for i := 0; i < 100; i++ {
 			Expect(data[i]).To(BeEquivalentTo(i))
 		}
-	})
+	}, 5)
 
 	It("Writes and reads from a single file at the same time", func(done Done) {
 		defer close(done)
