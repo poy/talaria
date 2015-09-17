@@ -5,6 +5,7 @@ import (
 
 	"github.com/apoydence/talaria/logging"
 	"github.com/apoydence/talaria/messages"
+	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/websocket"
 )
 
@@ -28,7 +29,7 @@ func NewConnection(URL string) (*Connection, error) {
 }
 
 func (c *Connection) FetchFile(fileId uint64, name string) *FetchFileError {
-	err := c.writeFetchFile(c.nextMsgId(), name)
+	err := c.writeFetchFile(c.nextMsgId(), fileId, name)
 	if err != nil {
 		return NewFetchFileError(err.Error(), "")
 	}
@@ -130,13 +131,14 @@ func (c *Connection) writeMessage(msg *messages.Client) error {
 	return c.conn.WriteMessage(websocket.BinaryMessage, data)
 }
 
-func (c *Connection) writeFetchFile(id uint64, name string) error {
+func (c *Connection) writeFetchFile(msgId, fileId uint64, name string) error {
 	messageType := messages.Client_FetchFile
 	msg := &messages.Client{
-		MessageType: &messageType,
-		MessageId:   &id,
+		MessageType: messageType.Enum(),
+		MessageId:   proto.Uint64(msgId),
 		FetchFile: &messages.FetchFile{
-			Name: &name,
+			Name:   proto.String(name),
+			FileId: proto.Uint64(fileId),
 		},
 	}
 	return c.writeMessage(msg)
@@ -145,10 +147,10 @@ func (c *Connection) writeFetchFile(id uint64, name string) error {
 func (c *Connection) writeWriteToFile(msgId, fileId uint64, data []byte) error {
 	messageType := messages.Client_WriteToFile
 	msg := &messages.Client{
-		MessageType: &messageType,
-		MessageId:   &msgId,
+		MessageType: messageType.Enum(),
+		MessageId:   proto.Uint64(msgId),
 		WriteToFile: &messages.WriteToFile{
-			FileId: &fileId,
+			FileId: proto.Uint64(fileId),
 			Data:   data,
 		},
 	}
@@ -158,10 +160,10 @@ func (c *Connection) writeWriteToFile(msgId, fileId uint64, data []byte) error {
 func (c *Connection) writeReadFromFile(msgId, fileId uint64) error {
 	messageType := messages.Client_ReadFromFile
 	msg := &messages.Client{
-		MessageType: &messageType,
-		MessageId:   &msgId,
+		MessageType: messageType.Enum(),
+		MessageId:   proto.Uint64(msgId),
 		ReadFromFile: &messages.ReadFromFile{
-			FileId: &fileId,
+			FileId: proto.Uint64(fileId),
 		},
 	}
 	return c.writeMessage(msg)

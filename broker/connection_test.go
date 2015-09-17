@@ -54,6 +54,7 @@ var _ = Describe("Connection", func() {
 			Eventually(mockServer.clientCh).Should(Receive(&connection))
 			Expect(connection.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(connection.FetchFile.GetName()).To(Equal("some-file"))
+			Expect(connection.FetchFile.GetFileId()).To(BeEquivalentTo(9))
 		})
 
 		It("returns the file ID", func(done Done) {
