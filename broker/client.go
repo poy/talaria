@@ -82,7 +82,7 @@ func (c *Client) Close() {
 func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	conn := c.fetchConnectionById(fileId)
 	if conn == nil {
-		return 0, fmt.Errorf("Unknown fileId: %d", fileId)
+		return 0, fmt.Errorf("Unknown file ID: %d", fileId)
 	}
 
 	return conn.conn.WriteToFile(fileId, data)
@@ -91,7 +91,7 @@ func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
 func (c *Client) ReadFromFile(fileId uint64) ([]byte, error) {
 	conn := c.fetchConnectionById(fileId)
 	if conn == nil {
-		return nil, fmt.Errorf("Unknown fileId: %d", fileId)
+		return nil, fmt.Errorf("Unknown file ID: %d", fileId)
 	}
 
 	return conn.conn.ReadFromFile(fileId)
