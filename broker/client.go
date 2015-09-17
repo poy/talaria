@@ -10,7 +10,7 @@ import (
 
 type connInfo struct {
 	URL  string
-	conn *Connection
+	conn *syncedConnection
 }
 
 type Client struct {
@@ -35,7 +35,7 @@ func NewClient(URLs ...string) (*Client, error) {
 		}
 		conns = append(conns, &connInfo{
 			URL:  URL,
-			conn: conn,
+			conn: newSyncedConnection(conn),
 		})
 	}
 
@@ -70,7 +70,7 @@ func (c *Client) FetchFile(name string) (uint64, error) {
 		return fileId, nil
 	}
 
-	return 0, err
+	return 0, fmt.Errorf(err.Error())
 }
 
 func (c *Client) Close() {

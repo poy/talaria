@@ -3,6 +3,7 @@ package broker_test
 import (
 	"fmt"
 	"net/http/httptest"
+	"sync"
 
 	"github.com/apoydence/talaria/broker"
 	"github.com/apoydence/talaria/messages"
@@ -61,9 +62,16 @@ var _ = Describe("Client", func() {
 				server.serverCh <- buildFileLocation(99)
 			}
 
+			var wg sync.WaitGroup
+			defer wg.Wait()
+			wg.Add(len(mockServers))
 			for i := range mockServers {
-				_, err := client.FetchFile(fmt.Sprintf("some-file-%d", i))
-				Expect(err).ToNot(HaveOccurred())
+				go func(iter int) {
+					defer GinkgoRecover()
+					defer wg.Done()
+					_, err := client.FetchFile(fmt.Sprintf("some-file-%d", iter))
+					Expect(err).ToNot(HaveOccurred())
+				}(i)
 			}
 
 			for i, server := range mockServers {
@@ -94,7 +102,10 @@ var _ = Describe("Client", func() {
 			defer close(done)
 			mockServers[0].serverCh <- buildRemoteFileLocation(99, servers[1].URL)
 			mockServers[1].serverCh <- buildFileLocation(99)
-			mockServers[1].serverCh <- buildFileOffset(99, 101)
+
+			for i := 0; i < 10; i++ {
+				mockServers[1].serverCh <- buildFileOffset(99, 101)
+			}
 
 			id, ffErr := client.FetchFile("some-file-1")
 			Expect(ffErr).ToNot(HaveOccurred())
@@ -104,13 +115,23 @@ var _ = Describe("Client", func() {
 			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(msg.GetFetchFile().GetName()).To(Equal("some-file-1"))
 
-			expectedData := []byte("some-data")
-			_, err := client.WriteToFile(id, expectedData)
-			Expect(err).ToNot(HaveOccurred())
+			var wg sync.WaitGroup
+			defer wg.Wait()
+			for i := 0; i < 10; i++ {
+				wg.Add(1)
+				go func() {
+					defer GinkgoRecover()
+					defer wg.Done()
+					expectedData := []byte("some-data")
+					_, err := client.WriteToFile(id, expectedData)
+					Expect(err).ToNot(HaveOccurred())
 
-			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
-			Expect(msg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
-			Expect(msg.GetWriteToFile().GetData()).To(Equal(expectedData))
+					var msg *messages.Client
+					Eventually(mockServers[1].clientCh).Should(Receive(&msg))
+					Expect(msg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
+					Expect(msg.GetWriteToFile().GetData()).To(Equal(expectedData))
+				}()
+			}
 		}, 5)
 	})
 
