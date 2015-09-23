@@ -3,6 +3,7 @@ package broker_test
 import (
 	"fmt"
 	"net/http/httptest"
+	"sync"
 
 	"github.com/apoydence/talaria/broker"
 	"github.com/apoydence/talaria/messages"
@@ -199,6 +200,46 @@ var _ = Describe("Broker", func() {
 			Expect(server.FileOffset).ToNot(BeNil())
 			Expect(server.FileOffset.GetOffset()).To(BeEquivalentTo(77))
 		})
+
+		FMeasure("Writes to a file 1000 times in under a second", func(b Benchmarker) {
+			runtime := b.Time("runtime", func() {
+				count := 1000
+				go func() {
+					for i := 0; i < count; i++ {
+						mockController.writeFileOffsetCh <- 77
+						mockController.writeFileErrCh <- nil
+					}
+				}()
+
+				go func() {
+					for _ = range mockController.writeFileIdCh {
+						//NOP
+					}
+				}()
+
+				go func() {
+					for _ = range mockController.writeFileDataCh {
+						//NOP
+					}
+				}()
+
+				conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				expectedData := []byte("some-data")
+				writeToFile := buildWriteToFile(99, 8, expectedData)
+				data, err := proto.Marshal(writeToFile)
+				Expect(err).ToNot(HaveOccurred())
+
+				for i := 0; i < count; i++ {
+					conn.WriteMessage(websocket.BinaryMessage, data)
+					_, _, err = conn.ReadMessage()
+				}
+				mockController.closeChannels()
+			})
+
+			Expect(runtime.Seconds()).To(BeNumerically("<", 1))
+		}, 5)
 	})
 
 	Context("ReadFromFile", func() {
@@ -258,6 +299,53 @@ var _ = Describe("Broker", func() {
 			Expect(server.ReadData).ToNot(BeNil())
 			Expect(server.ReadData.GetData()).To(Equal(expectedData))
 		})
+
+		FMeasure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
+			var wg sync.WaitGroup
+			wg.Add(2)
+			defer wg.Wait()
+
+			runtime := b.Time("runtime", func() {
+				count := 1000
+				expectedData := []byte("some-data")
+				go func() {
+					for i := 0; i < count; i++ {
+						mockController.readFileDataCh <- expectedData
+						mockController.readFileErrCh <- nil
+					}
+				}()
+
+				go func() {
+					defer wg.Done()
+					for _ = range mockController.readFileIdCh {
+						//NOP
+					}
+				}()
+
+				go func() {
+					defer wg.Done()
+					for _ = range mockController.writeFileDataCh {
+						//NOP
+					}
+				}()
+
+				conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				readFromFile := buildReadFromFile(99, 8)
+				data, err := proto.Marshal(readFromFile)
+				Expect(err).ToNot(HaveOccurred())
+
+				for i := 0; i < count; i++ {
+					conn.WriteMessage(websocket.BinaryMessage, data)
+					_, _, err = conn.ReadMessage()
+				}
+				mockController.closeChannels()
+			})
+
+			Expect(runtime.Seconds()).To(BeNumerically("<", 1))
+		}, 5)
+
 	})
 })
 

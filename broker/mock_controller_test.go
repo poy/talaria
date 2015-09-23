@@ -50,3 +50,18 @@ func (m *mockController) ReadFromFile(id uint64) ([]byte, error) {
 	m.readFileIdCh <- id
 	return <-m.readFileDataCh, <-m.readFileErrCh
 }
+
+func (m *mockController) closeChannels() {
+	close(m.fetchFileCh)
+	close(m.fetchFileIdCh)
+	close(m.fetchFileErrCh)
+
+	close(m.writeFileIdCh)
+	close(m.writeFileDataCh)
+	close(m.writeFileOffsetCh)
+	close(m.writeFileErrCh)
+
+	close(m.readFileIdCh)
+	close(m.readFileDataCh)
+	close(m.readFileErrCh)
+}

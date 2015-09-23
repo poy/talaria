@@ -133,6 +133,37 @@ var _ = Describe("Client", func() {
 				}()
 			}
 		}, 5)
+
+		Measure("Writes to a file 1000 times in under a second", func(b Benchmarker) {
+			runtime := b.Time("runtime", func() {
+				mockServers[0].serverCh <- buildFileLocation(1)
+				count := 1000
+
+				go func() {
+					for i := 0; i < count; i++ {
+						mockServers[0].serverCh <- buildFileOffset(uint64(i+2), 101)
+					}
+				}()
+
+				go func() {
+					for _ = range mockServers[0].clientCh {
+						//NOP
+					}
+				}()
+
+				id, ffErr := client.FetchFile("some-file-1")
+				Expect(ffErr).ToNot(HaveOccurred())
+
+				data := []byte("some-data")
+
+				for i := 0; i < count; i++ {
+					client.WriteToFile(id, data)
+				}
+			})
+
+			Expect(runtime.Seconds()).To(BeNumerically("<", 1))
+
+		}, 5)
 	})
 
 	Context("ReadFromFile", func() {
@@ -155,8 +186,37 @@ var _ = Describe("Client", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
 		})
-	})
 
+		Measure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
+			runtime := b.Time("runtime", func() {
+				mockServers[0].serverCh <- buildFileLocation(1)
+				count := 1000
+				data := []byte("some-data")
+
+				go func() {
+					for i := 0; i < count; i++ {
+						mockServers[0].serverCh <- buildReadData(uint64(i+2), data)
+					}
+				}()
+
+				go func() {
+					for _ = range mockServers[0].clientCh {
+						//NOP
+					}
+				}()
+
+				id, ffErr := client.FetchFile("some-file-1")
+				Expect(ffErr).ToNot(HaveOccurred())
+
+				for i := 0; i < count; i++ {
+					client.ReadFromFile(id)
+				}
+			})
+
+			Expect(runtime.Seconds()).To(BeNumerically("<", 1))
+
+		}, 5)
+	})
 })
 
 func startMockServer() (*mockServer, *httptest.Server) {
