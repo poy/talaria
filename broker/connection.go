@@ -3,6 +3,7 @@ package broker
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/apoydence/talaria/logging"
 	"github.com/apoydence/talaria/messages"
@@ -106,8 +107,7 @@ func (c *Connection) Close() {
 }
 
 func (c *Connection) nextMsgId() uint64 {
-	c.messageId++
-	return c.messageId
+	return atomic.AddUint64(&c.messageId, 1)
 }
 
 func (c *Connection) writeError(err error) {
