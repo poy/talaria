@@ -59,7 +59,7 @@ var _ = Describe("Client", func() {
 			defer close(done)
 
 			for _, server := range mockServers {
-				server.serverCh <- buildFileLocation(99)
+				server.serverCh <- buildFileLocation(1)
 			}
 
 			var wg sync.WaitGroup
@@ -84,8 +84,8 @@ var _ = Describe("Client", func() {
 
 		It("re-fetches a file if it is redirected", func(done Done) {
 			defer close(done)
-			mockServers[0].serverCh <- buildRemoteFileLocation(99, servers[1].URL)
-			mockServers[1].serverCh <- buildFileLocation(99)
+			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
+			mockServers[1].serverCh <- buildFileLocation(1)
 
 			_, err := client.FetchFile("some-file-1")
 			Expect(err).ToNot(HaveOccurred())
@@ -100,11 +100,11 @@ var _ = Describe("Client", func() {
 	Context("WriteToFile", func() {
 		It("writes to the correct broker", func(done Done) {
 			defer close(done)
-			mockServers[0].serverCh <- buildRemoteFileLocation(99, servers[1].URL)
-			mockServers[1].serverCh <- buildFileLocation(99)
+			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
+			mockServers[1].serverCh <- buildFileLocation(1)
 
 			for i := 0; i < 10; i++ {
-				mockServers[1].serverCh <- buildFileOffset(99, 101)
+				mockServers[1].serverCh <- buildFileOffset(uint64(i+2), 101)
 			}
 
 			id, ffErr := client.FetchFile("some-file-1")
@@ -139,9 +139,9 @@ var _ = Describe("Client", func() {
 		It("reads from the correct broker", func(done Done) {
 			defer close(done)
 			expectedData := []byte("some-data")
-			mockServers[0].serverCh <- buildRemoteFileLocation(99, servers[1].URL)
-			mockServers[1].serverCh <- buildFileLocation(99)
-			mockServers[1].serverCh <- buildReadData(99, expectedData)
+			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
+			mockServers[1].serverCh <- buildFileLocation(1)
+			mockServers[1].serverCh <- buildReadData(2, expectedData)
 
 			id, ffErr := client.FetchFile("some-file-1")
 			Expect(ffErr).ToNot(HaveOccurred())

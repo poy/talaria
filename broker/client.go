@@ -10,7 +10,7 @@ import (
 
 type connInfo struct {
 	URL  string
-	conn *syncedConnection
+	conn *Connection
 }
 
 type Client struct {
@@ -35,7 +35,7 @@ func NewClient(URLs ...string) (*Client, error) {
 		}
 		conns = append(conns, &connInfo{
 			URL:  URL,
-			conn: newSyncedConnection(conn),
+			conn: conn,
 		})
 	}
 

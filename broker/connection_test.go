@@ -46,15 +46,15 @@ var _ = Describe("Connection", func() {
 			go func() {
 				defer GinkgoRecover()
 				err := connection.FetchFile(9, "some-file")
-				Expect(err).To(HaveOccurred())
+				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(Equal("some-error"))
 			}()
 
-			var connection *messages.Client
-			Eventually(mockServer.clientCh).Should(Receive(&connection))
-			Expect(connection.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(connection.FetchFile.GetName()).To(Equal("some-file"))
-			Expect(connection.FetchFile.GetFileId()).To(BeEquivalentTo(9))
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+			Expect(clientMsg.FetchFile.GetName()).To(Equal("some-file"))
+			Expect(clientMsg.FetchFile.GetFileId()).To(BeEquivalentTo(9))
 		})
 
 		It("returns the file ID", func(done Done) {
@@ -68,11 +68,11 @@ var _ = Describe("Connection", func() {
 				Expect(err).To(BeNil())
 			}()
 
-			var connection *messages.Client
-			Eventually(mockServer.clientCh).Should(Receive(&connection))
-			Expect(connection.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(connection.FetchFile).ToNot(BeNil())
-			Expect(connection.FetchFile.GetName()).To(Equal("some-file"))
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+			Expect(clientMsg.FetchFile).ToNot(BeNil())
+			Expect(clientMsg.FetchFile.GetName()).To(Equal("some-file"))
 		})
 
 		It("Returns a redirect error", func(done Done) {
@@ -87,11 +87,11 @@ var _ = Describe("Connection", func() {
 				Expect(err.Uri).To(Equal("http://some.uri"))
 			}()
 
-			var connection *messages.Client
-			Eventually(mockServer.clientCh).Should(Receive(&connection))
-			Expect(connection.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(connection.FetchFile).ToNot(BeNil())
-			Expect(connection.FetchFile.GetName()).To(Equal("some-file"))
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+			Expect(clientMsg.FetchFile).ToNot(BeNil())
+			Expect(clientMsg.FetchFile.GetName()).To(Equal("some-file"))
 		})
 	})
 
@@ -115,12 +115,12 @@ var _ = Describe("Connection", func() {
 				Expect(err.Error()).To(Equal("some-error"))
 			}()
 
-			var connection *messages.Client
-			Eventually(mockServer.clientCh).Should(Receive(&connection))
-			Expect(connection.GetMessageType()).To(Equal(messages.Client_WriteToFile))
-			Expect(connection.WriteToFile).ToNot(BeNil())
-			Expect(connection.WriteToFile.GetFileId()).To(BeEquivalentTo(8))
-			Expect(connection.WriteToFile.GetData()).To(Equal(expectedData))
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
+			Expect(clientMsg.WriteToFile).ToNot(BeNil())
+			Expect(clientMsg.WriteToFile.GetFileId()).To(BeEquivalentTo(8))
+			Expect(clientMsg.WriteToFile.GetData()).To(Equal(expectedData))
 		})
 
 		It("Returns the new file offset", func(done Done) {
@@ -136,12 +136,12 @@ var _ = Describe("Connection", func() {
 				Expect(fileOffset).To(BeEquivalentTo(101))
 			}()
 
-			var connection *messages.Client
-			Eventually(mockServer.clientCh).Should(Receive(&connection))
-			Expect(connection.GetMessageType()).To(Equal(messages.Client_WriteToFile))
-			Expect(connection.WriteToFile).ToNot(BeNil())
-			Expect(connection.WriteToFile.GetFileId()).To(BeEquivalentTo(8))
-			Expect(connection.WriteToFile.GetData()).To(Equal(expectedData))
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
+			Expect(clientMsg.WriteToFile).ToNot(BeNil())
+			Expect(clientMsg.WriteToFile.GetFileId()).To(BeEquivalentTo(8))
+			Expect(clientMsg.WriteToFile.GetData()).To(Equal(expectedData))
 		})
 	})
 
@@ -164,11 +164,11 @@ var _ = Describe("Connection", func() {
 				Expect(err.Error()).To(Equal("some-error"))
 			}()
 
-			var connection *messages.Client
-			Eventually(mockServer.clientCh).Should(Receive(&connection))
-			Expect(connection.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
-			Expect(connection.ReadFromFile).ToNot(BeNil())
-			Expect(connection.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
+			Expect(clientMsg.ReadFromFile).ToNot(BeNil())
+			Expect(clientMsg.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
 		})
 
 		It("Returns the data and offset", func(done Done) {
@@ -184,11 +184,11 @@ var _ = Describe("Connection", func() {
 				Expect(data).To(Equal(expectedData))
 			}()
 
-			var connection *messages.Client
-			Eventually(mockServer.clientCh).Should(Receive(&connection))
-			Expect(connection.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
-			Expect(connection.ReadFromFile).ToNot(BeNil())
-			Expect(connection.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
+			Expect(clientMsg.ReadFromFile).ToNot(BeNil())
+			Expect(clientMsg.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
 		})
 	})
 

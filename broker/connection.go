@@ -2,6 +2,7 @@ package broker
 
 import (
 	"fmt"
+	"sync"
 
 	"github.com/apoydence/talaria/logging"
 	"github.com/apoydence/talaria/messages"
@@ -13,6 +14,16 @@ type Connection struct {
 	log       logging.Logger
 	conn      *websocket.Conn
 	messageId uint64
+	writeCh   chan clientMsgInfo
+	errCh     chan error
+
+	lock      sync.Mutex
+	clientMap map[uint64]chan<- *messages.Server
+}
+
+type clientMsgInfo struct {
+	msg    *messages.Client
+	respCh chan<- *messages.Server
 }
 
 func NewConnection(URL string) (*Connection, error) {
@@ -22,22 +33,23 @@ func NewConnection(URL string) (*Connection, error) {
 		return nil, err
 	}
 
-	return &Connection{
-		log:  log,
-		conn: conn,
-	}, nil
+	c := &Connection{
+		log:       log,
+		conn:      conn,
+		errCh:     make(chan error, 100),
+		writeCh:   make(chan clientMsgInfo, 100),
+		clientMap: make(map[uint64]chan<- *messages.Server),
+	}
+
+	go c.readCore()
+	go c.writeCore()
+
+	return c, nil
 }
 
 func (c *Connection) FetchFile(fileId uint64, name string) *FetchFileError {
-	err := c.writeFetchFile(c.nextMsgId(), fileId, name)
-	if err != nil {
-		return NewFetchFileError(err.Error(), "")
-	}
-
-	serverMsg, err := c.readMessage()
-	if err != nil {
-		return NewFetchFileError(err.Error(), "")
-	}
+	respCh := c.writeFetchFile(c.nextMsgId(), fileId, name)
+	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		return NewFetchFileError(serverMsg.Error.GetMessage(), "")
@@ -55,15 +67,8 @@ func (c *Connection) FetchFile(fileId uint64, name string) *FetchFileError {
 }
 
 func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, error) {
-	err := c.writeWriteToFile(c.nextMsgId(), fileId, data)
-	if err != nil {
-		return 0, err
-	}
-
-	serverMsg, err := c.readMessage()
-	if err != nil {
-		return 0, err
-	}
+	respCh := c.writeWriteToFile(c.nextMsgId(), fileId, data)
+	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		return 0, fmt.Errorf(serverMsg.Error.GetMessage())
@@ -77,15 +82,8 @@ func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, error) {
 }
 
 func (c *Connection) ReadFromFile(fileId uint64) ([]byte, error) {
-	err := c.writeReadFromFile(c.nextMsgId(), fileId)
-	if err != nil {
-		return nil, err
-	}
-
-	serverMsg, err := c.readMessage()
-	if err != nil {
-		return nil, err
-	}
+	respCh := c.writeReadFromFile(c.nextMsgId(), fileId)
+	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		return nil, fmt.Errorf(serverMsg.Error.GetMessage())
@@ -98,13 +96,26 @@ func (c *Connection) ReadFromFile(fileId uint64) ([]byte, error) {
 	return serverMsg.ReadData.GetData(), nil
 }
 
+func (c *Connection) Errored() error {
+	return nil
+}
+
 func (c *Connection) Close() {
 	c.conn.Close()
+	close(c.writeCh)
 }
 
 func (c *Connection) nextMsgId() uint64 {
 	c.messageId++
 	return c.messageId
+}
+
+func (c *Connection) writeError(err error) {
+	select {
+	case c.errCh <- err:
+	default:
+		c.log.Panic("Errors are not being read fast enough", err)
+	}
 }
 
 func (c *Connection) readMessage() (*messages.Server, error) {
@@ -122,16 +133,51 @@ func (c *Connection) readMessage() (*messages.Server, error) {
 	return server, nil
 }
 
-func (c *Connection) writeMessage(msg *messages.Client) error {
+func (c *Connection) writeCore() {
+	for msg := range c.writeCh {
+		c.lock.Lock()
+		c.clientMap[msg.msg.GetMessageId()] = msg.respCh
+		c.lock.Unlock()
+
+		c.writeMessage(msg.msg)
+	}
+}
+
+func (c *Connection) readCore() {
+	for {
+		msg, err := c.readMessage()
+		if err != nil {
+			c.writeError(err)
+			return
+		}
+
+		c.lock.Lock()
+		respCh, ok := c.clientMap[msg.GetMessageId()]
+		if !ok {
+			c.log.Error("Reading client message", fmt.Errorf("Unexpected message ID: %d", msg.GetMessageId()))
+			c.lock.Unlock()
+			continue
+		}
+		delete(c.clientMap, msg.GetMessageId())
+		c.lock.Unlock()
+
+		respCh <- msg
+	}
+}
+
+func (c *Connection) writeMessage(msg *messages.Client) {
 	data, err := msg.Marshal()
 	if err != nil {
 		c.log.Panic("Unable to marshal message", err)
 	}
 
-	return c.conn.WriteMessage(websocket.BinaryMessage, data)
+	if err = c.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+		c.writeError(err)
+		return
+	}
 }
 
-func (c *Connection) writeFetchFile(msgId, fileId uint64, name string) error {
+func (c *Connection) writeFetchFile(msgId, fileId uint64, name string) <-chan *messages.Server {
 	messageType := messages.Client_FetchFile
 	msg := &messages.Client{
 		MessageType: messageType.Enum(),
@@ -141,10 +187,17 @@ func (c *Connection) writeFetchFile(msgId, fileId uint64, name string) error {
 			FileId: proto.Uint64(fileId),
 		},
 	}
-	return c.writeMessage(msg)
+
+	respCh := make(chan *messages.Server, 1)
+	c.writeCh <- clientMsgInfo{
+		respCh: respCh,
+		msg:    msg,
+	}
+
+	return respCh
 }
 
-func (c *Connection) writeWriteToFile(msgId, fileId uint64, data []byte) error {
+func (c *Connection) writeWriteToFile(msgId, fileId uint64, data []byte) <-chan *messages.Server {
 	messageType := messages.Client_WriteToFile
 	msg := &messages.Client{
 		MessageType: messageType.Enum(),
@@ -154,10 +207,17 @@ func (c *Connection) writeWriteToFile(msgId, fileId uint64, data []byte) error {
 			Data:   data,
 		},
 	}
-	return c.writeMessage(msg)
+
+	respCh := make(chan *messages.Server, 1)
+	c.writeCh <- clientMsgInfo{
+		respCh: respCh,
+		msg:    msg,
+	}
+
+	return respCh
 }
 
-func (c *Connection) writeReadFromFile(msgId, fileId uint64) error {
+func (c *Connection) writeReadFromFile(msgId, fileId uint64) <-chan *messages.Server {
 	messageType := messages.Client_ReadFromFile
 	msg := &messages.Client{
 		MessageType: messageType.Enum(),
@@ -166,5 +226,12 @@ func (c *Connection) writeReadFromFile(msgId, fileId uint64) error {
 			FileId: proto.Uint64(fileId),
 		},
 	}
-	return c.writeMessage(msg)
+
+	respCh := make(chan *messages.Server, 1)
+	c.writeCh <- clientMsgInfo{
+		respCh: respCh,
+		msg:    msg,
+	}
+
+	return respCh
 }
