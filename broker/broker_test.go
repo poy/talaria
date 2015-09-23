@@ -201,7 +201,7 @@ var _ = Describe("Broker", func() {
 			Expect(server.FileOffset.GetOffset()).To(BeEquivalentTo(77))
 		})
 
-		FMeasure("Writes to a file 1000 times in under a second", func(b Benchmarker) {
+		Measure("Writes to a file 1000 times in under a second", func(b Benchmarker) {
 			runtime := b.Time("runtime", func() {
 				count := 1000
 				go func() {
@@ -300,7 +300,7 @@ var _ = Describe("Broker", func() {
 			Expect(server.ReadData.GetData()).To(Equal(expectedData))
 		})
 
-		FMeasure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
+		Measure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
 			var wg sync.WaitGroup
 			wg.Add(2)
 			defer wg.Wait()
