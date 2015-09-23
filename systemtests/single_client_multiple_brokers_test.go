@@ -71,31 +71,34 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 		defer wg.Wait()
 
 		runTest := func(name string) {
-			defer wg.Done()
 			fileId, err := client.FetchFile(name)
 			Expect(err).ToNot(HaveOccurred())
 
-			for i := byte(0); i < 100; i++ {
-				_, err := client.WriteToFile(fileId, []byte{i})
-				Expect(err).ToNot(HaveOccurred())
-			}
+			go func() {
+				defer GinkgoRecover()
+				for i := byte(0); i < 100; i++ {
+					_, err := client.WriteToFile(fileId, []byte{i})
+					Expect(err).ToNot(HaveOccurred())
+				}
+			}()
 
-			data, err := client.ReadFromFile(fileId)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(data).To(HaveLen(100))
-			for i := 0; i < 100; i++ {
-				Expect(data[i]).To(BeEquivalentTo(i))
-			}
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				for i := 0; i < 3; i++ {
+					data, err := client.ReadFromFile(fileId)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(data).To(HaveLen(1))
+					Expect(data[0]).To(BeEquivalentTo(i))
+				}
+			}()
 		}
 
-		count := 10
+		count := 5
 		wg.Add(count)
 		for i := 0; i < count; i++ {
-			go func(num int) {
-				defer GinkgoRecover()
-				runTest(fmt.Sprintf("some-file-%d", num))
-			}(i)
+			runTest(fmt.Sprintf("some-file-%d", i))
 		}
-	}, 10)
+	}, 30)
 
 })
