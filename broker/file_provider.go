@@ -35,12 +35,12 @@ func (f *FileProvider) ProvideWriter(name string) io.Writer {
 
 	writer, ok := f.writerMap[name]
 	if !ok {
-		writer = files.NewSegmentedFileWriter(path.Join(f.dir, name), f.desiredLength, f.maxSegments)
+		writer = files.NewChunkedFileWriter(files.NewSegmentedFileWriter(path.Join(f.dir, name), f.desiredLength, f.maxSegments))
 		f.writerMap[name] = writer
 	}
 	return writer
 }
 
 func (f *FileProvider) ProvideReader(name string) io.Reader {
-	return files.NewSegmentedFileReader(path.Join(f.dir, name), f.polling)
+	return files.NewChunkedFileReader(files.NewSegmentedFileReader(path.Join(f.dir, name), f.polling))
 }
