@@ -47,11 +47,11 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 				Expect(err).ToNot(HaveOccurred())
 			}
 
-			data, err := client.ReadFromFile(fileId)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(data).To(HaveLen(100))
 			for i := 0; i < 100; i++ {
-				Expect(data[i]).To(BeEquivalentTo(i))
+				data, err := client.ReadFromFile(fileId)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(data).To(HaveLen(1))
+				Expect(data[0]).To(BeEquivalentTo(i))
 			}
 		}
 
