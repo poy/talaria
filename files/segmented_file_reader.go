@@ -32,9 +32,9 @@ func NewSegmentedFileReader(dir string, pollTime time.Duration) *SegmentedFileRe
 }
 
 func (s *SegmentedFileReader) Read(buffer []byte) (int, error) {
-	file := s.fetchFile()
+	s.file = s.fetchFile()
 
-	n, err := file.Read(buffer)
+	n, err := s.file.Read(buffer)
 	s.lastOffset += int64(n)
 	if err == io.EOF {
 		s.file.Close()
