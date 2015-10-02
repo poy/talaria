@@ -1,6 +1,8 @@
 package orchestrator_test
 
 import (
+	"fmt"
+
 	"github.com/apoydence/talaria/orchestrator"
 
 	. "github.com/onsi/ginkgo"
@@ -21,11 +23,11 @@ var _ = Describe("Orchestrator", func() {
 		clientAddr = "some-addr"
 		mockKvStore = newMockKvStore()
 		mockPartManager = newMockPartitionManager()
-		orch = orchestrator.New(clientAddr, mockPartManager, mockKvStore)
+		orch = orchestrator.New(clientAddr, 2, mockPartManager, mockKvStore)
 	})
 
 	Context("FetchLeader", func() {
-		It("Returns an already elected leader", func() {
+		It("returns an already elected leader", func() {
 			expectedLeader := "some-leader"
 			mockKvStore.fetchLeaderTx <- expectedLeader
 			mockKvStore.fetchLeaderOk <- true
@@ -37,7 +39,7 @@ var _ = Describe("Orchestrator", func() {
 			Expect(mockKvStore.fetchLeaderRx).To(Receive(Equal(key)))
 		})
 
-		It("Starts an election for a new partition and waits for results", func() {
+		It("starts an election for a new partition and waits for results", func() {
 			expectedLeader := "some-leader"
 			results := make(chan string, 0)
 			mockKvStore.fetchLeaderTx <- ""
@@ -50,7 +52,7 @@ var _ = Describe("Orchestrator", func() {
 
 			Eventually(mockKvStore.listenNameCh).Should(Receive(Equal(key)))
 			Eventually(mockKvStore.leaderCallbackCh).Should(Receive())
-			Eventually(mockKvStore.announceCh).Should(Receive(Equal(key)))
+			Eventually(mockKvStore.announceCh).Should(Receive(Equal(key + "~0")))
 			mockKvStore.fetchLeaderTx <- expectedLeader
 
 			Eventually(results).Should(Receive(Equal(expectedLeader)))
@@ -58,19 +60,58 @@ var _ = Describe("Orchestrator", func() {
 	})
 
 	Context("Participate in election", func() {
-		It("Listens for election announcements and adds channel on victory", func() {
+		It("listens for election announcements and adds to manager on victory", func() {
 			Eventually(mockKvStore.announcementCallbackCh).Should(Receive())
-			mockKvStore.announceLeaderTx <- key
-			mockKvStore.acquireTx <- true
-			Eventually(mockKvStore.acquireRx).Should(Receive(Equal(key)))
-			Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
+
+			for i := 0; i < 3; i++ {
+				mockKvStore.announceLeaderTx <- fmt.Sprintf("%s~%d", key, i)
+				mockKvStore.acquireTx <- true
+				mockPartManager.partCh <- true
+
+				Eventually(mockKvStore.acquireRx).Should(Receive(Equal(key)))
+
+				By("Asking the participation")
+				Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
+				Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(i)))
+
+				By("Adding to the manager")
+				Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
+				Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(i)))
+
+				if i < 2 {
+					By("Starting an election for the next index")
+					Eventually(mockKvStore.announceCh).Should(Receive(Equal(fmt.Sprintf("%s~%d", key, i+1))))
+				} else {
+					By("Not starting an election for the last index + 1")
+					Consistently(mockKvStore.announceCh).ShouldNot(Receive())
+				}
+			}
 		})
 
-		It("Listens for election announcements and does not add channel on loss", func() {
+		It("does not participate in an election if told not to", func() {
 			Eventually(mockKvStore.announcementCallbackCh).Should(Receive())
-			mockKvStore.announceLeaderTx <- key
+			mockKvStore.announceLeaderTx <- key + "~1"
+			mockPartManager.partCh <- false
+
+			By("Asking the participation")
+			Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
+			Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(1)))
+
+			Consistently(mockKvStore.acquireRx).ShouldNot(Receive())
+		})
+
+		It("listens for election announcements and does not add to manager if lossed", func() {
+			Eventually(mockKvStore.announcementCallbackCh).Should(Receive())
+			mockKvStore.announceLeaderTx <- key + "~1"
 			mockKvStore.acquireTx <- false
+			mockPartManager.partCh <- true
 			Eventually(mockKvStore.acquireRx).Should(Receive(Equal(key)))
+
+			By("Asking the participation")
+			Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
+			Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(1)))
+
+			By("Not adding to the manager")
 			Consistently(mockPartManager.addCh).ShouldNot(Receive())
 		})
 	})

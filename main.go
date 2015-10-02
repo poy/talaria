@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"math/rand"
 	"os"
 	"time"
@@ -19,6 +18,7 @@ const (
 	logLevel      = "logLevel"
 	segmentLength = "segmentLength"
 	numSegments   = "numSegments"
+	numReplicas   = "numReplicas"
 	port          = "port"
 	healthPort    = "healthPort"
 )
@@ -53,6 +53,11 @@ func main() {
 			Usage: "The desired number of bytes for each segment",
 		},
 		cli.IntFlag{
+			Name:  numReplicas + ", r",
+			Value: 2,
+			Usage: "The number of replicas for each partition",
+		},
+		cli.IntFlag{
 			Name:  port + ", p",
 			Value: 8888,
 			Usage: "The port to use",
@@ -74,7 +79,7 @@ func run(c *cli.Context) {
 	clientAddr := fmt.Sprintf("http://localhost:%d", c.Int(port))
 	kvStore := kvstore.New(clientAddr, c.Int(healthPort))
 	ioProvider := broker.NewFileProvider(c.String(dataDir), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)), time.Second)
-	orch := orchestrator.New(clientAddr, ioWrapper(ioProvider.ProvideWriter), kvStore)
+	orch := orchestrator.New(clientAddr, uint(c.Int(numReplicas)), ioProvider, kvStore)
 
 	broker.StartBrokerServer(c.Int(port), orch, ioProvider)
 }
@@ -100,10 +105,4 @@ func quit(msg string, c *cli.Context) {
 	fmt.Println(msg)
 	cli.ShowAppHelp(c)
 	os.Exit(1)
-}
-
-type ioWrapper func(name string) io.Writer
-
-func (i ioWrapper) Add(name string) {
-	i(name)
 }

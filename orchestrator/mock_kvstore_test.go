@@ -52,7 +52,9 @@ func (m *mockKvStore) ListenForLeader(name string, callback func(name, uri strin
 
 func (m *mockKvStore) ListenForAnnouncements(callback func(name string)) {
 	go func() {
-		m.announcementCallbackCh <- callback
-		callback(<-m.announceLeaderTx)
+		for {
+			m.announcementCallbackCh <- callback
+			callback(<-m.announceLeaderTx)
+		}
 	}()
 }

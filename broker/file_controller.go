@@ -6,7 +6,7 @@ import (
 )
 
 type IoProvider interface {
-	ProvideWriter(name string) io.Writer
+	ProvideWriter(name string, replica uint) io.Writer
 	ProvideReader(name string) io.Reader
 }
 
@@ -50,7 +50,7 @@ func (f *FileController) FetchFile(fileId uint64, name string) *FetchFileError {
 
 		f.fileIdMap[fileId] = &ioInfo{
 			name:   name,
-			writer: f.ioProvider.ProvideWriter(name),
+			writer: f.ioProvider.ProvideWriter(name, 0),
 			reader: f.ioProvider.ProvideReader(name),
 			buffer: make([]byte, 1024),
 		}
