@@ -36,7 +36,7 @@ func (s *SegmentedFileReader) Read(buffer []byte) (int, error) {
 
 	n, err := s.file.Read(buffer)
 	s.lastOffset += int64(n)
-	if err == io.EOF {
+	if err == io.EOF && s.pollTime > 0 {
 		s.file.Close()
 		s.file = nil
 		return s.Read(buffer)
