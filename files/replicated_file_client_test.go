@@ -1,6 +1,9 @@
 package files_test
 
 import (
+	"io/ioutil"
+	"os"
+
 	"github.com/apoydence/talaria/files"
 
 	. "github.com/onsi/ginkgo"
@@ -9,6 +12,7 @@ import (
 
 var _ = Describe("ReplicatedFileClient", func() {
 	var (
+		tmpFile              *os.File
 		mockWriterLeader     *mockWriter
 		mockWriterClient     *mockWriter
 		replicatedFileClient *files.ReplicatedFileClient
@@ -18,13 +22,20 @@ var _ = Describe("ReplicatedFileClient", func() {
 	)
 
 	BeforeEach(func() {
+		var err error
+		tmpFile, err = ioutil.TempFile("", "replicated")
+		Expect(err).ToNot(HaveOccurred())
 		mockWriterClient = newMockWriter()
 		mockWriterLeader = newMockWriter()
 
 		mockHttpStarter = newMockHttpStarter()
-		replicatedFileLeader = files.NewReplicatedFileLeader(mockWriterLeader, mockHttpStarter)
+		replicatedFileLeader = files.NewReplicatedFileLeader(mockWriterLeader, tmpFile, mockHttpStarter)
 		url = "ws" + mockHttpStarter.server.URL[4:]
 		replicatedFileClient = files.NewReplicatedFileClient(url, mockWriterClient)
+	})
+
+	AfterEach(func() {
+		Expect(os.Remove(tmpFile.Name())).To(Succeed())
 	})
 
 	It("writes data as receieved", func() {

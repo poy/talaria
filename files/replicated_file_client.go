@@ -1,10 +1,10 @@
 package files
 
 import (
-	"encoding/binary"
 	"io"
 
 	"github.com/apoydence/talaria/logging"
+	"github.com/apoydence/talaria/messages"
 	"github.com/gorilla/websocket"
 )
 
@@ -34,13 +34,32 @@ func (r *ReplicatedFileClient) run(conn *websocket.Conn) {
 		_, data, err := conn.ReadMessage()
 		if err != nil {
 			r.log.Error("Unable to read from leader", err)
-			continue
+			return
 		}
 
-		for i := uint32(0); i < uint32(len(data)); {
-			length := binary.LittleEndian.Uint32(data[i:])
-			r.writer.Write(data[i+4 : i+4+length])
-			i += length + 4
+		_, err = r.writer.Write(data)
+		if err != nil {
+			r.log.Panic("Unable to write to replicated file", err)
+		}
+
+		err = conn.WriteMessage(websocket.BinaryMessage, r.buildFileOffset())
+		if err != nil {
+			r.log.Error("Unable to write to leader", err)
+			return
 		}
 	}
+}
+
+func (r *ReplicatedFileClient) buildFileOffset() []byte {
+	msg := &messages.Server{
+		MessageType: messages.Server_FileOffset.Enum(),
+		FileOffset:  &messages.FileOffset{},
+	}
+
+	data, err := msg.Marshal()
+	if err != nil {
+		r.log.Panic("Unable to marshal message", err)
+	}
+
+	return data
 }
