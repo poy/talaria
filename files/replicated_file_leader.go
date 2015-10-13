@@ -6,8 +6,6 @@ import (
 	"sync"
 
 	"github.com/apoydence/talaria/logging"
-	"github.com/apoydence/talaria/messages"
-	"github.com/gorilla/websocket"
 )
 
 type HttpStarter interface {
@@ -19,38 +17,29 @@ type ReadSeekCloser interface {
 	io.Closer
 }
 
-type clientInfo struct {
-	conn   *websocket.Conn
-	respCh <-chan *messages.Server
-}
-
 type ReplicatedFileLeader struct {
-	log         logging.Logger
-	writer      io.Writer
-	httpStarter HttpStarter
-	upgrader    websocket.Upgrader
-	lenBuffer   []byte
-	preData     ReadSeekCloser
+	log       logging.Logger
+	writer    io.Writer
+	lenBuffer []byte
+	preData   ReadSeekCloser
 
-	syncClients sync.RWMutex
-	clients     []*clientInfo
+	syncClient   sync.RWMutex
+	clientWriter io.Writer
 }
 
-func NewReplicatedFileLeader(writer io.Writer, preData ReadSeekCloser, httpStarter HttpStarter) *ReplicatedFileLeader {
+func NewReplicatedFileLeader(writer io.Writer, preData ReadSeekCloser) *ReplicatedFileLeader {
 	r := &ReplicatedFileLeader{
-		log:         logging.Log("ReplicatedFileLeader"),
-		writer:      writer,
-		httpStarter: httpStarter,
-		lenBuffer:   make([]byte, 4),
-		preData:     preData,
+		log:       logging.Log("ReplicatedFileLeader"),
+		writer:    writer,
+		lenBuffer: make([]byte, 4),
+		preData:   preData,
 	}
-	httpStarter.Start(http.HandlerFunc(r.handleClient))
 
 	return r
 }
 
 func (r *ReplicatedFileLeader) Write(data []byte) (int, error) {
-	r.writeToClients(data)
+	r.writeToClient(data)
 
 	n, err := r.writer.Write(data)
 	if err != nil {
@@ -60,37 +49,32 @@ func (r *ReplicatedFileLeader) Write(data []byte) (int, error) {
 	return n, err
 }
 
-func (r *ReplicatedFileLeader) writeToClients(data []byte) {
-	r.syncClients.RLock()
-	defer r.syncClients.RUnlock()
+func (r *ReplicatedFileLeader) UpdateWriter(writer io.Writer) {
+	r.syncClient.Lock()
+	defer r.syncClient.Unlock()
 
-	for _, client := range r.clients {
-		client.conn.WriteMessage(websocket.BinaryMessage, data)
-		<-client.respCh
-	}
+	r.clientWriter = writer
+	r.writePreData()
 }
 
-func (r *ReplicatedFileLeader) handleClient(writer http.ResponseWriter, req *http.Request) {
-	conn, err := r.upgrader.Upgrade(writer, req, nil)
-	if err != nil {
-		r.log.Error("Failed to upgrade websocket", err)
+func (r *ReplicatedFileLeader) getWriter() io.Writer {
+	r.syncClient.RLock()
+	defer r.syncClient.RUnlock()
+	return r.clientWriter
+}
+
+func (r *ReplicatedFileLeader) writeToClient(data []byte) {
+	clientWriter := r.getWriter()
+	if clientWriter == nil {
 		return
 	}
 
-	respCh := make(chan *messages.Server, 10)
-	go r.readFromClient(conn, respCh)
-
-	r.syncClients.Lock()
-	defer r.syncClients.Unlock()
-	r.writePreData(conn, respCh)
-
-	r.clients = append(r.clients, &clientInfo{
-		conn:   conn,
-		respCh: respCh,
-	})
+	if _, err := clientWriter.Write(data); err != nil {
+		r.log.Panic("Error while writing to client writer", err)
+	}
 }
 
-func (r *ReplicatedFileLeader) writePreData(conn *websocket.Conn, respCh <-chan *messages.Server) {
+func (r *ReplicatedFileLeader) writePreData() {
 	r.preData.Seek(0, 0)
 	buffer := make([]byte, 1024)
 
@@ -104,24 +88,8 @@ func (r *ReplicatedFileLeader) writePreData(conn *websocket.Conn, respCh <-chan 
 			r.log.Panic("Unable to read from pre-data", err)
 		}
 
-		conn.WriteMessage(websocket.BinaryMessage, buffer[:n])
-		<-respCh
-	}
-}
-
-func (r *ReplicatedFileLeader) readFromClient(conn *websocket.Conn, readCh chan<- *messages.Server) {
-	for {
-		_, msgData, err := conn.ReadMessage()
-		if err != nil {
-			return
+		if _, err = r.clientWriter.Write(buffer[:n]); err != nil {
+			r.log.Panic("Unable to write to client writer", err)
 		}
-
-		msg := &messages.Server{}
-		if err = msg.Unmarshal(msgData); err != nil {
-			r.log.Error("Failed to unmarshal response", err)
-			return
-		}
-
-		readCh <- msg
 	}
 }

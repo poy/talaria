@@ -1,7 +1,5 @@
 package orchestrator_test
 
-import "io"
-
 type mockPartitionManager struct {
 	addCh   chan string
 	indexCh chan uint
@@ -16,10 +14,9 @@ func newMockPartitionManager() *mockPartitionManager {
 	}
 }
 
-func (m *mockPartitionManager) ProvideWriter(name string, index uint) io.Writer {
+func (m *mockPartitionManager) Add(name string, index uint) {
 	m.addCh <- name
 	m.indexCh <- index
-	return nil
 }
 
 func (m *mockPartitionManager) Participate(name string, index uint) bool {

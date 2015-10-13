@@ -29,18 +29,14 @@ var _ = Describe("FileProvider", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
-	Context("ProvideWriter", func() {
-		It("Provides the same writer for each unique name", func() {
-			writer1 := fileProvider.ProvideWriter("some-name-1", 0)
+	Describe("ProvideWriter", func() {
+		It("provides the same writer for each unique name", func() {
+			writer1 := fileProvider.ProvideWriter("some-name-1")
 			Expect(writer1).ToNot(BeNil())
-			writer2 := fileProvider.ProvideWriter("some-name-1", 0)
+			writer2 := fileProvider.ProvideWriter("some-name-1")
 			Expect(writer2).ToNot(BeNil())
-			writer3 := fileProvider.ProvideWriter("some-name-2", 1)
+			writer3 := fileProvider.ProvideWriter("some-name-2")
 			Expect(writer3).ToNot(BeNil())
-
-			By("Providing the wrong replica")
-			writer4 := fileProvider.ProvideWriter("some-name-2", 2)
-			Expect(writer4).To(BeNil())
 
 			writer1.Write([]byte("some-data"))
 
@@ -49,9 +45,9 @@ var _ = Describe("FileProvider", func() {
 		})
 	})
 
-	Context("ProvideReader", func() {
-		It("Provides a unique reader each time", func() {
-			writer := fileProvider.ProvideWriter("some-name-1", 0)
+	Describe("ProvideReader", func() {
+		It("provides a unique reader each time", func() {
+			writer := fileProvider.ProvideWriter("some-name-1")
 			Expect(writer).ToNot(BeNil())
 			writer.Write([]byte("some-data"))
 
@@ -60,14 +56,6 @@ var _ = Describe("FileProvider", func() {
 			reader1.Read(make([]byte, 1))
 
 			Expect(reader1).ToNot(Equal(reader2))
-		})
-	})
-
-	Context("Participate", func() {
-		It("returns true if the provider is not affiliated with the partition", func() {
-			fileProvider.ProvideWriter("some-name-1", 2)
-			Expect(fileProvider.Participate("some-name-2", 3)).To(BeTrue())
-			Expect(fileProvider.Participate("some-name-1", 3)).To(BeFalse())
 		})
 	})
 })

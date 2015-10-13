@@ -2,7 +2,6 @@ package orchestrator
 
 import (
 	"fmt"
-	"io"
 	"strconv"
 	"strings"
 
@@ -11,7 +10,7 @@ import (
 
 type PartitionManager interface {
 	Participate(name string, index uint) bool
-	ProvideWriter(name string, replica uint) io.Writer
+	Add(name string, replica uint)
 }
 
 type KvStore interface {
@@ -73,7 +72,7 @@ func (o *Orchestrator) participateInElection(fullName string) {
 		return
 	}
 
-	o.partManager.ProvideWriter(name, replica)
+	o.partManager.Add(name, replica)
 
 	if replica < o.numberOfReplicas {
 		o.kvStore.Announce(o.encodeIndex(name, replica+1))

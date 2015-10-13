@@ -79,7 +79,8 @@ func run(c *cli.Context) {
 	clientAddr := fmt.Sprintf("http://localhost:%d", c.Int(port))
 	kvStore := kvstore.New(clientAddr, c.Int(healthPort))
 	ioProvider := broker.NewFileProvider(c.String(dataDir), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)), time.Second)
-	orch := orchestrator.New(clientAddr, uint(c.Int(numReplicas)), ioProvider, kvStore)
+	replicaManager := broker.NewReplicatedFileManager(ioProvider, nil, nil)
+	orch := orchestrator.New(clientAddr, uint(c.Int(numReplicas)), replicaManager, kvStore)
 
 	broker.StartBrokerServer(c.Int(port), orch, ioProvider)
 }

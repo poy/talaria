@@ -118,13 +118,11 @@ var _ = Describe("FileController", func() {
 			ffErr := fileController.FetchFile(fileId1, "some-name-1")
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
-			Expect(mockFileProvider.replicaCh).To(Receive(BeEquivalentTo(0)))
 
 			var fileId2 uint64 = 4
 			ffErr = fileController.FetchFile(fileId2, "some-name-2")
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-2")))
-			Expect(mockFileProvider.replicaCh).To(Receive(BeEquivalentTo(0)))
 
 			By("Writing to the same file twice")
 			offset, err := fileController.WriteToFile(fileId1, expectedData)
@@ -165,7 +163,6 @@ var _ = Describe("FileController", func() {
 			ffErr := fileController.FetchFile(fileId1, "some-name-1")
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
-			Expect(mockFileProvider.replicaCh).To(Receive(BeEquivalentTo(0)))
 
 			By("Reading from the first offset")
 			data, err := fileController.ReadFromFile(fileId1)
