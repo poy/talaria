@@ -54,7 +54,7 @@ var _ = Describe("Client", func() {
 		}
 	})
 
-	Context("FetchFile", func() {
+	Describe("FetchFile", func() {
 		It("round robins the brokers while fetching new files", func(done Done) {
 			defer close(done)
 
@@ -97,7 +97,7 @@ var _ = Describe("Client", func() {
 		})
 	})
 
-	Context("WriteToFile", func() {
+	Describe("WriteToFile", func() {
 		It("writes to the correct broker", func(done Done) {
 			defer close(done)
 			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
@@ -166,7 +166,7 @@ var _ = Describe("Client", func() {
 		}, 5)
 	})
 
-	Context("ReadFromFile", func() {
+	Describe("ReadFromFile", func() {
 		It("reads from the correct broker", func(done Done) {
 			defer close(done)
 			expectedData := []byte("some-data")

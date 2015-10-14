@@ -45,7 +45,7 @@ var _ = Describe("Broker", func() {
 		Expect(mockControllerProvider.controllerCh).To(BeEmpty())
 	})
 
-	Context("FetchFile", func() {
+	Describe("FetchFile", func() {
 
 		It("reports an error", func(done Done) {
 			defer close(done)
@@ -139,7 +139,7 @@ var _ = Describe("Broker", func() {
 		})
 	})
 
-	Context("WriteToFile", func() {
+	Describe("WriteToFile", func() {
 
 		It("returns an error if there is one", func(done Done) {
 			defer close(done)
@@ -242,7 +242,7 @@ var _ = Describe("Broker", func() {
 		}, 5)
 	})
 
-	Context("ReadFromFile", func() {
+	Describe("ReadFromFile", func() {
 		It("returns an error if there is one", func(done Done) {
 			defer close(done)
 			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)

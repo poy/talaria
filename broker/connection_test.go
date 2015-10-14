@@ -31,7 +31,7 @@ var _ = Describe("Connection", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Context("FetchFile", func() {
+	Describe("FetchFile", func() {
 
 		AfterEach(func() {
 			connection.Close()
@@ -75,7 +75,7 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.FetchFile.GetName()).To(Equal("some-file"))
 		})
 
-		It("Returns a redirect error", func(done Done) {
+		It("returns a redirect error", func(done Done) {
 			defer close(done)
 
 			mockServer.serverCh <- buildRemoteFileLocation(99, "http://some.uri")
@@ -95,14 +95,14 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
-	Context("WriteToFile", func() {
+	Describe("WriteToFile", func() {
 
 		AfterEach(func() {
 			connection.Close()
 			server.Close()
 		})
 
-		It("Returns an error", func(done Done) {
+		It("returns an error", func(done Done) {
 			defer close(done)
 
 			expectedData := []byte("some-data")
@@ -123,7 +123,7 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.WriteToFile.GetData()).To(Equal(expectedData))
 		})
 
-		It("Returns the new file offset", func(done Done) {
+		It("returns the new file offset", func(done Done) {
 			defer close(done)
 
 			expectedData := []byte("some-data")
@@ -145,14 +145,14 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
-	Context("ReadFromFile", func() {
+	Describe("ReadFromFile", func() {
 
 		AfterEach(func() {
 			connection.Close()
 			server.Close()
 		})
 
-		It("Returns an error", func(done Done) {
+		It("returns an error", func(done Done) {
 			defer close(done)
 
 			mockServer.serverCh <- buildError(99, "some-error")
@@ -171,7 +171,7 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
 		})
 
-		It("Returns the data and offset", func(done Done) {
+		It("returns the data and offset", func(done Done) {
 			defer close(done)
 
 			expectedData := []byte("some-data")
@@ -192,7 +192,7 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
-	Context("Close", func() {
+	Describe("Close", func() {
 		It("closes the connection to the server", func(done Done) {
 			defer close(done)
 			connection.Close()

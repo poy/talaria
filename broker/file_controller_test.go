@@ -33,7 +33,7 @@ var _ = Describe("FileController", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
-	Context("FetchFile", func() {
+	Describe("FetchFile", func() {
 		It("gives the correct file ID", func(done Done) {
 			defer close(done)
 			mockFileProvider.writerCh <- nil
@@ -41,12 +41,12 @@ var _ = Describe("FileController", func() {
 			mockFileProvider.readerCh <- nil
 			mockFileProvider.readerCh <- nil
 
-			By("Giving the same for the same file name")
+			By("giving the same for the same file name")
 			populateLocalOrch(mockOrchestrator)
 			err := fileController.FetchFile(3, "some-name-1")
 			Expect(err).To(BeNil())
 
-			By("Giving a different ID for a different name")
+			By("giving a different ID for a different name")
 			populateLocalOrch(mockOrchestrator)
 			err = fileController.FetchFile(4, "some-name-2")
 			Expect(err).To(BeNil())
@@ -62,14 +62,14 @@ var _ = Describe("FileController", func() {
 				mockFileProvider.readerCh <- nil
 			}
 
-			By("Not returning an error for a local file")
+			By("not returning an error for a local file")
 			populateProvider()
 			populateLocalOrch(mockOrchestrator)
 			err := fileController.FetchFile(3, "some-name-1")
 			Expect(err).To(BeNil())
 			Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-1")))
 
-			By("Returning an error for a non-local file")
+			By("returning an error for a non-local file")
 			populateProvider()
 			expectedUri := "http://uri.b"
 			mockOrchestrator.uriCh <- expectedUri
@@ -98,14 +98,14 @@ var _ = Describe("FileController", func() {
 		})
 	})
 
-	Context("WriteToFile", func() {
+	Describe("WriteToFile", func() {
 		It("seturns an error for an unknown file ID", func() {
 			_, err := fileController.WriteToFile(0, []byte("some-data"))
 			Expect(err).To(HaveOccurred())
 			Expect(mockFileProvider.writerNameCh).ToNot(Receive())
 		})
 
-		It("Writes to the correct writer", func() {
+		It("writes to the correct writer", func() {
 			populateLocalOrch(mockOrchestrator)
 			populateLocalOrch(mockOrchestrator)
 			mockFileProvider.writerCh <- createFile(tmpDir, "some-name-1")
@@ -124,7 +124,7 @@ var _ = Describe("FileController", func() {
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-2")))
 
-			By("Writing to the same file twice")
+			By("writing to the same file twice")
 			offset, err := fileController.WriteToFile(fileId1, expectedData)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(offset).To(BeEquivalentTo(len(expectedData)))
@@ -135,7 +135,7 @@ var _ = Describe("FileController", func() {
 			Expect(offset).To(BeEquivalentTo(2 * len(expectedData)))
 			Expect(readEntireFile(tmpDir, "some-name-1")).To(Equal(append(expectedData, expectedData...)))
 
-			By("Writing to a different file")
+			By("writing to a different file")
 			offset, err = fileController.WriteToFile(fileId2, expectedData)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(offset).To(BeEquivalentTo(len(expectedData)))
@@ -143,14 +143,14 @@ var _ = Describe("FileController", func() {
 		})
 	})
 
-	Context("ReadFromFile", func() {
+	Describe("ReadFromFile", func() {
 		It("returns an error for an unknown file ID", func() {
 			_, err := fileController.ReadFromFile(0)
 			Expect(err).To(HaveOccurred())
 			Expect(mockFileProvider.writerNameCh).ToNot(Receive())
 		})
 
-		It("Reads from the correct file", func() {
+		It("reads from the correct file", func() {
 			populateLocalOrch(mockOrchestrator)
 			mockFileProvider.writerCh <- nil
 			file := createFile(tmpDir, "some-name-1")
@@ -164,12 +164,12 @@ var _ = Describe("FileController", func() {
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
 
-			By("Reading from the first offset")
+			By("reading from the first offset")
 			data, err := fileController.ReadFromFile(fileId1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
 
-			By("Reading from the next offset")
+			By("reading from the next offset")
 			writeToFile(file, expectedData, int64(-len(expectedData)), 2)
 
 			data, err = fileController.ReadFromFile(fileId1)

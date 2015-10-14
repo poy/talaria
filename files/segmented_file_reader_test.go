@@ -40,7 +40,7 @@ var _ = Describe("SegmentedFileReader", func() {
 			segmentedFileReader = files.NewSegmentedFileReader(tmpDir, time.Millisecond)
 		})
 
-		It("Reads data from a file", func(done Done) {
+		It("reads data from a file", func(done Done) {
 			defer close(done)
 
 			n, err := segmentedFileWriter.Write(expectedData[:5])
@@ -54,7 +54,7 @@ var _ = Describe("SegmentedFileReader", func() {
 			Expect(buffer[:5]).To(Equal(expectedData[:5]))
 		})
 
-		It("Reads from a segmented file", func(done Done) {
+		It("reads from a segmented file", func(done Done) {
 			defer close(done)
 
 			for i := 0; i < 100; i += 5 {
@@ -72,7 +72,7 @@ var _ = Describe("SegmentedFileReader", func() {
 			}
 		})
 
-		It("Finds the correct file to read from", func(done Done) {
+		It("finds the correct file to read from", func(done Done) {
 			defer close(done)
 
 			// Segment 0 will be deleted
@@ -89,7 +89,7 @@ var _ = Describe("SegmentedFileReader", func() {
 			Expect(buffer[:10]).To(Equal(expectedData[10:20]))
 		})
 
-		It("Polls a file", func(done Done) {
+		It("polls a file", func(done Done) {
 			defer close(done)
 
 			go func() {
@@ -118,7 +118,7 @@ var _ = Describe("SegmentedFileReader", func() {
 			segmentedFileReader = files.NewSegmentedFileReader(tmpDir, 0)
 		})
 
-		It("Returns an EOF when polling time is set to 0", func(done Done) {
+		It("returns an EOF when polling time is set to 0", func(done Done) {
 			defer close(done)
 
 			n, err := segmentedFileWriter.Write(expectedData[:5])
