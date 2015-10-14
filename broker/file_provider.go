@@ -38,9 +38,12 @@ func (f *FileProvider) ProvideWriter(name string) SubscribableWriter {
 
 	writer, ok := f.writerMap[name]
 	if !ok {
-		segWriter := files.NewSegmentedFileWriter(path.Join(f.dir, name), f.desiredLength, f.maxSegments)
+		dir := path.Join(f.dir, name)
+		segWriter := files.NewSegmentedFileWriter(dir, f.desiredLength, f.maxSegments)
+		segWriter.Write([]byte{})
+		preReader := newTempSeekWrapper(f.provideReader(name, 0))
 		chunkedWriter := files.NewChunkedFileWriter(segWriter)
-		writer = files.NewReplicatedFileLeader(chunkedWriter, nil)
+		writer = files.NewReplicatedFileLeader(chunkedWriter, preReader)
 		f.writerMap[name] = writer
 	}
 
@@ -48,5 +51,24 @@ func (f *FileProvider) ProvideWriter(name string) SubscribableWriter {
 }
 
 func (f *FileProvider) ProvideReader(name string) io.Reader {
-	return files.NewChunkedFileReader(files.NewSegmentedFileReader(path.Join(f.dir, name), f.polling))
+	return f.provideReader(name, f.polling)
+}
+
+func (f *FileProvider) provideReader(name string, polling time.Duration) io.Reader {
+	return files.NewChunkedFileReader(files.NewSegmentedFileReader(path.Join(f.dir, name), polling))
+}
+
+type tempSeekWrapper struct {
+	io.Reader
+}
+
+func newTempSeekWrapper(reader io.Reader) *tempSeekWrapper {
+	return &tempSeekWrapper{
+		Reader: reader,
+	}
+}
+
+func (t *tempSeekWrapper) Seek(offset int64, relative int) (int64, error) {
+	println("TODO tempSeekWrapper")
+	return offset, nil
 }

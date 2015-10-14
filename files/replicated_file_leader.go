@@ -12,22 +12,17 @@ type HttpStarter interface {
 	Start(handler http.Handler)
 }
 
-type ReadSeekCloser interface {
-	io.ReadSeeker
-	io.Closer
-}
-
 type ReplicatedFileLeader struct {
 	log       logging.Logger
 	writer    io.Writer
 	lenBuffer []byte
-	preData   ReadSeekCloser
+	preData   io.ReadSeeker
 
 	syncClient   sync.RWMutex
 	clientWriter io.Writer
 }
 
-func NewReplicatedFileLeader(writer io.Writer, preData ReadSeekCloser) *ReplicatedFileLeader {
+func NewReplicatedFileLeader(writer io.Writer, preData io.ReadSeeker) *ReplicatedFileLeader {
 	r := &ReplicatedFileLeader{
 		log:       logging.Log("ReplicatedFileLeader"),
 		writer:    writer,
@@ -80,7 +75,7 @@ func (r *ReplicatedFileLeader) writePreData() {
 
 	for {
 		n, err := r.preData.Read(buffer)
-		if err == io.EOF && n == 0 {
+		if err == io.EOF && n <= 0 {
 			return
 		}
 

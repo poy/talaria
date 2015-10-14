@@ -38,11 +38,28 @@ var _ = Describe("FileProvider", func() {
 			writer3 := fileProvider.ProvideWriter("some-name-2")
 			Expect(writer3).ToNot(BeNil())
 
+			By("writing to the file to ensure they differ")
 			writer1.Write([]byte("some-data"))
 
 			Expect(writer1).To(Equal(writer2))
 			Expect(writer1).ToNot(Equal(writer3))
 		})
+
+		It("provides the correct pre-writer", func(done Done) {
+			defer close(done)
+
+			mockWriter := newMockWriter()
+			expectedPreData := []byte("some-pre-data")
+			expectedData := []byte("some-data")
+
+			writer := fileProvider.ProvideWriter("some-name-1")
+			writer.Write(expectedPreData)
+			writer.UpdateWriter(mockWriter)
+			writer.Write(expectedData)
+
+			Eventually(mockWriter.dataCh).Should(Receive(Equal(expectedPreData)))
+			Eventually(mockWriter.dataCh).Should(Receive(Equal(expectedData)))
+		}, 2)
 	})
 
 	Describe("ProvideReader", func() {
