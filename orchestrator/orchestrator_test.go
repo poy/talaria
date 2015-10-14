@@ -23,10 +23,10 @@ var _ = Describe("Orchestrator", func() {
 		clientAddr = "some-addr"
 		mockKvStore = newMockKvStore()
 		mockPartManager = newMockPartitionManager()
-		orch = orchestrator.New(clientAddr, 2, mockPartManager, mockKvStore)
+		orch = orchestrator.New(clientAddr, 2, mockKvStore)
 	})
 
-	Context("FetchLeader", func() {
+	Describe("FetchLeader", func() {
 		It("returns an already elected leader", func() {
 			expectedLeader := "some-leader"
 			mockKvStore.fetchLeaderTx <- expectedLeader
@@ -50,7 +50,7 @@ var _ = Describe("Orchestrator", func() {
 				results <- leader
 			}()
 
-			Eventually(mockKvStore.listenNameCh).Should(Receive(Equal(key)))
+			Eventually(mockKvStore.listenNameCh).Should(Receive(Equal(key + "~0")))
 			Eventually(mockKvStore.leaderCallbackCh).Should(Receive())
 			Eventually(mockKvStore.announceCh).Should(Receive(Equal(key + "~0")))
 			mockKvStore.fetchLeaderTx <- expectedLeader
@@ -59,7 +59,40 @@ var _ = Describe("Orchestrator", func() {
 		})
 	})
 
-	Context("Participate in election", func() {
+	Describe("ListenForReplicas", func() {
+		It("Calls callback on updates", func() {
+			expectedName := "some-name"
+			var expectedReplica uint = 4
+			expectedAddr := "http://some.uri"
+
+			rxNameCh := make(chan string, 100)
+			rxReplicaCh := make(chan uint, 100)
+			rxAddrCh := make(chan string, 100)
+
+			orch.ListenForReplicas(expectedName, func(name string, replica uint, addr string) {
+				rxNameCh <- name
+				rxReplicaCh <- replica
+				rxAddrCh <- addr
+			})
+
+			By("waiting to get the callback")
+			var callback func(string, string)
+			Eventually(mockKvStore.listenNameCh).Should(Receive(Equal(expectedName)))
+			Eventually(mockKvStore.leaderCallbackCh).Should(Receive(&callback))
+
+			By("invoking the callback")
+			callback(fmt.Sprintf("%s~%d", expectedName, expectedReplica), expectedAddr)
+			Eventually(rxNameCh).Should(Receive(Equal(expectedName)))
+			Eventually(rxReplicaCh).Should(Receive(Equal(expectedReplica)))
+			Eventually(rxAddrCh).Should(Receive(Equal(expectedAddr)))
+		})
+	})
+
+	Describe("ParticipateInElection", func() {
+		BeforeEach(func() {
+			orch.ParticipateInElection(mockPartManager)
+		})
+
 		It("listens for election announcements and adds to manager on victory", func() {
 			Eventually(mockKvStore.announcementCallbackCh).Should(Receive())
 
@@ -68,21 +101,21 @@ var _ = Describe("Orchestrator", func() {
 				mockKvStore.acquireTx <- true
 				mockPartManager.partCh <- true
 
-				Eventually(mockKvStore.acquireRx).Should(Receive(Equal(key)))
+				Eventually(mockKvStore.acquireRx).Should(Receive(Equal(fmt.Sprintf("%s~%d", key, i))))
 
-				By("Asking the participation")
+				By("asking the participation")
 				Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
 				Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(i)))
 
-				By("Adding to the manager")
+				By("adding to the manager")
 				Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
 				Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(i)))
 
 				if i < 2 {
-					By("Starting an election for the next index")
+					By("starting an election for the next index")
 					Eventually(mockKvStore.announceCh).Should(Receive(Equal(fmt.Sprintf("%s~%d", key, i+1))))
 				} else {
-					By("Not starting an election for the last index + 1")
+					By("not starting an election for the last index + 1")
 					Consistently(mockKvStore.announceCh).ShouldNot(Receive())
 				}
 			}
@@ -93,7 +126,7 @@ var _ = Describe("Orchestrator", func() {
 			mockKvStore.announceLeaderTx <- key + "~1"
 			mockPartManager.partCh <- false
 
-			By("Asking the participation")
+			By("asking the participation")
 			Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
 			Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(1)))
 
@@ -105,13 +138,13 @@ var _ = Describe("Orchestrator", func() {
 			mockKvStore.announceLeaderTx <- key + "~1"
 			mockKvStore.acquireTx <- false
 			mockPartManager.partCh <- true
-			Eventually(mockKvStore.acquireRx).Should(Receive(Equal(key)))
+			Eventually(mockKvStore.acquireRx).Should(Receive(Equal(fmt.Sprintf("%s~%d", key, 1))))
 
-			By("Asking the participation")
+			By("asking the participation")
 			Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
 			Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(1)))
 
-			By("Not adding to the manager")
+			By("not adding to the manager")
 			Consistently(mockPartManager.addCh).ShouldNot(Receive())
 		})
 	})

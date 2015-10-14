@@ -36,8 +36,8 @@ var _ = Describe("Kvstore", func() {
 		}
 	})
 
-	Context("Announcements", func() {
-		It("Invokes callback when announcement is made", func() {
+	Describe("Announcements", func() {
+		It("invokes callback when announcement is made", func() {
 			results1 := make(chan string, 10)
 			results2 := make(chan string, 10)
 			resultsOther := make(chan string, 10)
@@ -62,7 +62,7 @@ var _ = Describe("Kvstore", func() {
 			Consistently(resultsOther).ShouldNot(Receive())
 		})
 
-		It("Invokes callback when announcement is already made", func() {
+		It("invokes callback when announcement is already made", func() {
 			results := make(chan string, 10)
 
 			kv.Announce("some-name-1")
@@ -74,8 +74,8 @@ var _ = Describe("Kvstore", func() {
 		})
 	})
 
-	Context("Acquire", func() {
-		It("Saves a KV with a prefix", func(done Done) {
+	Describe("Acquire", func() {
+		It("saves a KV with a prefix", func(done Done) {
 			defer close(done)
 			acquired := kv.Acquire(key)
 
@@ -88,7 +88,7 @@ var _ = Describe("Kvstore", func() {
 			Expect(acquired).To(BeTrue())
 		})
 
-		It("Does not overwrite a key if there is already a value", func(done Done) {
+		It("does not overwrite a key if there is already a value", func(done Done) {
 			defer close(done)
 			session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
 			Expect(err).ToNot(HaveOccurred())
@@ -112,7 +112,7 @@ var _ = Describe("Kvstore", func() {
 			Expect(acquired).To(BeFalse())
 		})
 
-		It("Registers a session with a healthcheck", func() {
+		It("registers a session with a healthcheck", func() {
 			sessions, _, err := consulClient.Session().List(nil)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(sessions).To(HaveLen(1))
@@ -121,8 +121,8 @@ var _ = Describe("Kvstore", func() {
 
 	})
 
-	Context("Get Leader", func() {
-		Context("FetchLeader", func() {
+	Describe("Get Leader", func() {
+		Describe("FetchLeader", func() {
 			It("returns false for a leaderless key", func() {
 				_, ok := kv.FetchLeader(key)
 				Expect(ok).To(BeFalse())
@@ -159,9 +159,10 @@ var _ = Describe("Kvstore", func() {
 			})
 		})
 
-		Context("ListenForLeader", func() {
-			It("Invokes callback when a leader is elected", func(done Done) {
+		Describe("ListenForLeader/Prefix", func() {
+			It("invokes callback when a leader is elected", func(done Done) {
 				defer close(done)
+
 				nameCh := make(chan string, 100)
 				uriCh := make(chan string, 100)
 				kv.ListenForLeader(key, func(name, uri string) {
@@ -186,7 +187,7 @@ var _ = Describe("Kvstore", func() {
 				Eventually(uriCh).Should(Receive(Equal(expectedLeader)))
 			}, 5)
 
-			It("Invokes callback if a leader is already elected", func(done Done) {
+			It("invokes callback if a leader is already elected", func(done Done) {
 				defer close(done)
 				expectedLeader := "127.0.0.2"
 				session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
@@ -212,6 +213,7 @@ var _ = Describe("Kvstore", func() {
 				Eventually(uriCh).Should(Receive(Equal(expectedLeader)))
 			}, 5)
 		})
+
 	})
 
 })

@@ -23,22 +23,18 @@ type KvStore interface {
 
 type Orchestrator struct {
 	log              logging.Logger
-	partManager      PartitionManager
 	kvStore          KvStore
 	clientAddr       string
 	numberOfReplicas uint
 }
 
-func New(clientAddr string, numberOfReplicas uint, partManager PartitionManager, kvStore KvStore) *Orchestrator {
+func New(clientAddr string, numberOfReplicas uint, kvStore KvStore) *Orchestrator {
 	orch := &Orchestrator{
 		log:              logging.Log("Orchestrator"),
-		partManager:      partManager,
 		kvStore:          kvStore,
 		clientAddr:       clientAddr,
 		numberOfReplicas: numberOfReplicas,
 	}
-
-	kvStore.ListenForAnnouncements(orch.participateInElection)
 
 	return orch
 }
@@ -51,28 +47,43 @@ func (o *Orchestrator) FetchLeader(name string) (string, bool) {
 
 	results := make(chan string, 1)
 
-	o.kvStore.ListenForLeader(name, func(name, uri string) {
+	encodedName := fmt.Sprintf("%s~0", name)
+
+	o.kvStore.ListenForLeader(encodedName, func(name, uri string) {
 		results <- uri
 	})
 
-	o.kvStore.Announce(name + "~0")
+	o.kvStore.Announce(encodedName)
 
 	result := <-results
 	return result, result == o.clientAddr
 }
 
-func (o *Orchestrator) participateInElection(fullName string) {
+func (o *Orchestrator) ListenForReplicas(name string, callback func(name string, replica uint, addr string)) {
+	o.kvStore.ListenForLeader(name, func(encodedName, addr string) {
+		decodedName, replica := o.decodeIndex(encodedName)
+		callback(decodedName, replica, addr)
+	})
+}
+
+func (o *Orchestrator) ParticipateInElection(partManager PartitionManager) {
+	o.kvStore.ListenForAnnouncements(func(fullName string) {
+		o.participateInElection(fullName, partManager)
+	})
+}
+
+func (o *Orchestrator) participateInElection(fullName string, partManager PartitionManager) {
 	name, replica := o.decodeIndex(fullName)
-	if !o.partManager.Participate(name, replica) {
+	if !partManager.Participate(name, replica) {
 		return
 	}
 
-	acquired := o.kvStore.Acquire(name)
+	acquired := o.kvStore.Acquire(fullName)
 	if !acquired {
 		return
 	}
 
-	o.partManager.Add(name, replica)
+	partManager.Add(name, replica)
 
 	if replica < o.numberOfReplicas {
 		o.kvStore.Announce(o.encodeIndex(name, replica+1))
