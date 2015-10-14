@@ -1,7 +1,6 @@
 package broker_test
 
 import (
-	"net/http"
 	"net/http/httptest"
 
 	"github.com/apoydence/talaria/broker"
@@ -14,16 +13,12 @@ import (
 
 var _ = Describe("Connection", func() {
 	var (
-		recorder   *httptest.ResponseRecorder
-		req        *http.Request
 		connection *broker.Connection
 		server     *httptest.Server
 		mockServer *mockServer
 	)
 
 	BeforeEach(func() {
-		recorder = httptest.NewRecorder()
-		req, _ = http.NewRequest("GET", "http://some.url", nil)
 		mockServer = newMockServer()
 		server = httptest.NewServer(mockServer)
 		var err error
