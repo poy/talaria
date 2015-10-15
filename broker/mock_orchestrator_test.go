@@ -1,9 +1,10 @@
 package broker_test
 
 type mockOrchestrator struct {
-	nameCh  chan string
-	uriCh   chan string
-	localCh chan bool
+	nameCh        chan string
+	leadersOnlyCh chan bool
+	uriCh         chan string
+	localCh       chan bool
 }
 
 func newMockOrchestrator() *mockOrchestrator {

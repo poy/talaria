@@ -2,9 +2,9 @@ package broker
 
 type controllerProvider func() Controller
 
-func newControllerProvider(ioProvider IoProvider, orchestrator Orchestrator) controllerProvider {
+func newControllerProvider(leadersOnly bool, ioProvider IoProvider, orchestrator Orchestrator) controllerProvider {
 	return func() Controller {
-		return NewFileController(ioProvider, orchestrator)
+		return NewFileController(leadersOnly, ioProvider, orchestrator)
 	}
 }
 

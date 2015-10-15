@@ -26,7 +26,7 @@ var _ = Describe("FileController", func() {
 
 		mockOrchestrator = newMockOrchestrator()
 		mockFileProvider = newMockFileProvider()
-		fileController = broker.NewFileController(mockFileProvider, mockOrchestrator)
+		fileController = broker.NewFileController(false, mockFileProvider, mockOrchestrator)
 	})
 
 	AfterEach(func() {
@@ -34,67 +34,93 @@ var _ = Describe("FileController", func() {
 	})
 
 	Describe("FetchFile", func() {
-		It("gives the correct file ID", func(done Done) {
-			defer close(done)
-			mockFileProvider.writerCh <- nil
-			mockFileProvider.writerCh <- nil
-			mockFileProvider.readerCh <- nil
-			mockFileProvider.readerCh <- nil
+		Context("Don't skip orch", func() {
+			It("gives the correct file ID", func(done Done) {
+				defer close(done)
+				mockFileProvider.writerCh <- nil
+				mockFileProvider.writerCh <- nil
+				mockFileProvider.readerCh <- nil
+				mockFileProvider.readerCh <- nil
 
-			By("giving the same for the same file name")
-			populateLocalOrch(mockOrchestrator)
-			err := fileController.FetchFile(3, "some-name-1")
-			Expect(err).To(BeNil())
+				By("giving the same for the same file name")
+				populateLocalOrch(mockOrchestrator)
+				err := fileController.FetchFile(3, "some-name-1")
+				Expect(err).To(BeNil())
 
-			By("giving a different ID for a different name")
-			populateLocalOrch(mockOrchestrator)
-			err = fileController.FetchFile(4, "some-name-2")
-			Expect(err).To(BeNil())
+				By("giving a different ID for a different name")
+				populateLocalOrch(mockOrchestrator)
+				err = fileController.FetchFile(4, "some-name-2")
+				Expect(err).To(BeNil())
+			})
+
+			It("asks the orchestrator for the leader", func(done Done) {
+				defer close(done)
+
+				populateProvider := func() {
+					mockFileProvider.writerCh <- nil
+					mockFileProvider.writerCh <- nil
+					mockFileProvider.readerCh <- nil
+					mockFileProvider.readerCh <- nil
+				}
+
+				By("not returning an error for a local file")
+				populateProvider()
+				populateLocalOrch(mockOrchestrator)
+				err := fileController.FetchFile(3, "some-name-1")
+				Expect(err).To(BeNil())
+				Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-1")))
+
+				By("returning an error for a non-local file")
+				populateProvider()
+				expectedUri := "http://uri.b"
+				mockOrchestrator.uriCh <- expectedUri
+				mockOrchestrator.localCh <- false
+				err = fileController.FetchFile(4, "some-name-2")
+				Expect(err).To(HaveOccurred())
+				Expect(err.Uri).To(Equal(expectedUri))
+				Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-2")))
+			}, 2)
+
+			It("returns an error if the same file ID is used more than once", func() {
+				mockFileProvider.writerCh <- nil
+				mockFileProvider.readerCh <- nil
+
+				populateLocalOrch(mockOrchestrator)
+				err := fileController.FetchFile(3, "some-name-1")
+				Expect(err).To(BeNil())
+
+				By("not returning an error for the same name")
+				err = fileController.FetchFile(3, "some-name-1")
+				Expect(err).To(BeNil())
+
+				By("returning an error for a different name")
+				err = fileController.FetchFile(3, "some-name-2")
+				Expect(err).To(HaveOccurred())
+			})
 		})
 
-		It("asks the orchestrator for the leader", func(done Done) {
-			defer close(done)
+		Context("Skip Orch", func() {
+			BeforeEach(func() {
+				fileController = broker.NewFileController(true, mockFileProvider, mockOrchestrator)
+			})
 
-			populateProvider := func() {
+			It("gives the correct file ID", func(done Done) {
+				defer close(done)
 				mockFileProvider.writerCh <- nil
 				mockFileProvider.writerCh <- nil
 				mockFileProvider.readerCh <- nil
 				mockFileProvider.readerCh <- nil
-			}
 
-			By("not returning an error for a local file")
-			populateProvider()
-			populateLocalOrch(mockOrchestrator)
-			err := fileController.FetchFile(3, "some-name-1")
-			Expect(err).To(BeNil())
-			Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-1")))
+				By("giving the same for the same file name")
+				By("not populating the orch")
+				err := fileController.FetchFile(3, "some-name-1")
+				Expect(err).To(BeNil())
 
-			By("returning an error for a non-local file")
-			populateProvider()
-			expectedUri := "http://uri.b"
-			mockOrchestrator.uriCh <- expectedUri
-			mockOrchestrator.localCh <- false
-			err = fileController.FetchFile(4, "some-name-2")
-			Expect(err).To(HaveOccurred())
-			Expect(err.Uri).To(Equal(expectedUri))
-			Eventually(mockOrchestrator.nameCh).Should(Receive(Equal("some-name-2")))
-		}, 2)
+				By("giving a different ID for a different name")
+				err = fileController.FetchFile(4, "some-name-2")
+				Expect(err).To(BeNil())
+			})
 
-		It("returns an error if the same file ID is used more than once", func() {
-			mockFileProvider.writerCh <- nil
-			mockFileProvider.readerCh <- nil
-
-			populateLocalOrch(mockOrchestrator)
-			err := fileController.FetchFile(3, "some-name-1")
-			Expect(err).To(BeNil())
-
-			By("not returning an error for the same name")
-			err = fileController.FetchFile(3, "some-name-1")
-			Expect(err).To(BeNil())
-
-			By("returning an error for a different name")
-			err = fileController.FetchFile(3, "some-name-2")
-			Expect(err).To(HaveOccurred())
 		})
 	})
 

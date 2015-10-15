@@ -76,11 +76,12 @@ func run(c *cli.Context) {
 	validateFlags(c)
 	setLogLevel(c)
 
-	clientAddr := fmt.Sprintf("http://localhost:%d", c.Int(port))
+	clientAddr := fmt.Sprintf("ws://localhost:%d", c.Int(port))
 	kvStore := kvstore.New(clientAddr, c.Int(healthPort))
 	ioProvider := broker.NewFileProvider(c.String(dataDir), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)), time.Second)
 	orch := orchestrator.New(clientAddr, uint(c.Int(numReplicas)), kvStore)
-	replicaManager := broker.NewReplicatedFileManager(ioProvider, nil, orch)
+	innerBrokerProvider := broker.NewInnerBroker()
+	replicaManager := broker.NewReplicatedFileManager(ioProvider, innerBrokerProvider, orch)
 	orch.ParticipateInElection(replicaManager)
 
 	broker.StartBrokerServer(c.Int(port), orch, ioProvider)

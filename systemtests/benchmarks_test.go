@@ -136,7 +136,7 @@ var _ = Describe("Benchmarks", func() {
 				}
 			})
 
-			Expect(runtime.Seconds()).To(BeNumerically("<", 1))
+			Expect(runtime.Seconds()).To(BeNumerically("<", 5))
 		}, 1)
 	})
 })

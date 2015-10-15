@@ -215,8 +215,9 @@ var setupHealthCheckOnce sync.Once
 
 func setupHealthCheckEndpoint(healthPort int, log logging.Logger) {
 	setupHealthCheckOnce.Do(func() {
-		http.HandleFunc("/", serviceHealthCheck)
-		err := http.ListenAndServe(fmt.Sprintf(":%d", healthPort), nil)
+		uri := fmt.Sprintf(":%d", healthPort)
+		log.Debug("Starting health check endpoint: %s", uri)
+		err := http.ListenAndServe(uri, http.HandlerFunc(serviceHealthCheck))
 		if err != nil {
 			log.Panic("Unable to start health check listener", err)
 		}

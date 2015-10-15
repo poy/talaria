@@ -15,6 +15,11 @@ const (
 	WriteToFile
 )
 
+const (
+	OuterEndpoint = "/"
+	InnerEndpoint = "/inner"
+)
+
 type Controller interface {
 	FetchFile(id uint64, name string) *FetchFileError
 	WriteToFile(id uint64, data []byte) (int64, error)
@@ -27,11 +32,20 @@ type ControllerProvider interface {
 
 func StartBrokerServer(brokerPort int, orch Orchestrator, provider IoProvider) {
 	log := logging.Log("BrokerServer")
-	controllerProvider := newControllerProvider(provider, orch)
+	controllerProvider := newControllerProvider(false, provider, orch)
 	broker := NewBroker(controllerProvider)
 
+	controllerProviderInner := newControllerProvider(true, provider, orch)
+	brokerInner := NewBroker(controllerProviderInner)
+
+	http.Handle(OuterEndpoint, broker)
+	http.Handle(InnerEndpoint, brokerInner)
+
 	log.Info("Starting broker on port %d", brokerPort)
-	http.ListenAndServe(fmt.Sprintf(":%d", brokerPort), broker)
+	uri := fmt.Sprintf(":%d", brokerPort)
+	if err := http.ListenAndServe(uri, nil); err != nil {
+		log.Panicf("Unable to start server %s: %v", uri, err)
+	}
 }
 
 type Broker struct {

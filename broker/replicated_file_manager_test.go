@@ -53,6 +53,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 
 			By("invoking with the next replica")
 			callback(expectedName, expectedReplica+1, expectedAddr)
+			Eventually(mockInnerBrokerProvider.nameCh).Should(Receive(Equal(expectedName)))
 			Eventually(mockInnerBrokerProvider.addrCh).Should(Receive(Equal(expectedAddr)))
 			Eventually(subWriter.subWriterCh).Should(Receive(Equal(expectedWriter)))
 

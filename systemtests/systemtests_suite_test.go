@@ -7,6 +7,7 @@ import (
 	"os/exec"
 
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/logging"
 	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -44,6 +45,8 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
+	logging.SetLevel(logging.CRITICAL)
+
 	if consulSession != nil {
 		consulSession.Kill()
 		consulSession.Wait("60s", "200ms")

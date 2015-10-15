@@ -26,6 +26,8 @@ type Client struct {
 
 func NewClient(URLs ...string) (*Client, error) {
 	log := logging.Log("Client")
+	log.Debug("Broker List: %v", URLs)
+
 	var conns []*connInfo
 	for _, URL := range URLs {
 		verifyUrl(URL, log)
@@ -124,8 +126,10 @@ func (c *Client) getNextFetchIdx() uint64 {
 }
 
 func (c *Client) fetchConnection(URL string) *connInfo {
+	c.log.Debug("Fetching connection for %s", URL)
 	for _, info := range c.conns {
-		if info.URL[2:] == URL[4:] {
+		if info.URL == URL {
+			c.log.Debug("Found connection for %s", URL)
 			return info
 		}
 	}

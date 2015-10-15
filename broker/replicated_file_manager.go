@@ -11,7 +11,7 @@ type SubscribableWriter interface {
 }
 
 type InnerBrokerProvider interface {
-	ProvideConn(addr string) io.Writer
+	ProvideConn(name, addr string) io.Writer
 }
 
 type ReplicaListener interface {
@@ -55,11 +55,11 @@ func (r *ReplicatedFileManager) Add(name string, replica uint) {
 		replica: replica,
 	}
 
-	r.replicaListener.ListenForReplicas(name, func(n string, rep uint, addr string) {
+	r.replicaListener.ListenForReplicas(name, func(_ string, rep uint, addr string) {
 		if replica+1 != rep {
 			return
 		}
-		innerConn := r.innerBrokerProvider.ProvideConn(addr)
+		innerConn := r.innerBrokerProvider.ProvideConn(name, addr)
 		writer.UpdateWriter(innerConn)
 	})
 }

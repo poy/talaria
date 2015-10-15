@@ -3,6 +3,8 @@ package broker
 import (
 	"fmt"
 	"io"
+
+	"github.com/apoydence/talaria/logging"
 )
 
 type IoProvider interface {
@@ -23,14 +25,18 @@ type ioInfo struct {
 }
 
 type FileController struct {
+	log          logging.Logger
 	fileIdMap    map[uint64]*ioInfo
+	skipOrch     bool
 	ioProvider   IoProvider
 	orchestrator Orchestrator
 }
 
-func NewFileController(ioProvider IoProvider, orchestrator Orchestrator) *FileController {
+func NewFileController(skipOrch bool, ioProvider IoProvider, orchestrator Orchestrator) *FileController {
 	return &FileController{
+		log:          logging.Log("FileController"),
 		fileIdMap:    make(map[uint64]*ioInfo),
+		skipOrch:     skipOrch,
 		ioProvider:   ioProvider,
 		orchestrator: orchestrator,
 	}
@@ -43,9 +49,14 @@ func (f *FileController) FetchFile(fileId uint64, name string) *FetchFileError {
 	}
 
 	if !ok {
-		uri, local := f.orchestrator.FetchLeader(name)
-		if !local {
-			return NewFetchFileError("Redirect to the correct broker", uri)
+
+		f.log.Debug("New fileId (fileId=%d) (skipOrch=%v) %s", fileId, f.skipOrch, name)
+
+		if !f.skipOrch {
+			uri, local := f.orchestrator.FetchLeader(name)
+			if !local {
+				return NewFetchFileError("Redirect to the correct broker", uri)
+			}
 		}
 
 		f.fileIdMap[fileId] = &ioInfo{

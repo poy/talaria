@@ -14,11 +14,13 @@ type mockServer struct {
 	serverCh          chan []byte
 	connEstablishedCh chan struct{}
 	clientCh          chan *messages.Client
+	reqCh             chan *http.Request
 	upgrader          websocket.Upgrader
 }
 
 func newMockServer() *mockServer {
 	return &mockServer{
+		reqCh:             make(chan *http.Request, 100),
 		serverCh:          make(chan []byte, 100),
 		clientCh:          make(chan *messages.Client, 100),
 		connEstablishedCh: make(chan struct{}),
@@ -27,6 +29,7 @@ func newMockServer() *mockServer {
 
 func (m *mockServer) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 	defer GinkgoRecover()
+	m.reqCh <- req
 	conn, err := m.upgrader.Upgrade(writer, req, nil)
 	Expect(err).ToNot(HaveOccurred())
 	close(m.connEstablishedCh)
