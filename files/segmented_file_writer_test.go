@@ -1,6 +1,7 @@
 package files_test
 
 import (
+	"encoding/binary"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,6 +10,7 @@ import (
 	"time"
 
 	"github.com/apoydence/talaria/files"
+	"github.com/apoydence/talaria/pb/filemeta"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -46,25 +48,31 @@ var _ = Describe("SegmentedFileWriter", func() {
 			file, err := os.Open(path.Join(tmpDir, "0"))
 			Expect(err).ToNot(HaveOccurred())
 
-			data, err := ioutil.ReadAll(file)
+			_, err = file.Seek(8, 0)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(data).To(Equal(expectedData))
+			chunkedReader := files.NewChunkedFileReader(file)
+			buffer := make([]byte, 1024)
+			n, err = chunkedReader.Read(buffer)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(n).To(Equal(len(expectedData)))
+
+			Expect(buffer[:n]).To(Equal(expectedData))
 		})
 
 		It("writes data from multiple go routines", func(done Done) {
 			defer close(done)
 			expectedData := []byte("some-data")
 			count := 5
-			wg := sync.WaitGroup{}
+			var wg sync.WaitGroup
 			wg.Add(count)
 
-			segmentedFile = files.NewSegmentedFileWriter(tmpDir, uint64(200*count*len(expectedData)), 10)
+			segmentedFile2 := files.NewSegmentedFileWriter(tmpDir, uint64(200*count*(len(expectedData))+8), 100)
 
 			for i := 0; i < count; i++ {
 				go func() {
 					defer wg.Done()
 					for j := 0; j < 100; j++ {
-						n, err := segmentedFile.Write(expectedData)
+						n, err := segmentedFile2.Write(expectedData)
 						Expect(n).To(Equal(len(expectedData)))
 						Expect(err).ToNot(HaveOccurred())
 						time.Sleep(time.Millisecond)
@@ -76,25 +84,47 @@ var _ = Describe("SegmentedFileWriter", func() {
 
 			file, err := os.Open(path.Join(tmpDir, "0"))
 			Expect(err).ToNot(HaveOccurred())
-
-			data, err := ioutil.ReadAll(file)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(data).To(HaveLen(count * 100 * len(expectedData)))
+			verifyData(expectedData, file)
 		})
 
-		It("writes data to a series of files after enough data has been written", func(done Done) {
+		It("writes meta data", func(done Done) {
 			defer close(done)
 
-			for i := 0; i < 100; i += 5 {
+			for i := 0; i < 15; i += 5 {
 				n, err := segmentedFile.Write(expectedData[i : i+5])
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(5))
 			}
 
-			for i := 0; i < 10; i++ {
+			validateMeta := func(data []byte, expectedIndex, expectedCount uint64) {
+				Expect(binary.LittleEndian.Uint64(data[:8])).To(Equal(uint64(21)))
+				meta := new(filemeta.FileMeta)
+				Expect(meta.Unmarshal(data[21:])).To(Succeed())
+				Expect(meta.GetStartingIndex()).To(Equal(expectedIndex))
+				Expect(meta.GetCount()).To(Equal(expectedCount))
+			}
+
+			for i := 0; i < 2; i++ {
 				data, err := readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", i)))
 				Expect(err).ToNot(HaveOccurred())
-				Expect(data).To(Equal(expectedData[i*10 : (i+1)*10]))
+				validateMeta(data, uint64(i), 1)
+			}
+		})
+
+		It("writes data to a series of files after enough data has been written", func(done Done) {
+			defer close(done)
+
+			for i := 0; i < 15; i += 5 {
+				n, err := segmentedFile.Write(expectedData[i : i+5])
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(5))
+			}
+
+			for i := 0; i < 3; i++ {
+				file, err := os.Open(path.Join(tmpDir, fmt.Sprintf("%d", i)))
+				Expect(err).ToNot(HaveOccurred())
+
+				verifyData(expectedData[i*5:i*5+5], file)
 			}
 		})
 	})
@@ -103,24 +133,37 @@ var _ = Describe("SegmentedFileWriter", func() {
 		It("keeps the number of files at the given value", func(done Done) {
 			defer close(done)
 
-			for i := 0; i < 110; i += 5 {
-				n, err := segmentedFile.Write(expectedData[i : i+5])
+			By("writing 10 bytes at a time (2 data + 8 length)")
+			for i := 0; i < 22; i += 2 {
+				n, err := segmentedFile.Write(expectedData[i : i+2])
 				Expect(err).ToNot(HaveOccurred())
-				Expect(n).To(Equal(5))
+				Expect(n).To(Equal(2))
 			}
 
 			_, err := readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", 0)))
 			Expect(err).To(HaveOccurred())
 
 			for i := 1; i < 11; i++ {
-				data, err := readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", i)))
+				_, err = readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", i)))
 				Expect(err).ToNot(HaveOccurred())
-				Expect(data).To(Equal(expectedData[i*10 : (i+1)*10]))
 			}
 		})
 	})
 
 })
+
+func verifyData(expectedData []byte, file *os.File) {
+	_, err := file.Seek(8, 0)
+	Expect(err).ToNot(HaveOccurred())
+	chunkedReader := files.NewChunkedFileReader(file)
+
+	buffer := make([]byte, 1024)
+	n, err := chunkedReader.Read(buffer)
+
+	Expect(err).ToNot(HaveOccurred())
+	Expect(n).To(Equal(len(expectedData)))
+	Expect(buffer[:n]).To(Equal(expectedData))
+}
 
 func readFromFile(path string) ([]byte, error) {
 	file, err := os.Open(path)
