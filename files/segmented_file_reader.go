@@ -56,7 +56,68 @@ func (s *SegmentedFileReader) Read(buffer []byte) (int, error) {
 	return s.removeMeta(n), err
 }
 
+func (s *SegmentedFileReader) SeekIndex(index uint64) error {
+	nextFileNum, ok := s.fetchNextNumber(false)
+	if !ok {
+		return fmt.Errorf("Attempted to seek while no segments exists")
+	}
+
+	var (
+		lastStart uint64
+		lastEnd   uint64
+	)
+
+	for {
+		s.log.Debug("Seeking: Looking in file %d", nextFileNum)
+		file, metaStart := s.openFile(nextFileNum)
+		s.log.Debug("Seeking: metaStart: %d", metaStart)
+		if file == nil {
+			return fmt.Errorf("Attempted to seek past available index")
+		}
+
+		meta := s.readMeta(file, int64(metaStart))
+		if metaStart > 0 && meta == nil {
+			return fmt.Errorf("Unable to read meta data")
+		}
+
+		start := meta.GetStartingIndex()
+		if meta != nil {
+			lastStart = start
+			lastEnd = lastStart + meta.GetCount()
+		} else {
+			start = lastEnd
+		}
+
+		if meta == nil || (index >= lastStart && index < lastEnd) {
+			s.log.Debug("Found seek index (%d) in file %d", index, nextFileNum)
+			s.file = file
+			s.chunkedReader = NewChunkedFileReader(file)
+			if _, err := s.file.Seek(8, 0); err != nil {
+				s.log.Panic("Unable to seek within file", err)
+			}
+
+			return s.iterateFile(index - start)
+		}
+
+		nextFileNum++
+	}
+}
+
+func (s *SegmentedFileReader) iterateFile(count uint64) error {
+	tempBuffer := make([]byte, 1024)
+	for i := uint64(0); i < count; i++ {
+		if _, err := s.chunkedReader.Read(tempBuffer); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func (s *SegmentedFileReader) readMeta(file *os.File, metaStart int64) *filemeta.FileMeta {
+	if metaStart == 0 {
+		return nil
+	}
+
 	index, err := file.Seek(metaStart, 0)
 	if err != nil || index != metaStart {
 		s.log.Error("Unable to seek in file", err)

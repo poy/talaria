@@ -93,6 +93,8 @@ func (s *SegmentedFileWriter) createNewFile() {
 }
 
 func (s *SegmentedFileWriter) writeMeta() {
+	s.log.Debug("Writing meta for %s", s.file.Name())
+
 	if _, err := s.file.Seek(0, 0); err != nil {
 		s.log.Panic("Failed to seek within file", err)
 	}

@@ -1,0 +1,6 @@
+package filemeta;
+
+message FileMeta{
+	required uint64 startingIndex = 1;
+	required uint64 count = 2;
+}

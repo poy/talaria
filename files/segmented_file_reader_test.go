@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/apoydence/talaria/files"
+	"github.com/apoydence/talaria/logging"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -144,34 +145,54 @@ var _ = Describe("SegmentedFileReader", func() {
 			})
 		})
 
-		PDescribe("SeekIndex()", func() {
+		Describe("SeekIndex()", func() {
 			BeforeEach(func() {
+				logging.SetLevel(logging.DEBUG)
+				segmentedFileWriter = files.NewSegmentedFileWriter(tmpDir, 20, 10)
 				segmentedFileReader = files.NewSegmentedFileReader(tmpDir, time.Millisecond)
 			})
 
-			It("starts reading from a specific point", func(done Done) {
+			It("seeks to each point", func(done Done) {
 				defer close(done)
+				count := 5
 
-				for i := 0; i < 100; i++ {
-					n, err := segmentedFileWriter.Write(expectedData[i : i+1])
+				for i := 0; i < count; i++ {
+					By(fmt.Sprintf("writing index %d to the file", i))
+					n, err := segmentedFileWriter.Write(expectedData[i*2 : i*2+2])
 					Expect(err).ToNot(HaveOccurred())
-					Expect(n).To(Equal(1))
+					Expect(n).To(Equal(2))
 				}
 
-				By("reading from the file")
 				buffer := make([]byte, 1024)
-				_, err := segmentedFileReader.Read(buffer)
-				Expect(err).ToNot(HaveOccurred())
+				for i := 0; i < count; i++ {
+					By(fmt.Sprintf("seeking to index %d", i))
+					err := segmentedFileReader.SeekIndex(uint64(i))
+					Expect(err).ToNot(HaveOccurred())
 
-				By("seeking near the beginning of the file")
-				err = segmentedFileReader.SeekIndex(2)
-				Expect(err).ToNot(HaveOccurred())
+					By(fmt.Sprintf("reading from the file at index %d", i))
+					n, err := segmentedFileReader.Read(buffer)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(2))
+					fmt.Println(buffer[:n])
+					Expect(buffer[:n]).To(Equal(expectedData[i*2 : i*2+2]))
+				}
 
-				By("reading from the file again")
-				n, err := segmentedFileReader.Read(buffer)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(n).To(Equal(3))
-				Expect(buffer[:3]).To(Equal(expectedData[2:5]))
+			})
+
+			It("returns an error when seeking beyond the file", func(done Done) {
+				defer close(done)
+				count := 5
+
+				for i := 0; i < count; i++ {
+					By(fmt.Sprintf("writing index %d to the file", i))
+					fmt.Println(expectedData[i*2 : i*2+2])
+					n, err := segmentedFileWriter.Write(expectedData[i*2 : i*2+2])
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(2))
+				}
+
+				err := segmentedFileReader.SeekIndex(uint64(count + 1))
+				Expect(err).To(HaveOccurred())
 			})
 		})
 
