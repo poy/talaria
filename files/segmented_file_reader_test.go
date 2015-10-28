@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/apoydence/talaria/files"
-	"github.com/apoydence/talaria/logging"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -147,7 +146,6 @@ var _ = Describe("SegmentedFileReader", func() {
 
 		Describe("SeekIndex()", func() {
 			BeforeEach(func() {
-				logging.SetLevel(logging.DEBUG)
 				segmentedFileWriter = files.NewSegmentedFileWriter(tmpDir, 20, 10)
 				segmentedFileReader = files.NewSegmentedFileReader(tmpDir, time.Millisecond)
 			})
@@ -173,7 +171,6 @@ var _ = Describe("SegmentedFileReader", func() {
 					n, err := segmentedFileReader.Read(buffer)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(2))
-					fmt.Println(buffer[:n])
 					Expect(buffer[:n]).To(Equal(expectedData[i*2 : i*2+2]))
 				}
 
@@ -185,7 +182,6 @@ var _ = Describe("SegmentedFileReader", func() {
 
 				for i := 0; i < count; i++ {
 					By(fmt.Sprintf("writing index %d to the file", i))
-					fmt.Println(expectedData[i*2 : i*2+2])
 					n, err := segmentedFileWriter.Write(expectedData[i*2 : i*2+2])
 					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(2))
