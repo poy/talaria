@@ -5,7 +5,7 @@ import (
 	"net/http"
 
 	"github.com/apoydence/talaria/logging"
-	"github.com/apoydence/talaria/messages"
+	"github.com/apoydence/talaria/pb/messages"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/websocket"
 )

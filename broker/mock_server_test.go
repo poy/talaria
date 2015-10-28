@@ -3,7 +3,7 @@ package broker_test
 import (
 	"net/http"
 
-	"github.com/apoydence/talaria/messages"
+	"github.com/apoydence/talaria/pb/messages"
 	"github.com/gorilla/websocket"
 
 	. "github.com/onsi/ginkgo"

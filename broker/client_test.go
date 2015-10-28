@@ -6,7 +6,7 @@ import (
 	"sync"
 
 	"github.com/apoydence/talaria/broker"
-	"github.com/apoydence/talaria/messages"
+	"github.com/apoydence/talaria/pb/messages"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"

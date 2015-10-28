@@ -2,9 +2,10 @@ package broker_test
 
 import (
 	"net/http/httptest"
+	"strings"
 
 	"github.com/apoydence/talaria/broker"
-	"github.com/apoydence/talaria/messages"
+	"github.com/apoydence/talaria/pb/messages"
 	"github.com/gogo/protobuf/proto"
 
 	. "github.com/onsi/ginkgo"
