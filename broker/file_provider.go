@@ -42,8 +42,7 @@ func (f *FileProvider) ProvideWriter(name string) SubscribableWriter {
 		segWriter := files.NewSegmentedFileWriter(dir, f.desiredLength, f.maxSegments)
 		segWriter.Write([]byte{})
 		preReader := newTempSeekWrapper(f.provideReader(name, 0))
-		chunkedWriter := files.NewChunkedFileWriter(segWriter)
-		writer = files.NewReplicatedFileLeader(chunkedWriter, preReader)
+		writer = files.NewReplicatedFileLeader(segWriter, preReader)
 		f.writerMap[name] = writer
 	}
 
@@ -55,7 +54,7 @@ func (f *FileProvider) ProvideReader(name string) io.Reader {
 }
 
 func (f *FileProvider) provideReader(name string, polling time.Duration) io.Reader {
-	return files.NewChunkedFileReader(files.NewSegmentedFileReader(path.Join(f.dir, name), polling))
+	return files.NewSegmentedFileReader(path.Join(f.dir, name), polling)
 }
 
 type tempSeekWrapper struct {
