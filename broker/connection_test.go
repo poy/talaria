@@ -229,6 +229,7 @@ func buildFileLocation(messageId uint64) []byte {
 }
 
 func buildRemoteFileLocation(messageId uint64, uri string) []byte {
+	uri = switchProtocol(uri)
 	msgType := messages.Server_FileLocation
 	server := &messages.Server{
 		MessageType: &msgType,
@@ -242,6 +243,14 @@ func buildRemoteFileLocation(messageId uint64, uri string) []byte {
 	data, err := server.Marshal()
 	Expect(err).ToNot(HaveOccurred())
 	return data
+}
+
+func switchProtocol(uri string) string {
+	if !strings.HasPrefix(uri, "http") {
+		return uri
+	}
+
+	return "ws" + uri[4:]
 }
 
 func buildFileOffset(messageId uint64, offset int64) []byte {
