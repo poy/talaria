@@ -40,7 +40,6 @@ func (f *FileProvider) ProvideWriter(name string) SubscribableWriter {
 	if !ok {
 		dir := path.Join(f.dir, name)
 		segWriter := files.NewSegmentedFileWriter(dir, f.desiredLength, f.maxSegments)
-		segWriter.Write([]byte{})
 		preReader := newTempSeekWrapper(f.provideReader(name, 0))
 		writer = files.NewReplicatedFileLeader(segWriter, preReader)
 		f.writerMap[name] = writer

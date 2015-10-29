@@ -77,6 +77,30 @@ var _ = Describe("SegmentedFileReader", func() {
 				}
 			})
 
+			It("reads an empty message", func(done Done) {
+				defer close(done)
+				n, err := segmentedFileWriter.Write([]byte{})
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(0))
+
+				n, err = segmentedFileWriter.Write(expectedData[:2])
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(2))
+
+				buffer := make([]byte, 1024)
+				n, err = segmentedFileReader.Read(buffer)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(0))
+				Expect(buffer[:n]).To(Equal([]byte{}))
+
+				n, err = segmentedFileReader.Read(buffer)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(2))
+				Expect(buffer[:n]).To(Equal(expectedData[:2]))
+			})
+
 			It("finds the correct file to read from", func(done Done) {
 				defer close(done)
 
