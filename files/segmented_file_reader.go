@@ -48,7 +48,7 @@ func (s *SegmentedFileReader) Read(buffer []byte) (int, error) {
 		s.lastOffset += int64(n) + 8
 	}
 
-	if err == io.EOF && s.pollTime > 0 {
+	if (err == io.EOF || err == io.ErrUnexpectedEOF) && s.pollTime > 0 {
 		s.file.Close()
 		s.file = nil
 		return s.Read(buffer)
@@ -157,6 +157,7 @@ func (s *SegmentedFileReader) fetchFile() {
 		if file != nil {
 			s.lastOffset = 0
 			s.metaStart = metaStart
+			s.file = file
 			s.chunkedReader = NewChunkedFileReader(file)
 			return
 		}

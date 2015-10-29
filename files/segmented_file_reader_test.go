@@ -68,6 +68,7 @@ var _ = Describe("SegmentedFileReader", func() {
 				}
 
 				for i := 0; i < 20; i += 2 {
+					By(fmt.Sprintf("reading %d times", i))
 					buffer := make([]byte, 1024)
 					n, err := segmentedFileReader.Read(buffer)
 					Expect(err).ToNot(HaveOccurred())
