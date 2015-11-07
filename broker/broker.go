@@ -107,6 +107,7 @@ func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn
 
 func (b *Broker) writeToFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
 	offset, err := controller.WriteToFile(message.WriteToFile.GetFileId(), message.WriteToFile.GetData())
+
 	if err != nil {
 		b.writeError(err.Error(), message, conn)
 		return

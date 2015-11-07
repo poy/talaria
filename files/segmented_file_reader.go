@@ -41,14 +41,16 @@ func NewSegmentedFileReader(dir string, pollTime time.Duration) *SegmentedFileRe
 }
 
 func (s *SegmentedFileReader) Read(buffer []byte) (int, error) {
-	s.fetchFile()
+	if !s.fetchFile() {
+		return -1, io.EOF
+	}
 
 	n, err := s.chunkedReader.Read(buffer)
 	if n > 0 {
 		s.lastOffset += int64(n) + 8
 	}
 
-	if (err == io.EOF || err == io.ErrUnexpectedEOF) && s.pollTime > 0 {
+	if err == io.EOF || err == io.ErrUnexpectedEOF {
 		s.file.Close()
 		s.file = nil
 		return s.Read(buffer)
@@ -147,10 +149,10 @@ func (s *SegmentedFileReader) removeMeta(n int) int {
 	return n - int(uint64(s.lastOffset+8)-s.metaStart)
 }
 
-func (s *SegmentedFileReader) fetchFile() {
+func (s *SegmentedFileReader) fetchFile() bool {
 	for {
 		if s.file != nil {
-			return
+			return true
 		}
 
 		file, metaStart := s.openFile(s.currentFile + 1)
@@ -159,7 +161,7 @@ func (s *SegmentedFileReader) fetchFile() {
 			s.metaStart = metaStart
 			s.file = file
 			s.chunkedReader = NewChunkedFileReader(file)
-			return
+			return true
 		}
 
 		next, ok := s.fetchNextNumber(true)
@@ -170,8 +172,12 @@ func (s *SegmentedFileReader) fetchFile() {
 				s.metaStart = metaStart
 				s.file = file
 				s.chunkedReader = NewChunkedFileReader(file)
-				return
+				return true
 			}
+		}
+
+		if s.pollTime == 0 {
+			return false
 		}
 
 		time.Sleep(s.pollTime)
@@ -185,7 +191,7 @@ func (s *SegmentedFileReader) fetchFile() {
 			s.metaStart = metaStart
 			s.file = file
 			s.chunkedReader = NewChunkedFileReader(file)
-			return
+			return true
 		}
 	}
 }

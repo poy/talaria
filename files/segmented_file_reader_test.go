@@ -154,17 +154,21 @@ var _ = Describe("SegmentedFileReader", func() {
 			It("returns an EOF when polling time is set to 0", func(done Done) {
 				defer close(done)
 
-				n, err := segmentedFileWriter.Write(expectedData[:5])
-				Expect(err).ToNot(HaveOccurred())
-				Expect(n).To(Equal(5))
+				for i := 0; i < 10; i++ {
+					n, err := segmentedFileWriter.Write(expectedData[i : i+1])
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(1))
+				}
 
 				buffer := make([]byte, 1024)
-				n, err = segmentedFileReader.Read(buffer)
-				Expect(err).ToNot(HaveOccurred())
-				Expect(n).To(Equal(5))
-				Expect(buffer[:5]).To(Equal(expectedData[:5]))
+				for i := 0; i < 10; i++ {
+					n, err := segmentedFileReader.Read(buffer)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(1))
+					Expect(buffer[:n]).To(Equal(expectedData[i : i+1]))
+				}
 
-				n, err = segmentedFileReader.Read(buffer)
+				_, err := segmentedFileReader.Read(buffer)
 				Expect(err).To(MatchError(io.EOF))
 			})
 		})

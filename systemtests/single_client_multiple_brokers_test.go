@@ -72,8 +72,10 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 		defer wg.Wait()
 
 		runTest := func(name string) {
+			By(fmt.Sprintf("Fetching file %s", name))
 			fileId, err := client.FetchFile(name)
 			Expect(err).ToNot(HaveOccurred())
+			By(fmt.Sprintf("file %s is fileId %d", name, fileId))
 
 			go func() {
 				defer GinkgoRecover()
@@ -86,7 +88,9 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				for i := 0; i < 3; i++ {
+				By(fmt.Sprintf("start writing to %s", name))
+				defer By(fmt.Sprintf("done writing to %s", name))
+				for i := 0; i < 100; i++ {
 					data, err := client.ReadFromFile(fileId)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(data).To(HaveLen(1))
