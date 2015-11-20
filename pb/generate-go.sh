@@ -17,7 +17,8 @@ go get github.com/gogo/protobuf/{proto,protoc-gen-gogo,gogoproto}
 for package in $(ls definitions); do
 	rm -rf generate-go-tmp
 	mkdir -p generate-go-tmp/$package
-	mkdir $package
+  rm -rf $package
+	mkdir -p $package
 
 	for i in $(ls definitions/$package/*.proto); do
 			cp go/go_preamble.proto generate-go-tmp/$package/`basename $i`
