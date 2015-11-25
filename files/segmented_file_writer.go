@@ -46,10 +46,31 @@ func NewSegmentedFileWriter(dir string, desiredLength, maxSegments uint64) *Segm
 	}
 }
 
+func (s *SegmentedFileWriter) InitWriteIndex(index int64, data []byte) (int64, error) {
+	s.lock.Lock()
+	defer s.lock.Unlock()
+
+	if s.writeCount != 0 {
+		return int64(s.writeCount), nil
+	}
+
+	if _, err := s.subWrite(data); err != nil {
+		return 0, err
+	}
+
+	s.writeCount = uint64(index)
+
+	return index, nil
+}
+
 func (s *SegmentedFileWriter) Write(data []byte) (int, error) {
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
+	return s.subWrite(data)
+}
+
+func (s *SegmentedFileWriter) subWrite(data []byte) (int, error) {
 	if s.currentLength >= s.desiredLength {
 		s.closeFile(s.file)
 		s.createNewFile()

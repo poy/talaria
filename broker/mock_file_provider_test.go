@@ -11,10 +11,12 @@ type mockFileProvider struct {
 	readerNameCh chan string
 	writerCh     chan io.Writer
 	readerCh     chan io.Reader
+	indexCh      chan int64
 }
 
 type subWrapper struct {
 	io.Writer
+	indexCh chan int64
 }
 
 func newMockFileProvider() *mockFileProvider {
@@ -23,12 +25,13 @@ func newMockFileProvider() *mockFileProvider {
 		readerNameCh: make(chan string, 100),
 		writerCh:     make(chan io.Writer, 100),
 		readerCh:     make(chan io.Reader, 100),
+		indexCh:      make(chan int64, 100),
 	}
 }
 
 func (m *mockFileProvider) ProvideWriter(name string) broker.SubscribableWriter {
 	m.writerNameCh <- name
-	return newSubWrapper(<-m.writerCh)
+	return newSubWrapper(<-m.writerCh, m.indexCh)
 }
 
 func (m *mockFileProvider) ProvideReader(name string) io.Reader {
@@ -36,12 +39,18 @@ func (m *mockFileProvider) ProvideReader(name string) io.Reader {
 	return <-m.readerCh
 }
 
-func newSubWrapper(writer io.Writer) *subWrapper {
+func newSubWrapper(writer io.Writer, indexCh chan int64) *subWrapper {
 	return &subWrapper{
-		Writer: writer,
+		Writer:  writer,
+		indexCh: indexCh,
 	}
 }
 
 func (s *subWrapper) UpdateWriter(io.Writer) {
 	// NOP
+}
+
+func (s *subWrapper) InitWriteIndex(index int64, data []byte) (int64, error) {
+	s.indexCh <- index
+	return index, nil
 }

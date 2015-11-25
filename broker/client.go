@@ -81,6 +81,15 @@ func (c *Client) Close() {
 	}
 }
 
+func (c *Client) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, error) {
+	conn := c.fetchConnectionById(fileId)
+	if conn == nil {
+		return 0, fmt.Errorf("Unknown file ID: %d", fileId)
+	}
+
+	return conn.conn.InitWriteIndex(fileId, index, data)
+}
+
 func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	conn := c.fetchConnectionById(fileId)
 	if conn == nil {

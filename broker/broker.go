@@ -24,6 +24,7 @@ type Controller interface {
 	FetchFile(id uint64, name string) *FetchFileError
 	WriteToFile(id uint64, data []byte) (int64, error)
 	ReadFromFile(id uint64) ([]byte, error)
+	InitWriteIndex(id uint64, index int64, data []byte) (int64, error)
 }
 
 type ControllerProvider interface {
@@ -90,6 +91,8 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 			b.writeToFile(controller, message, conn)
 		case messages.Client_ReadFromFile:
 			b.readFromFile(controller, message, conn)
+		case messages.Client_InitWriteIndex:
+			b.initWriteIndex(controller, message, conn)
 		}
 	}
 }
@@ -124,6 +127,17 @@ func (b *Broker) readFromFile(controller Controller, message *messages.Client, c
 	}
 
 	b.writeReadData(data, message, conn)
+}
+
+func (b *Broker) initWriteIndex(controller Controller, message *messages.Client, conn *websocket.Conn) {
+	offset, err := controller.InitWriteIndex(message.InitWriteIndex.GetFileId(), message.InitWriteIndex.GetIndex(), message.InitWriteIndex.GetData())
+
+	if err != nil {
+		b.writeError(err.Error(), message, conn)
+		return
+	}
+
+	b.writeFileOffset(offset, message, conn)
 }
 
 func (b *Broker) writeMessage(message *messages.Server, conn *websocket.Conn) {

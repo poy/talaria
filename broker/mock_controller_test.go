@@ -15,6 +15,12 @@ type mockController struct {
 	readFileIdCh   chan uint64
 	readFileDataCh chan []byte
 	readFileErrCh  chan error
+
+	initIdCh     chan uint64
+	initDataCh   chan []byte
+	initIndexCh  chan int64
+	initOffsetCh chan int64
+	initErrCh    chan error
 }
 
 func newMockController() *mockController {
@@ -31,6 +37,12 @@ func newMockController() *mockController {
 		readFileIdCh:   make(chan uint64, 100),
 		readFileDataCh: make(chan []byte, 100),
 		readFileErrCh:  make(chan error, 100),
+
+		initIdCh:     make(chan uint64, 100),
+		initDataCh:   make(chan []byte, 100),
+		initIndexCh:  make(chan int64, 100),
+		initOffsetCh: make(chan int64, 100),
+		initErrCh:    make(chan error, 100),
 	}
 }
 
@@ -49,6 +61,13 @@ func (m *mockController) WriteToFile(id uint64, data []byte) (int64, error) {
 func (m *mockController) ReadFromFile(id uint64) ([]byte, error) {
 	m.readFileIdCh <- id
 	return <-m.readFileDataCh, <-m.readFileErrCh
+}
+
+func (m *mockController) InitWriteIndex(id uint64, index int64, data []byte) (int64, error) {
+	m.initIdCh <- id
+	m.initDataCh <- data
+	m.initIndexCh <- index
+	return <-m.initOffsetCh, <-m.initErrCh
 }
 
 func (m *mockController) closeChannels() {

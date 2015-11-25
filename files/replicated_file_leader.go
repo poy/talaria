@@ -8,13 +8,18 @@ import (
 	"github.com/apoydence/talaria/logging"
 )
 
+type InitableWriter interface {
+	io.Writer
+	InitWriteIndex(index int64, data []byte) (int64, error)
+}
+
 type HttpStarter interface {
 	Start(handler http.Handler)
 }
 
 type ReplicatedFileLeader struct {
 	log       logging.Logger
-	writer    io.Writer
+	writer    InitableWriter
 	lenBuffer []byte
 	preData   io.ReadSeeker
 
@@ -22,7 +27,7 @@ type ReplicatedFileLeader struct {
 	clientWriter io.Writer
 }
 
-func NewReplicatedFileLeader(writer io.Writer, preData io.ReadSeeker) *ReplicatedFileLeader {
+func NewReplicatedFileLeader(writer InitableWriter, preData io.ReadSeeker) *ReplicatedFileLeader {
 	r := &ReplicatedFileLeader{
 		log:       logging.Log("ReplicatedFileLeader"),
 		writer:    writer,
@@ -50,6 +55,10 @@ func (r *ReplicatedFileLeader) UpdateWriter(writer io.Writer) {
 
 	r.clientWriter = writer
 	r.writePreData()
+}
+
+func (r *ReplicatedFileLeader) InitWriteIndex(index int64, data []byte) (int64, error) {
+	return r.writer.InitWriteIndex(index, data)
 }
 
 func (r *ReplicatedFileLeader) getWriter() io.Writer {

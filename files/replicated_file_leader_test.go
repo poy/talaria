@@ -32,38 +32,54 @@ var _ = Describe("ReplicatedFileLeader", func() {
 		Expect(os.Remove(tmpFile.Name())).To(Succeed())
 	})
 
-	It("writes the data to the listener and waits for a success before writing to the wrapped writer", func(done Done) {
-		defer close(done)
-		clientWriter.dataChan = make(chan []byte)
-		replicatedFile.UpdateWriter(clientWriter)
+	Describe("UpdateWriter()", func() {
+		It("writes the data to the listener and waits for a success before writing to the wrapped writer", func(done Done) {
+			defer close(done)
+			clientWriter.dataChan = make(chan []byte)
+			replicatedFile.UpdateWriter(clientWriter)
 
-		expectedData := []byte("some-data")
-		go replicatedFile.Write(expectedData)
+			expectedData := []byte("some-data")
+			go replicatedFile.Write(expectedData)
 
-		By("waiting for the listeners to respond")
-		Consistently(mockWriter.dataChan).ShouldNot(Receive())
+			By("waiting for the listeners to respond")
+			Consistently(mockWriter.dataChan).ShouldNot(Receive())
 
-		Eventually(clientWriter.dataChan).Should(Receive(Equal(expectedData)))
-		Eventually(mockWriter.dataChan).Should(Receive(Equal(expectedData)))
-	}, 5)
+			Eventually(clientWriter.dataChan).Should(Receive(Equal(expectedData)))
+			Eventually(mockWriter.dataChan).Should(Receive(Equal(expectedData)))
+		}, 5)
 
-	It("writes any data available before accepting writes", func(done Done) {
-		defer close(done)
+		It("writes any data available before accepting writes", func(done Done) {
+			defer close(done)
 
-		By("writing pre-data")
-		expectedPreData := []byte("some-pre-data")
-		tmpFile.Write(expectedPreData)
-		tmpFile.Sync()
+			By("writing pre-data")
+			expectedPreData := []byte("some-pre-data")
+			tmpFile.Write(expectedPreData)
+			tmpFile.Sync()
 
-		replicatedFile.UpdateWriter(clientWriter)
+			replicatedFile.UpdateWriter(clientWriter)
 
-		expectedData := []byte("some-data")
-		go replicatedFile.Write(expectedData)
+			expectedData := []byte("some-data")
+			go replicatedFile.Write(expectedData)
 
-		By("reading pre-data")
-		Eventually(clientWriter.dataChan).Should(Receive(Equal(expectedPreData)))
+			By("reading pre-data")
+			Eventually(clientWriter.dataChan).Should(Receive(Equal(expectedPreData)))
 
-		Eventually(clientWriter.dataChan).Should(Receive(Equal(expectedData)))
-		Eventually(mockWriter.dataChan).Should(Receive(Equal(expectedData)))
-	}, 5)
+			Eventually(clientWriter.dataChan).Should(Receive(Equal(expectedData)))
+			Eventually(mockWriter.dataChan).Should(Receive(Equal(expectedData)))
+		}, 5)
+	})
+
+	Describe("InitWriteIndex()", func() {
+		It("inits the writer", func(done Done) {
+			defer close(done)
+			clientWriter.dataChan = make(chan []byte)
+			replicatedFile.UpdateWriter(clientWriter)
+
+			expectedData := []byte("some-data")
+			go replicatedFile.InitWriteIndex(101, expectedData)
+
+			Eventually(mockWriter.dataChan).Should(Receive(Equal(expectedData)))
+			Eventually(mockWriter.indexCh).Should(Receive(BeEquivalentTo(101)))
+		}, 5)
+	})
 })

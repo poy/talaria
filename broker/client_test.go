@@ -97,7 +97,7 @@ var _ = Describe("Client", func() {
 		})
 	})
 
-	Describe("WriteToFile", func() {
+	Describe("WriteToFile()", func() {
 		It("writes to the correct broker", func(done Done) {
 			defer close(done)
 			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
@@ -166,7 +166,7 @@ var _ = Describe("Client", func() {
 		}, 5)
 	})
 
-	Describe("ReadFromFile", func() {
+	Describe("ReadFromFile()", func() {
 		It("reads from the correct broker", func(done Done) {
 			defer close(done)
 			expectedData := []byte("some-data")
@@ -217,6 +217,28 @@ var _ = Describe("Client", func() {
 
 		}, 5)
 	})
+
+	Describe("InitWriteIndex()", func() {
+		It("initialize a file write index", func(done Done) {
+			defer close(done)
+			expectedData := []byte("some-data")
+			mockServers[0].serverCh <- buildFileLocation(1)
+			mockServers[0].serverCh <- buildFileOffset(uint64(2), 101)
+
+			id, ffErr := client.FetchFile("some-file-1")
+			Expect(ffErr).ToNot(HaveOccurred())
+
+			var msg *messages.Client
+			Eventually(mockServers[0].clientCh).Should(Receive(&msg))
+			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+			Expect(msg.GetFetchFile().GetName()).To(Equal("some-file-1"))
+
+			index, err := client.InitWriteIndex(id, 101, expectedData)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(index).To(BeEquivalentTo(101))
+		})
+	})
+
 })
 
 func startMockServer() (*mockServer, *httptest.Server) {

@@ -37,119 +37,180 @@ var _ = Describe("SegmentedFileWriter", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
-	Context("Splits Files", func() {
-		It("writes data to a file named 0", func(done Done) {
-			defer close(done)
-			expectedData := []byte("some-data")
-			n, err := segmentedFile.Write(expectedData)
-			Expect(n).To(Equal(len(expectedData)))
-			Expect(err).ToNot(HaveOccurred())
+	Describe("Write()", func() {
+		Context("Splits Files", func() {
+			It("writes data to a file named 0", func(done Done) {
+				defer close(done)
+				expectedData := []byte("some-data")
+				n, err := segmentedFile.Write(expectedData)
+				Expect(n).To(Equal(len(expectedData)))
+				Expect(err).ToNot(HaveOccurred())
 
-			file, err := os.Open(path.Join(tmpDir, "0"))
-			Expect(err).ToNot(HaveOccurred())
+				file, err := os.Open(path.Join(tmpDir, "0"))
+				Expect(err).ToNot(HaveOccurred())
 
-			_, err = file.Seek(8, 0)
-			Expect(err).ToNot(HaveOccurred())
-			chunkedReader := files.NewChunkedFileReader(file)
-			buffer := make([]byte, 1024)
-			n, err = chunkedReader.Read(buffer)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(n).To(Equal(len(expectedData)))
+				_, err = file.Seek(8, 0)
+				Expect(err).ToNot(HaveOccurred())
+				chunkedReader := files.NewChunkedFileReader(file)
+				buffer := make([]byte, 1024)
+				n, err = chunkedReader.Read(buffer)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(len(expectedData)))
 
-			Expect(buffer[:n]).To(Equal(expectedData))
+				Expect(buffer[:n]).To(Equal(expectedData))
+			})
+
+			It("writes data from multiple go routines", func(done Done) {
+				defer close(done)
+				expectedData := []byte("some-data")
+				count := 5
+				var wg sync.WaitGroup
+				wg.Add(count)
+
+				segmentedFile2 := files.NewSegmentedFileWriter(tmpDir, uint64(200*count*(len(expectedData))+8), 100)
+
+				for i := 0; i < count; i++ {
+					go func() {
+						defer wg.Done()
+						for j := 0; j < 100; j++ {
+							n, err := segmentedFile2.Write(expectedData)
+							Expect(n).To(Equal(len(expectedData)))
+							Expect(err).ToNot(HaveOccurred())
+							time.Sleep(time.Millisecond)
+						}
+					}()
+				}
+
+				wg.Wait()
+
+				file, err := os.Open(path.Join(tmpDir, "0"))
+				Expect(err).ToNot(HaveOccurred())
+				verifyData(expectedData, file)
+			})
+
+			It("writes meta data", func(done Done) {
+				defer close(done)
+
+				for i := 0; i < 15; i += 5 {
+					n, err := segmentedFile.Write(expectedData[i : i+5])
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(5))
+				}
+
+				validateMeta := func(data []byte, expectedIndex, expectedCount uint64) {
+					Expect(binary.LittleEndian.Uint64(data[:8])).To(Equal(uint64(21)))
+					meta := new(filemeta.FileMeta)
+					Expect(meta.Unmarshal(data[21:])).To(Succeed())
+					Expect(meta.GetStartingIndex()).To(Equal(expectedIndex))
+					Expect(meta.GetCount()).To(Equal(expectedCount))
+				}
+
+				for i := 0; i < 2; i++ {
+					data, err := readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", i)))
+					Expect(err).ToNot(HaveOccurred())
+					validateMeta(data, uint64(i), 1)
+				}
+			})
+
+			It("writes data to a series of files after enough data has been written", func(done Done) {
+				defer close(done)
+
+				for i := 0; i < 15; i += 5 {
+					n, err := segmentedFile.Write(expectedData[i : i+5])
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(5))
+				}
+
+				for i := 0; i < 3; i++ {
+					file, err := os.Open(path.Join(tmpDir, fmt.Sprintf("%d", i)))
+					Expect(err).ToNot(HaveOccurred())
+
+					verifyData(expectedData[i*5:i*5+5], file)
+				}
+			})
 		})
 
-		It("writes data from multiple go routines", func(done Done) {
-			defer close(done)
-			expectedData := []byte("some-data")
-			count := 5
-			var wg sync.WaitGroup
-			wg.Add(count)
+		Context("Deletes files", func() {
+			It("keeps the number of files at the given value", func(done Done) {
+				defer close(done)
 
-			segmentedFile2 := files.NewSegmentedFileWriter(tmpDir, uint64(200*count*(len(expectedData))+8), 100)
+				By("writing 10 bytes at a time (2 data + 8 length)")
+				for i := 0; i < 22; i += 2 {
+					n, err := segmentedFile.Write(expectedData[i : i+2])
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(2))
+				}
 
-			for i := 0; i < count; i++ {
-				go func() {
-					defer wg.Done()
-					for j := 0; j < 100; j++ {
-						n, err := segmentedFile2.Write(expectedData)
-						Expect(n).To(Equal(len(expectedData)))
-						Expect(err).ToNot(HaveOccurred())
-						time.Sleep(time.Millisecond)
-					}
-				}()
-			}
+				_, err := readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", 0)))
+				Expect(err).To(HaveOccurred())
 
-			wg.Wait()
-
-			file, err := os.Open(path.Join(tmpDir, "0"))
-			Expect(err).ToNot(HaveOccurred())
-			verifyData(expectedData, file)
+				for i := 1; i < 11; i++ {
+					_, err = readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", i)))
+					Expect(err).ToNot(HaveOccurred())
+				}
+			})
 		})
 
-		It("writes meta data", func(done Done) {
-			defer close(done)
+	})
 
+	Describe("InitWriteIndex()", func() {
+		var validateMeta = func(data []byte, expectedIndex, expectedCount, length uint64) {
+			Expect(binary.LittleEndian.Uint64(data[:8])).To(Equal(uint64(length)))
+			meta := new(filemeta.FileMeta)
+			Expect(meta.Unmarshal(data[length:])).To(Succeed())
+			Expect(meta.GetStartingIndex()).To(Equal(expectedIndex))
+			Expect(meta.GetCount()).To(Equal(expectedCount))
+		}
+
+		JustBeforeEach(func() {
 			for i := 0; i < 15; i += 5 {
 				n, err := segmentedFile.Write(expectedData[i : i+5])
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(5))
 			}
-
-			validateMeta := func(data []byte, expectedIndex, expectedCount uint64) {
-				Expect(binary.LittleEndian.Uint64(data[:8])).To(Equal(uint64(21)))
-				meta := new(filemeta.FileMeta)
-				Expect(meta.Unmarshal(data[21:])).To(Succeed())
-				Expect(meta.GetStartingIndex()).To(Equal(expectedIndex))
-				Expect(meta.GetCount()).To(Equal(expectedCount))
-			}
-
-			for i := 0; i < 2; i++ {
-				data, err := readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", i)))
-				Expect(err).ToNot(HaveOccurred())
-				validateMeta(data, uint64(i), 1)
-			}
 		})
 
-		It("writes data to a series of files after enough data has been written", func(done Done) {
-			defer close(done)
+		Context("InitWriteIndex() not used", func() {
+			It("writes meta data", func(done Done) {
+				defer close(done)
 
-			for i := 0; i < 15; i += 5 {
-				n, err := segmentedFile.Write(expectedData[i : i+5])
+				for i := 0; i < 2; i++ {
+					data, err := readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", i)))
+					Expect(err).ToNot(HaveOccurred())
+					validateMeta(data, uint64(i), 1, 21)
+				}
+			})
+		})
+
+		Context("InitWriteIndex() used", func() {
+			BeforeEach(func() {
+				segmentedFile.InitWriteIndex(1000, expectedData[:5])
+			})
+
+			It("writes the init data", func(done Done) {
+				defer close(done)
+
+				file, err := os.Open(path.Join(tmpDir, "0"))
+				Expect(err).ToNot(HaveOccurred())
+				_, err = file.Seek(8, 0)
+				Expect(err).ToNot(HaveOccurred())
+
+				chunkedReader := files.NewChunkedFileReader(file)
+				buffer := make([]byte, 1024)
+				n, err := chunkedReader.Read(buffer)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(5))
-			}
+			})
 
-			for i := 0; i < 3; i++ {
-				file, err := os.Open(path.Join(tmpDir, fmt.Sprintf("%d", i)))
+			It("writes the expected meta data", func(done Done) {
+				defer close(done)
+
+				data, err := readFromFile(path.Join(tmpDir, "0"))
 				Expect(err).ToNot(HaveOccurred())
-
-				verifyData(expectedData[i*5:i*5+5], file)
-			}
+				validateMeta(data, 0, 1000, 21)
+			})
 		})
 	})
-
-	Context("Deletes files", func() {
-		It("keeps the number of files at the given value", func(done Done) {
-			defer close(done)
-
-			By("writing 10 bytes at a time (2 data + 8 length)")
-			for i := 0; i < 22; i += 2 {
-				n, err := segmentedFile.Write(expectedData[i : i+2])
-				Expect(err).ToNot(HaveOccurred())
-				Expect(n).To(Equal(2))
-			}
-
-			_, err := readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", 0)))
-			Expect(err).To(HaveOccurred())
-
-			for i := 1; i < 11; i++ {
-				_, err = readFromFile(path.Join(tmpDir, fmt.Sprintf("%d", i)))
-				Expect(err).ToNot(HaveOccurred())
-			}
-		})
-	})
-
 })
 
 func verifyData(expectedData []byte, file *os.File) {

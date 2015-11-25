@@ -8,6 +8,7 @@ import (
 type SubscribableWriter interface {
 	io.Writer
 	UpdateWriter(writer io.Writer)
+	InitWriteIndex(index int64, data []byte) (int64, error)
 }
 
 type InnerBrokerProvider interface {

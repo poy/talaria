@@ -3,6 +3,7 @@ package broker_test
 import (
 	"net/http/httptest"
 	"strings"
+	"sync"
 
 	"github.com/apoydence/talaria/broker"
 	"github.com/apoydence/talaria/pb/messages"
@@ -27,7 +28,7 @@ var _ = Describe("Connection", func() {
 		Expect(err).ToNot(HaveOccurred())
 	})
 
-	Describe("FetchFile", func() {
+	Describe("FetchFile()", func() {
 
 		AfterEach(func() {
 			connection.Close()
@@ -91,7 +92,7 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
-	Describe("WriteToFile", func() {
+	Describe("WriteToFile()", func() {
 
 		AfterEach(func() {
 			connection.Close()
@@ -141,7 +142,7 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
-	Describe("ReadFromFile", func() {
+	Describe("ReadFromFile()", func() {
 
 		AfterEach(func() {
 			connection.Close()
@@ -188,7 +189,67 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
-	Describe("Close", func() {
+	Describe("InitWriteIndex()", func() {
+
+		AfterEach(func() {
+			connection.Close()
+			server.Close()
+		})
+
+		It("returns an error", func(done Done) {
+			defer close(done)
+			wg := new(sync.WaitGroup)
+			defer wg.Wait()
+			expectedData := []byte("some-data")
+
+			mockServer.serverCh <- buildError(1, "some-error")
+
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				_, err := connection.InitWriteIndex(8, 101, expectedData)
+				Expect(err).To(HaveOccurred())
+				Expect(err.Error()).To(Equal("some-error"))
+			}()
+
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_InitWriteIndex))
+			Expect(clientMsg.InitWriteIndex).ToNot(BeNil())
+			Expect(clientMsg.InitWriteIndex.GetFileId()).To(BeEquivalentTo(8))
+			Expect(clientMsg.InitWriteIndex.GetData()).To(Equal(expectedData))
+			Expect(clientMsg.InitWriteIndex.GetIndex()).To(BeEquivalentTo(101))
+		})
+
+		It("returns the new file offset", func(done Done) {
+			defer close(done)
+			wg := new(sync.WaitGroup)
+			defer wg.Wait()
+
+			expectedData := []byte("some-data")
+			mockServer.serverCh <- buildFileOffset(1, 101)
+
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				fileOffset, err := connection.InitWriteIndex(8, 101, expectedData)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(fileOffset).To(BeEquivalentTo(101))
+			}()
+
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_InitWriteIndex))
+			Expect(clientMsg.InitWriteIndex).ToNot(BeNil())
+			Expect(clientMsg.InitWriteIndex.GetFileId()).To(BeEquivalentTo(8))
+			Expect(clientMsg.InitWriteIndex.GetIndex()).To(BeEquivalentTo(101))
+			Expect(clientMsg.InitWriteIndex.GetData()).To(Equal(expectedData))
+		})
+	})
+
+	Describe("Close()", func() {
 		It("closes the connection to the server", func(done Done) {
 			defer close(done)
 			connection.Close()

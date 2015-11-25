@@ -5,6 +5,7 @@ message Client{
 		FetchFile = 1;
 		WriteToFile = 2;
 		ReadFromFile = 3;
+		InitWriteIndex = 4;
 	}
 
 	required uint64 messageId = 1;
@@ -13,6 +14,7 @@ message Client{
 	optional FetchFile fetchFile = 3;
 	optional WriteToFile writeToFile = 4;
 	optional ReadFromFile readFromFile = 5;
+	optional InitWriteIndex initWriteIndex = 6;
 }
 
 message FetchFile{
@@ -27,4 +29,10 @@ message WriteToFile{
 
 message ReadFromFile{
 	required uint64 fileId = 1;
+}
+
+message InitWriteIndex{
+	required uint64 fileId = 1;
+	required bytes data = 2;
+	required int64 index = 3;
 }

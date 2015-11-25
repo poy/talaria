@@ -18,7 +18,7 @@ type Orchestrator interface {
 
 type ioInfo struct {
 	name         string
-	writer       io.Writer
+	writer       SubscribableWriter
 	reader       io.Reader
 	writerOffset int64
 	buffer       []byte
@@ -88,4 +88,13 @@ func (f *FileController) ReadFromFile(fileId uint64) ([]byte, error) {
 
 	n, err := ioInfo.reader.Read(ioInfo.buffer)
 	return ioInfo.buffer[:n], err
+}
+
+func (f *FileController) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, error) {
+	ioInfo, ok := f.fileIdMap[fileId]
+	if !ok {
+		return 0, fmt.Errorf("Unknown file ID: %d", fileId)
+	}
+
+	return ioInfo.writer.InitWriteIndex(index, data)
 }
