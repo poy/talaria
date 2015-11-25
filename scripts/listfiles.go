@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/apoydence/talaria/kvstore"
-	"github.com/hashicorp/consul/api"
 	"sort"
 	"strconv"
 	"strings"
+
+	"github.com/apoydence/talaria/kvstore"
+	"github.com/hashicorp/consul/api"
 )
 
 type fileInfo struct {
