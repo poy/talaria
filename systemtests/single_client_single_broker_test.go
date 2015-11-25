@@ -87,4 +87,17 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		}
 	}, 5)
 
+	It("inits a file", func(done Done) {
+		defer close(done)
+
+		fileId, err := client.FetchFile("some-file")
+		Expect(err).ToNot(HaveOccurred())
+		expectedData := []byte("some-data")
+		client.InitWriteIndex(fileId, 1000, expectedData)
+		data, err := client.ReadFromFile(fileId)
+
+		Expect(err).ToNot(HaveOccurred())
+		Expect(data).To(Equal(expectedData))
+	}, 3)
+
 })
