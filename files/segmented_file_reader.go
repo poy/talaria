@@ -19,7 +19,7 @@ type SegmentedFileReader struct {
 	dir           string
 	file          *os.File
 	lastOffset    int64
-	currentIndex  uint64
+	currentIndex  int64
 	metaStart     uint64
 	currentFile   int
 	pollTime      time.Duration
@@ -55,7 +55,12 @@ func (s *SegmentedFileReader) Read(buffer []byte) (int, error) {
 		s.file = nil
 		return s.Read(buffer)
 	}
+	s.currentIndex++
 	return s.removeMeta(n), err
+}
+
+func (s *SegmentedFileReader) Index() int64 {
+	return s.currentIndex
 }
 
 func (s *SegmentedFileReader) SeekIndex(index uint64) error {
@@ -217,6 +222,16 @@ func (s *SegmentedFileReader) openFile(number int) (*os.File, uint64) {
 	}
 
 	metaStart := binary.LittleEndian.Uint64(s.lengthBuffer)
+	meta := s.readMeta(file, int64(metaStart))
+
+	_, err = file.Seek(8, 0)
+	if err != nil {
+		s.log.Panic("Unable to seek", err)
+	}
+
+	if meta != nil {
+		s.currentIndex = int64(meta.GetStartingIndex())
+	}
 
 	s.currentFile = number
 	return file, metaStart

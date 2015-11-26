@@ -54,11 +54,15 @@ func (s *SegmentedFileWriter) InitWriteIndex(index int64, data []byte) (int64, e
 		return int64(s.writeCount), nil
 	}
 
+	s.writeCount = uint64(index)
+	s.createNewFile()
+	s.closeFile(s.file)
+	s.createNewFile()
+	s.rollSegments()
+
 	if _, err := s.subWrite(data); err != nil {
 		return 0, err
 	}
-
-	s.writeCount = uint64(index)
 
 	return index, nil
 }

@@ -157,6 +157,7 @@ var _ = Describe("SegmentedFileWriter", func() {
 		var validateMeta = func(data []byte, expectedIndex, expectedCount, length uint64) {
 			Expect(binary.LittleEndian.Uint64(data[:8])).To(Equal(uint64(length)))
 			meta := new(filemeta.FileMeta)
+			Expect(meta).ToNot(BeNil())
 			Expect(meta.Unmarshal(data[length:])).To(Succeed())
 			Expect(meta.GetStartingIndex()).To(Equal(expectedIndex))
 			Expect(meta.GetCount()).To(Equal(expectedCount))
@@ -184,13 +185,14 @@ var _ = Describe("SegmentedFileWriter", func() {
 
 		Context("InitWriteIndex() used", func() {
 			BeforeEach(func() {
-				segmentedFile.InitWriteIndex(1000, expectedData[:5])
+				segmentedFile.InitWriteIndex(1000, expectedData[5:10])
 			})
 
 			It("writes the init data", func(done Done) {
 				defer close(done)
 
-				file, err := os.Open(path.Join(tmpDir, "0"))
+				By("skipping the first file because it is just meta")
+				file, err := os.Open(path.Join(tmpDir, "1"))
 				Expect(err).ToNot(HaveOccurred())
 				_, err = file.Seek(8, 0)
 				Expect(err).ToNot(HaveOccurred())
@@ -200,14 +202,31 @@ var _ = Describe("SegmentedFileWriter", func() {
 				n, err := chunkedReader.Read(buffer)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(5))
+				Expect(buffer[:n]).To(Equal(expectedData[5:10]))
 			})
 
-			It("writes the expected meta data", func(done Done) {
+			It("writes the expected meta data to the first file", func(done Done) {
 				defer close(done)
 
 				data, err := readFromFile(path.Join(tmpDir, "0"))
 				Expect(err).ToNot(HaveOccurred())
-				validateMeta(data, 0, 1000, 21)
+				validateMeta(data, 1000, 0, 8)
+			})
+
+			It("writes the expected data to the second file", func(done Done) {
+				defer close(done)
+
+				data, err := readFromFile(path.Join(tmpDir, "1"))
+				Expect(err).ToNot(HaveOccurred())
+				validateMeta(data, 1000, 1, 21)
+			})
+
+			It("writes the expected data to the third file", func(done Done) {
+				defer close(done)
+
+				data, err := readFromFile(path.Join(tmpDir, "2"))
+				Expect(err).ToNot(HaveOccurred())
+				validateMeta(data, 1001, 1, 21)
 			})
 		})
 	})

@@ -151,12 +151,16 @@ var _ = Describe("Connection", func() {
 
 		It("returns an error", func(done Done) {
 			defer close(done)
+			wg := new(sync.WaitGroup)
+			defer wg.Wait()
 
-			mockServer.serverCh <- buildError(99, "some-error")
+			mockServer.serverCh <- buildError(1, "some-error")
 
+			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
-				_, err := connection.ReadFromFile(8)
+				defer wg.Done()
+				_, _, err := connection.ReadFromFile(8)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("some-error"))
 			}()
@@ -166,19 +170,24 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
 			Expect(clientMsg.ReadFromFile).ToNot(BeNil())
 			Expect(clientMsg.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
-		})
+		}, 3)
 
 		It("returns the data and offset", func(done Done) {
 			defer close(done)
+			wg := new(sync.WaitGroup)
+			defer wg.Wait()
 
 			expectedData := []byte("some-data")
-			mockServer.serverCh <- buildReadData(99, expectedData)
+			mockServer.serverCh <- buildReadData(1, expectedData, 101)
 
+			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
-				data, err := connection.ReadFromFile(8)
+				defer wg.Done()
+				data, index, err := connection.ReadFromFile(8)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(data).To(Equal(expectedData))
+				Expect(index).To(BeEquivalentTo(101))
 			}()
 
 			var clientMsg *messages.Client
@@ -186,7 +195,7 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
 			Expect(clientMsg.ReadFromFile).ToNot(BeNil())
 			Expect(clientMsg.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
-		})
+		}, 3)
 	})
 
 	Describe("InitWriteIndex()", func() {
@@ -329,13 +338,14 @@ func buildFileOffset(messageId uint64, offset int64) []byte {
 	return data
 }
 
-func buildReadData(messageId uint64, data []byte) []byte {
+func buildReadData(messageId uint64, data []byte, index int64) []byte {
 	msgType := messages.Server_ReadData
 	server := &messages.Server{
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(messageId),
 		ReadData: &messages.ReadData{
-			Data: data,
+			Data:   data,
+			Offset: proto.Int64(index),
 		},
 	}
 

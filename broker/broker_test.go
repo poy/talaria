@@ -249,6 +249,7 @@ var _ = Describe("Broker", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			mockController.readFileDataCh <- nil
+			mockController.readOffsetCh <- 0
 			mockController.readFileErrCh <- fmt.Errorf("some-error")
 
 			readFromFile := buildReadFromFile(99, 8)
@@ -278,6 +279,7 @@ var _ = Describe("Broker", func() {
 
 			expectedData := []byte("some-data")
 			mockController.readFileDataCh <- expectedData
+			mockController.readOffsetCh <- 1010
 			mockController.readFileErrCh <- nil
 
 			readFromFile := buildReadFromFile(99, 8)
@@ -298,6 +300,7 @@ var _ = Describe("Broker", func() {
 			Expect(server.GetMessageType()).To(Equal(messages.Server_ReadData))
 			Expect(server.ReadData).ToNot(BeNil())
 			Expect(server.ReadData.GetData()).To(Equal(expectedData))
+			Expect(server.ReadData.GetOffset()).To(BeEquivalentTo(1010))
 		})
 
 		Measure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
@@ -311,6 +314,7 @@ var _ = Describe("Broker", func() {
 				go func() {
 					for i := 0; i < count; i++ {
 						mockController.readFileDataCh <- expectedData
+						mockController.readOffsetCh <- int64(i)
 						mockController.readFileErrCh <- nil
 					}
 				}()

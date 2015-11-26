@@ -99,10 +99,10 @@ func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	return conn.conn.WriteToFile(fileId, data)
 }
 
-func (c *Client) ReadFromFile(fileId uint64) ([]byte, error) {
+func (c *Client) ReadFromFile(fileId uint64) ([]byte, int64, error) {
 	conn := c.fetchConnectionById(fileId)
 	if conn == nil {
-		return nil, fmt.Errorf("Unknown file ID: %d", fileId)
+		return nil, 0, fmt.Errorf("Unknown file ID: %d", fileId)
 	}
 
 	return conn.conn.ReadFromFile(fileId)

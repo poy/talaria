@@ -1,7 +1,6 @@
 package broker
 
 import (
-	"io"
 	"path"
 	"sync"
 	"time"
@@ -48,21 +47,21 @@ func (f *FileProvider) ProvideWriter(name string) SubscribableWriter {
 	return writer
 }
 
-func (f *FileProvider) ProvideReader(name string) io.Reader {
+func (f *FileProvider) ProvideReader(name string) OffsetReader {
 	return f.provideReader(name, f.polling)
 }
 
-func (f *FileProvider) provideReader(name string, polling time.Duration) io.Reader {
+func (f *FileProvider) provideReader(name string, polling time.Duration) OffsetReader {
 	return files.NewSegmentedFileReader(path.Join(f.dir, name), polling)
 }
 
 type tempSeekWrapper struct {
-	io.Reader
+	OffsetReader
 }
 
-func newTempSeekWrapper(reader io.Reader) *tempSeekWrapper {
+func newTempSeekWrapper(reader OffsetReader) *tempSeekWrapper {
 	return &tempSeekWrapper{
-		Reader: reader,
+		OffsetReader: reader,
 	}
 }
 

@@ -59,7 +59,7 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 		}
 
 		for i := 0; i < 100; i++ {
-			data, err := client.ReadFromFile(fileId)
+			data, _, err := client.ReadFromFile(fileId)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(HaveLen(1))
 			Expect(data[0]).To(BeEquivalentTo(i))
@@ -91,7 +91,7 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 				By(fmt.Sprintf("start writing to %s", name))
 				defer By(fmt.Sprintf("done writing to %s", name))
 				for i := 0; i < 100; i++ {
-					data, err := client.ReadFromFile(fileId)
+					data, _, err := client.ReadFromFile(fileId)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(data).To(HaveLen(1))
 					Expect(data[0]).To(BeEquivalentTo(i))

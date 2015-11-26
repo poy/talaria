@@ -50,7 +50,7 @@ var _ = Describe("Benchmarks", func() {
 				}
 
 				for i := 0; i < 1000; i++ {
-					data, err := client.ReadFromFile(fileId)
+					data, _, err := client.ReadFromFile(fileId)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(data).To(HaveLen(1))
 					Expect(data[0]).To(Equal(byte(i)))
@@ -122,7 +122,7 @@ var _ = Describe("Benchmarks", func() {
 						defer wg.Done()
 						wg1.Wait()
 						for i := 0; i < 1000; i++ {
-							data, err := client.ReadFromFile(fileId)
+							data, _, err := client.ReadFromFile(fileId)
 							Expect(err).ToNot(HaveOccurred())
 							Expect(data).To(HaveLen(1))
 							Expect(data[0]).To(Equal(byte(i)))

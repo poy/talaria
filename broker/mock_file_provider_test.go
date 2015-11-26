@@ -19,6 +19,11 @@ type subWrapper struct {
 	indexCh chan int64
 }
 
+type offsetWrapper struct {
+	reader  io.Reader
+	indexCh chan int64
+}
+
 func newMockFileProvider() *mockFileProvider {
 	return &mockFileProvider{
 		writerNameCh: make(chan string, 100),
@@ -34,9 +39,9 @@ func (m *mockFileProvider) ProvideWriter(name string) broker.SubscribableWriter 
 	return newSubWrapper(<-m.writerCh, m.indexCh)
 }
 
-func (m *mockFileProvider) ProvideReader(name string) io.Reader {
+func (m *mockFileProvider) ProvideReader(name string) broker.OffsetReader {
 	m.readerNameCh <- name
-	return <-m.readerCh
+	return newIndexWrapper(<-m.readerCh, m.indexCh)
 }
 
 func newSubWrapper(writer io.Writer, indexCh chan int64) *subWrapper {
@@ -53,4 +58,20 @@ func (s *subWrapper) UpdateWriter(io.Writer) {
 func (s *subWrapper) InitWriteIndex(index int64, data []byte) (int64, error) {
 	s.indexCh <- index
 	return index, nil
+}
+
+func newIndexWrapper(reader io.Reader, indexCh chan int64) *offsetWrapper {
+	return &offsetWrapper{
+		reader:  reader,
+		indexCh: indexCh,
+	}
+}
+
+func (o *offsetWrapper) Read(buffer []byte) (int, error) {
+	n, err := o.reader.Read(buffer)
+	return n, err
+}
+
+func (o *offsetWrapper) Index() int64 {
+	return <-o.indexCh
 }

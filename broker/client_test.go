@@ -172,7 +172,7 @@ var _ = Describe("Client", func() {
 			expectedData := []byte("some-data")
 			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
 			mockServers[1].serverCh <- buildFileLocation(1)
-			mockServers[1].serverCh <- buildReadData(2, expectedData)
+			mockServers[1].serverCh <- buildReadData(2, expectedData, 101)
 
 			id, ffErr := client.FetchFile("some-file-1")
 			Expect(ffErr).ToNot(HaveOccurred())
@@ -182,9 +182,10 @@ var _ = Describe("Client", func() {
 			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(msg.GetFetchFile().GetName()).To(Equal("some-file-1"))
 
-			data, err := client.ReadFromFile(id)
+			data, index, err := client.ReadFromFile(id)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
+			Expect(index).To(BeEquivalentTo(101))
 		})
 
 		Measure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
@@ -195,7 +196,7 @@ var _ = Describe("Client", func() {
 
 				go func() {
 					for i := 0; i < count; i++ {
-						mockServers[0].serverCh <- buildReadData(uint64(i+2), data)
+						mockServers[0].serverCh <- buildReadData(uint64(i+2), data, 0)
 					}
 				}()
 

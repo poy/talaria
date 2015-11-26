@@ -82,19 +82,21 @@ func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	return serverMsg.FileOffset.GetOffset(), nil
 }
 
-func (c *Connection) ReadFromFile(fileId uint64) ([]byte, error) {
+func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, error) {
 	respCh := c.writeReadFromFile(c.nextMsgId(), fileId)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return nil, fmt.Errorf(serverMsg.Error.GetMessage())
+		return nil, 0, fmt.Errorf(serverMsg.Error.GetMessage())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_ReadData {
-		return nil, fmt.Errorf("Unexpected MessageType: %v", serverMsg.GetMessageType())
+		return nil, 0, fmt.Errorf("Unexpected MessageType: %v", serverMsg.GetMessageType())
 	}
 
-	return serverMsg.ReadData.GetData(), nil
+	data := serverMsg.ReadData.GetData()
+	index := serverMsg.ReadData.GetOffset()
+	return data, index, nil
 }
 
 func (c *Connection) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, error) {

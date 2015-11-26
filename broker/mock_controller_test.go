@@ -14,6 +14,7 @@ type mockController struct {
 
 	readFileIdCh   chan uint64
 	readFileDataCh chan []byte
+	readOffsetCh   chan int64
 	readFileErrCh  chan error
 
 	initIdCh     chan uint64
@@ -36,6 +37,7 @@ func newMockController() *mockController {
 
 		readFileIdCh:   make(chan uint64, 100),
 		readFileDataCh: make(chan []byte, 100),
+		readOffsetCh:   make(chan int64, 100),
 		readFileErrCh:  make(chan error, 100),
 
 		initIdCh:     make(chan uint64, 100),
@@ -58,9 +60,9 @@ func (m *mockController) WriteToFile(id uint64, data []byte) (int64, error) {
 	return <-m.writeFileOffsetCh, <-m.writeFileErrCh
 }
 
-func (m *mockController) ReadFromFile(id uint64) ([]byte, error) {
+func (m *mockController) ReadFromFile(id uint64) ([]byte, int64, error) {
 	m.readFileIdCh <- id
-	return <-m.readFileDataCh, <-m.readFileErrCh
+	return <-m.readFileDataCh, <-m.readOffsetCh, <-m.readFileErrCh
 }
 
 func (m *mockController) InitWriteIndex(id uint64, index int64, data []byte) (int64, error) {

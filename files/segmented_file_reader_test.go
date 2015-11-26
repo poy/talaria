@@ -173,6 +173,35 @@ var _ = Describe("SegmentedFileReader", func() {
 			})
 		})
 
+		Describe("Index()", func() {
+			BeforeEach(func() {
+				segmentedFileReader = files.NewSegmentedFileReader(tmpDir, time.Millisecond)
+			})
+
+			It("returns the correct index", func(done Done) {
+				defer close(done)
+
+				n, err := segmentedFileWriter.Write(expectedData[:5])
+				Expect(err).ToNot(HaveOccurred())
+				Expect(n).To(Equal(5))
+
+				buffer := make([]byte, 1024)
+				segmentedFileReader.Read(buffer)
+				Expect(segmentedFileReader.Index()).To(BeEquivalentTo(1))
+			})
+
+			It("reads the meta for the starting index", func(done Done) {
+				defer close(done)
+
+				_, err := segmentedFileWriter.InitWriteIndex(1000, expectedData[:5])
+				Expect(err).ToNot(HaveOccurred())
+
+				buffer := make([]byte, 1024)
+				segmentedFileReader.Read(buffer)
+				Expect(segmentedFileReader.Index()).To(BeEquivalentTo(1001))
+			})
+		})
+
 		Describe("SeekIndex()", func() {
 			BeforeEach(func() {
 				segmentedFileWriter = files.NewSegmentedFileWriter(tmpDir, 20, 10)

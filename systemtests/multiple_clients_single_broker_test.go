@@ -48,7 +48,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 			}
 
 			for i := 0; i < 100; i++ {
-				data, err := client.ReadFromFile(fileId)
+				data, _, err := client.ReadFromFile(fileId)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(data).To(HaveLen(1))
 				Expect(data[0]).To(BeEquivalentTo(i))
@@ -91,7 +91,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 
 			valueCount := 0
 			for i := 0; i < count*100; {
-				data, err := clientR.ReadFromFile(fileIdR)
+				data, _, err := clientR.ReadFromFile(fileIdR)
 				Expect(err).ToNot(HaveOccurred())
 				i += len(data)
 				for _, d := range data {
