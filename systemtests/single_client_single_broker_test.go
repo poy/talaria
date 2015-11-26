@@ -94,10 +94,11 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		Expect(err).ToNot(HaveOccurred())
 		expectedData := []byte("some-data")
 		client.InitWriteIndex(fileId, 1000, expectedData)
-		data, _, err := client.ReadFromFile(fileId)
+		data, index, err := client.ReadFromFile(fileId)
 
 		Expect(err).ToNot(HaveOccurred())
 		Expect(data).To(Equal(expectedData))
+		Expect(index).To(BeEquivalentTo(1001))
 	}, 3)
 
 })
