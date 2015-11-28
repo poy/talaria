@@ -13,7 +13,9 @@ import (
 var _ = Describe("ReplicatedFileLeader", func() {
 
 	var (
-		tmpFile        *os.File
+		tmpDir         string
+		segWriter      *files.SegmentedFileWriter
+		segReader      *files.SegmentedFileReader
 		clientWriter   *mockWriter
 		mockWriter     *mockWriter
 		replicatedFile *files.ReplicatedFileLeader
@@ -21,15 +23,20 @@ var _ = Describe("ReplicatedFileLeader", func() {
 
 	BeforeEach(func() {
 		var err error
-		tmpFile, err = ioutil.TempFile("", "replicated")
+		tmpDir, err = ioutil.TempDir("/tmp", "seg")
+		Expect(err).ToNot(HaveOccurred())
+
+		segWriter = files.NewSegmentedFileWriter(tmpDir, 10, 10)
+		segReader = files.NewSegmentedFileReader(tmpDir, 0)
+
 		Expect(err).ToNot(HaveOccurred())
 		mockWriter = newMockWriter()
 		clientWriter = newMockWriter()
-		replicatedFile = files.NewReplicatedFileLeader(mockWriter, tmpFile)
+		replicatedFile = files.NewReplicatedFileLeader(mockWriter, segReader)
 	})
 
 	AfterEach(func() {
-		Expect(os.Remove(tmpFile.Name())).To(Succeed())
+		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
 	Describe("UpdateWriter()", func() {
@@ -53,8 +60,7 @@ var _ = Describe("ReplicatedFileLeader", func() {
 
 			By("writing pre-data")
 			expectedPreData := []byte("some-pre-data")
-			tmpFile.Write(expectedPreData)
-			tmpFile.Sync()
+			segWriter.Write(expectedPreData)
 
 			replicatedFile.UpdateWriter(clientWriter)
 

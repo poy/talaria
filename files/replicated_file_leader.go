@@ -8,6 +8,11 @@ import (
 	"github.com/apoydence/talaria/logging"
 )
 
+type ReadIndexSeeker interface {
+	io.Reader
+	SeekIndex(uint64) error
+}
+
 type InitableWriter interface {
 	io.Writer
 	InitWriteIndex(index int64, data []byte) (int64, error)
@@ -21,13 +26,13 @@ type ReplicatedFileLeader struct {
 	log       logging.Logger
 	writer    InitableWriter
 	lenBuffer []byte
-	preData   io.ReadSeeker
+	preData   ReadIndexSeeker
 
 	syncClient   sync.RWMutex
 	clientWriter io.Writer
 }
 
-func NewReplicatedFileLeader(writer InitableWriter, preData io.ReadSeeker) *ReplicatedFileLeader {
+func NewReplicatedFileLeader(writer InitableWriter, preData ReadIndexSeeker) *ReplicatedFileLeader {
 	r := &ReplicatedFileLeader{
 		log:       logging.Log("ReplicatedFileLeader"),
 		writer:    writer,
@@ -79,7 +84,7 @@ func (r *ReplicatedFileLeader) writeToClient(data []byte) {
 }
 
 func (r *ReplicatedFileLeader) writePreData() {
-	r.preData.Seek(0, 0)
+	r.preData.SeekIndex(0)
 	buffer := make([]byte, 1024)
 
 	for {
