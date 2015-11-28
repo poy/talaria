@@ -9,7 +9,7 @@ import (
 
 type OffsetReader interface {
 	io.Reader
-	Index() int64
+	NextIndex() int64
 }
 
 type IoProvider interface {
@@ -92,7 +92,7 @@ func (f *FileController) ReadFromFile(fileId uint64) ([]byte, int64, error) {
 	}
 
 	n, err := ioInfo.reader.Read(ioInfo.buffer)
-	offset := ioInfo.reader.Index()
+	offset := ioInfo.reader.NextIndex() - 1
 	return ioInfo.buffer[:n], offset, err
 }
 

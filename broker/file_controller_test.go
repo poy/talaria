@@ -196,7 +196,7 @@ var _ = Describe("FileController", func() {
 			data, offset, err := fileController.ReadFromFile(fileId1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
-			Expect(offset).To(BeEquivalentTo(101))
+			Expect(offset).To(BeEquivalentTo(100))
 
 			By("reading from the next offset")
 			writeToFile(file, expectedData, int64(-len(expectedData)), 2)
@@ -204,7 +204,7 @@ var _ = Describe("FileController", func() {
 			data, offset, err = fileController.ReadFromFile(fileId1)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
-			Expect(offset).To(BeEquivalentTo(102))
+			Expect(offset).To(BeEquivalentTo(101))
 		})
 	})
 

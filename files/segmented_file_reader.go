@@ -59,7 +59,7 @@ func (s *SegmentedFileReader) Read(buffer []byte) (int, error) {
 	return s.removeMeta(n), err
 }
 
-func (s *SegmentedFileReader) Index() int64 {
+func (s *SegmentedFileReader) NextIndex() int64 {
 	return s.currentIndex
 }
 

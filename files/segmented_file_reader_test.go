@@ -173,7 +173,7 @@ var _ = Describe("SegmentedFileReader", func() {
 			})
 		})
 
-		Describe("Index()", func() {
+		Describe("NextIndex()", func() {
 			BeforeEach(func() {
 				segmentedFileReader = files.NewSegmentedFileReader(tmpDir, time.Millisecond)
 			})
@@ -187,7 +187,7 @@ var _ = Describe("SegmentedFileReader", func() {
 
 				buffer := make([]byte, 1024)
 				segmentedFileReader.Read(buffer)
-				Expect(segmentedFileReader.Index()).To(BeEquivalentTo(1))
+				Expect(segmentedFileReader.NextIndex()).To(BeEquivalentTo(1))
 			})
 
 			It("reads the meta for the starting index", func(done Done) {
@@ -198,7 +198,7 @@ var _ = Describe("SegmentedFileReader", func() {
 
 				buffer := make([]byte, 1024)
 				segmentedFileReader.Read(buffer)
-				Expect(segmentedFileReader.Index()).To(BeEquivalentTo(1001))
+				Expect(segmentedFileReader.NextIndex()).To(BeEquivalentTo(1001))
 			})
 		})
 

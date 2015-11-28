@@ -72,6 +72,6 @@ func (o *offsetWrapper) Read(buffer []byte) (int, error) {
 	return n, err
 }
 
-func (o *offsetWrapper) Index() int64 {
+func (o *offsetWrapper) NextIndex() int64 {
 	return <-o.indexCh
 }
