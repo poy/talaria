@@ -13,7 +13,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = FDescribe("Benchmarks", func() {
+var _ = Describe("Benchmarks", func() {
 
 	Context("Single Broker", func() {
 

@@ -103,7 +103,7 @@ func (r *ReplicatedFileLeader) writeToClient(data []byte) {
 
 func (r *ReplicatedFileLeader) writePreData(index uint64) {
 	err := r.preData.SeekIndex(index)
-	if err != nil {
+	if err != nil && err != io.EOF {
 		r.log.Panicf("Unable to seek to %d: %v", index, err)
 	}
 	buffer := make([]byte, 1024)

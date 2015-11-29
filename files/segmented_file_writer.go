@@ -47,6 +47,7 @@ func NewSegmentedFileWriter(dir string, desiredLength, maxSegments uint64) *Segm
 }
 
 func (s *SegmentedFileWriter) InitWriteIndex(index int64, data []byte) (int64, error) {
+	s.log.Debug("InitWriteIndex(): index=%d, writeCount=%d", index, s.writeCount)
 	s.lock.Lock()
 	defer s.lock.Unlock()
 
