@@ -11,6 +11,7 @@ import (
 type ReadIndexSeeker interface {
 	io.Reader
 	SeekIndex(uint64) error
+	NextIndex() int64
 }
 
 type InitableWriter interface {
@@ -54,12 +55,29 @@ func (r *ReplicatedFileLeader) Write(data []byte) (int, error) {
 	return n, err
 }
 
-func (r *ReplicatedFileLeader) UpdateWriter(writer io.Writer) {
+func (r *ReplicatedFileLeader) UpdateWriter(writer InitableWriter) {
 	r.syncClient.Lock()
 	defer r.syncClient.Unlock()
 
 	r.clientWriter = writer
-	r.writePreData()
+
+	buffer := make([]byte, 1024)
+	n, err := r.preData.Read(buffer)
+	if err == io.EOF {
+		return
+	}
+
+	if err != nil {
+		r.log.Panic("Failed to read from pre-data", err)
+	}
+
+	nextIndex := r.preData.NextIndex()
+	index, err := writer.InitWriteIndex(nextIndex-1, buffer[:n])
+	if err != nil {
+		r.log.Panic("Unable to init write index", err)
+	}
+
+	r.writePreData(uint64(index + 1))
 }
 
 func (r *ReplicatedFileLeader) InitWriteIndex(index int64, data []byte) (int64, error) {
@@ -83,8 +101,11 @@ func (r *ReplicatedFileLeader) writeToClient(data []byte) {
 	}
 }
 
-func (r *ReplicatedFileLeader) writePreData() {
-	r.preData.SeekIndex(0)
+func (r *ReplicatedFileLeader) writePreData(index uint64) {
+	err := r.preData.SeekIndex(index)
+	if err != nil {
+		r.log.Panicf("Unable to seek to %d: %v", index, err)
+	}
 	buffer := make([]byte, 1024)
 
 	for {

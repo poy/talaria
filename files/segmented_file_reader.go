@@ -103,6 +103,9 @@ func (s *SegmentedFileReader) SeekIndex(index uint64) error {
 				s.log.Panic("Unable to seek within file", err)
 			}
 
+			s.lastOffset = 0
+
+			s.currentIndex = int64(index)
 			return s.iterateFile(index - start)
 		}
 
@@ -113,9 +116,11 @@ func (s *SegmentedFileReader) SeekIndex(index uint64) error {
 func (s *SegmentedFileReader) iterateFile(count uint64) error {
 	tempBuffer := make([]byte, 1024)
 	for i := uint64(0); i < count; i++ {
-		if _, err := s.chunkedReader.Read(tempBuffer); err != nil {
+		n, err := s.chunkedReader.Read(tempBuffer)
+		if err != nil {
 			return err
 		}
+		s.lastOffset += int64(n)
 	}
 	return nil
 }

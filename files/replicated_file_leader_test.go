@@ -40,12 +40,21 @@ var _ = Describe("ReplicatedFileLeader", func() {
 	})
 
 	Describe("UpdateWriter()", func() {
+		var (
+			expectedData    []byte
+			expectedPreData []byte
+		)
+
+		BeforeEach(func() {
+			expectedPreData = []byte("some-pre-data")
+			expectedData = []byte("some-data")
+		})
+
 		It("writes the data to the listener and waits for a success before writing to the wrapped writer", func(done Done) {
 			defer close(done)
 			clientWriter.dataChan = make(chan []byte)
 			replicatedFile.UpdateWriter(clientWriter)
 
-			expectedData := []byte("some-data")
 			go replicatedFile.Write(expectedData)
 
 			By("waiting for the listeners to respond")
@@ -55,11 +64,34 @@ var _ = Describe("ReplicatedFileLeader", func() {
 			Eventually(mockWriter.dataChan).Should(Receive(Equal(expectedData)))
 		}, 5)
 
+		It("Inits the new writer that doesn't have any data", func(done Done) {
+			defer close(done)
+			clientWriter.retIndexCh <- 101
+			segWriter.InitWriteIndex(101, expectedPreData)
+
+			replicatedFile.UpdateWriter(clientWriter)
+			Eventually(clientWriter.indexCh).Should(Receive(BeEquivalentTo(101)))
+			Eventually(clientWriter.dataChan).Should(Receive(Equal(expectedPreData)))
+		}, 5)
+
+		It("Inits the new writer that already has data", func(done Done) {
+			defer close(done)
+			notExpectedData := []byte("some-data-1")
+			clientWriter.retIndexCh <- 102
+			segWriter.InitWriteIndex(101, expectedPreData)
+			segWriter.Write(notExpectedData)
+			segWriter.Write(expectedData)
+
+			replicatedFile.UpdateWriter(clientWriter)
+			Eventually(clientWriter.dataChan).Should(HaveLen(2))
+			Eventually(clientWriter.dataChan).Should(Receive(Equal(expectedData)))
+		}, 5)
+
 		It("writes any data available before accepting writes", func(done Done) {
 			defer close(done)
+			clientWriter.retIndexCh <- 0
 
 			By("writing pre-data")
-			expectedPreData := []byte("some-pre-data")
 			segWriter.Write(expectedPreData)
 
 			replicatedFile.UpdateWriter(clientWriter)

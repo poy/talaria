@@ -19,12 +19,15 @@ var _ = Describe("SegmentedFileReader", func() {
 
 		segmentedFileReader *files.SegmentedFileReader
 		segmentedFileWriter *files.SegmentedFileWriter
+		buffer              []byte
 	)
 
 	BeforeEach(func() {
 		var err error
 		tmpDir, err = ioutil.TempDir("/tmp", "seg")
 		Expect(err).ToNot(HaveOccurred())
+
+		buffer = make([]byte, 1024)
 
 		segmentedFileWriter = files.NewSegmentedFileWriter(tmpDir, 10, 10)
 
@@ -51,7 +54,6 @@ var _ = Describe("SegmentedFileReader", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(5))
 
-				buffer := make([]byte, 1024)
 				n, err = segmentedFileReader.Read(buffer)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(5))
@@ -69,7 +71,6 @@ var _ = Describe("SegmentedFileReader", func() {
 
 				for i := 0; i < 20; i += 2 {
 					By(fmt.Sprintf("reading %d times", i))
-					buffer := make([]byte, 1024)
 					n, err := segmentedFileReader.Read(buffer)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(n).To(Equal(2))
@@ -87,7 +88,6 @@ var _ = Describe("SegmentedFileReader", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(2))
 
-				buffer := make([]byte, 1024)
 				n, err = segmentedFileReader.Read(buffer)
 
 				Expect(err).ToNot(HaveOccurred())
@@ -111,7 +111,6 @@ var _ = Describe("SegmentedFileReader", func() {
 					Expect(n).To(Equal(2))
 				}
 
-				buffer := make([]byte, 1024)
 				n, err := segmentedFileReader.Read(buffer)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(2))
@@ -133,7 +132,6 @@ var _ = Describe("SegmentedFileReader", func() {
 					}
 				}()
 
-				buffer := make([]byte, 1024)
 				var results []byte
 
 				for len(results) < 5 {
@@ -160,7 +158,6 @@ var _ = Describe("SegmentedFileReader", func() {
 					Expect(n).To(Equal(1))
 				}
 
-				buffer := make([]byte, 1024)
 				for i := 0; i < 10; i++ {
 					n, err := segmentedFileReader.Read(buffer)
 					Expect(err).ToNot(HaveOccurred())
@@ -185,7 +182,6 @@ var _ = Describe("SegmentedFileReader", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(n).To(Equal(5))
 
-				buffer := make([]byte, 1024)
 				segmentedFileReader.Read(buffer)
 				Expect(segmentedFileReader.NextIndex()).To(BeEquivalentTo(1))
 			})
@@ -196,7 +192,6 @@ var _ = Describe("SegmentedFileReader", func() {
 				_, err := segmentedFileWriter.InitWriteIndex(1000, expectedData[:5])
 				Expect(err).ToNot(HaveOccurred())
 
-				buffer := make([]byte, 1024)
 				segmentedFileReader.Read(buffer)
 				Expect(segmentedFileReader.NextIndex()).To(BeEquivalentTo(1001))
 			})
@@ -219,11 +214,11 @@ var _ = Describe("SegmentedFileReader", func() {
 					Expect(n).To(Equal(2))
 				}
 
-				buffer := make([]byte, 1024)
 				for i := 0; i < count; i++ {
 					By(fmt.Sprintf("seeking to index %d", i))
 					err := segmentedFileReader.SeekIndex(uint64(i))
 					Expect(err).ToNot(HaveOccurred())
+					Expect(segmentedFileReader.NextIndex()).To(Equal(int64(i)))
 
 					By(fmt.Sprintf("reading from the file at index %d", i))
 					n, err := segmentedFileReader.Read(buffer)
@@ -232,6 +227,38 @@ var _ = Describe("SegmentedFileReader", func() {
 					Expect(buffer[:n]).To(Equal(expectedData[i*2 : i*2+2]))
 				}
 
+			})
+
+			Context("InitWriteIndex() is used", func() {
+				BeforeEach(func() {
+					_, err := segmentedFileWriter.InitWriteIndex(1000, expectedData[:5])
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				It("seeks to a point the beginning", func(done Done) {
+					defer close(done)
+
+					Expect(segmentedFileReader.SeekIndex(1000)).To(Succeed())
+					n, err := segmentedFileReader.Read(buffer)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(5))
+					Expect(buffer[:n]).To(Equal(expectedData[:5]))
+				})
+
+				It("seeks to a point after the beginning", func(done Done) {
+					defer close(done)
+
+					By("writing to it again...")
+					n, err := segmentedFileWriter.Write(expectedData[5:10])
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(5))
+
+					Expect(segmentedFileReader.SeekIndex(1001)).To(Succeed())
+					n, err = segmentedFileReader.Read(buffer)
+					Expect(err).ToNot(HaveOccurred())
+					Expect(n).To(Equal(5))
+					Expect(buffer[:n]).To(Equal(expectedData[5:10]))
+				})
 			})
 
 			It("returns an error when seeking beyond the file", func(done Done) {
