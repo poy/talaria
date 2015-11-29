@@ -4,6 +4,7 @@ import (
 	"io"
 
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/files"
 )
 
 type mockFileProvider struct {
@@ -51,7 +52,7 @@ func newSubWrapper(writer io.Writer, indexCh chan int64) *subWrapper {
 	}
 }
 
-func (s *subWrapper) UpdateWriter(io.Writer) {
+func (s *subWrapper) UpdateWriter(files.InitableWriter) {
 	// NOP
 }
 

@@ -1,10 +1,10 @@
 package broker
 
 import (
-	"io"
 	"sync"
 	"sync/atomic"
 
+	"github.com/apoydence/talaria/files"
 	"github.com/apoydence/talaria/logging"
 )
 
@@ -23,7 +23,7 @@ func NewInnerBroker() *InnerBroker {
 	}
 }
 
-func (i *InnerBroker) ProvideConn(name, addr string) io.Writer {
+func (i *InnerBroker) ProvideConn(name, addr string) files.InitableWriter {
 	conn := i.fetchConnection(addr + InnerEndpoint)
 	fileId := i.fetchFileId()
 

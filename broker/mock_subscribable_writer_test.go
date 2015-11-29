@@ -1,20 +1,20 @@
 package broker_test
 
-import "io"
+import "github.com/apoydence/talaria/files"
 
 type mockSubscribableWriter struct {
-	subWriterCh chan io.Writer
+	subWriterCh chan files.InitableWriter
 	dataCh      chan []byte
 }
 
 func newMockSubscribableWriter() *mockSubscribableWriter {
 	return &mockSubscribableWriter{
-		subWriterCh: make(chan io.Writer, 100),
+		subWriterCh: make(chan files.InitableWriter, 100),
 		dataCh:      make(chan []byte, 100),
 	}
 }
 
-func (m *mockSubscribableWriter) UpdateWriter(writer io.Writer) {
+func (m *mockSubscribableWriter) UpdateWriter(writer files.InitableWriter) {
 	m.subWriterCh <- writer
 }
 

@@ -35,4 +35,17 @@ var _ = Describe("ConnectionWrapper", func() {
 		})
 	})
 
+	Describe("InitWriteIndex()", func() {
+		It("inits the write index", func(done Done) {
+			defer close(done)
+
+			index, err := connWrapper.InitWriteIndex(101, expectedData)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(index).To(BeEquivalentTo(101))
+			Expect(mockConnection.fileIdCh).To(Receive(Equal(expectedFileId)))
+			Expect(mockConnection.indexCh).To(Receive(BeEquivalentTo(101)))
+			Expect(mockConnection.dataCh).To(Receive(Equal(expectedData)))
+		})
+	})
+
 })

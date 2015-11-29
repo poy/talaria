@@ -3,16 +3,18 @@ package broker
 import (
 	"io"
 	"sync"
+
+	"github.com/apoydence/talaria/files"
 )
 
 type SubscribableWriter interface {
 	io.Writer
-	UpdateWriter(writer io.Writer)
+	UpdateWriter(writer files.InitableWriter)
 	InitWriteIndex(index int64, data []byte) (int64, error)
 }
 
 type InnerBrokerProvider interface {
-	ProvideConn(name, addr string) io.Writer
+	ProvideConn(name, addr string) files.InitableWriter
 }
 
 type ReplicaListener interface {

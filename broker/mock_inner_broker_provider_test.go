@@ -1,22 +1,22 @@
 package broker_test
 
-import "io"
+import "github.com/apoydence/talaria/files"
 
 type mockInnerBrokerProvider struct {
 	nameCh   chan string
 	addrCh   chan string
-	resultCh chan io.Writer
+	resultCh chan files.InitableWriter
 }
 
 func newMockInnerBrokerProvider() *mockInnerBrokerProvider {
 	return &mockInnerBrokerProvider{
 		nameCh:   make(chan string, 100),
 		addrCh:   make(chan string, 100),
-		resultCh: make(chan io.Writer, 100),
+		resultCh: make(chan files.InitableWriter, 100),
 	}
 }
 
-func (m *mockInnerBrokerProvider) ProvideConn(name, addr string) io.Writer {
+func (m *mockInnerBrokerProvider) ProvideConn(name, addr string) files.InitableWriter {
 	m.nameCh <- name
 	m.addrCh <- addr
 	return <-m.resultCh

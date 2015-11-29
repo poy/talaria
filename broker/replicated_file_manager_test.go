@@ -1,8 +1,6 @@
 package broker_test
 
 import (
-	"os"
-
 	"github.com/apoydence/talaria/broker"
 
 	. "github.com/onsi/ginkgo"
@@ -41,7 +39,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 			defer close(done)
 			subWriter := newMockSubscribableWriter()
 			mockWriterFactory.resultCh <- subWriter
-			expectedWriter := &os.File{}
+			expectedWriter := newMockWriter()
 			mockInnerBrokerProvider.resultCh <- expectedWriter
 			expectedAddr := "some-addr"
 
