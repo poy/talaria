@@ -4,6 +4,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/apoydence/talaria/broker"
 	"github.com/apoydence/talaria/pb/messages"
@@ -175,6 +176,18 @@ var _ = Describe("Connection", func() {
 			_, err := connection.WriteToFile(8, expectedData)
 			Expect(err).To(HaveOccurred())
 		}, 3)
+
+		It("returns an error for a dead connection detected by reading", func(done Done) {
+			defer close(done)
+
+			server.CloseClientConnections()
+			By("waiting for the read core to detect the problem")
+			time.Sleep(1 * time.Second)
+
+			expectedData := []byte("some-data")
+			_, err := connection.WriteToFile(8, expectedData)
+			Expect(err).To(HaveOccurred())
+		}, 3)
 	})
 
 	Describe("ReadFromFile()", func() {
@@ -238,6 +251,7 @@ var _ = Describe("Connection", func() {
 			_, _, err := connection.ReadFromFile(8)
 			Expect(err).To(HaveOccurred())
 		}, 3)
+
 	})
 
 	Describe("InitWriteIndex()", func() {

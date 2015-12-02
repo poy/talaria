@@ -125,15 +125,27 @@ func (c *Connection) nextMsgId() uint64 {
 	return atomic.AddUint64(&c.messageId, 1)
 }
 
-func (c *Connection) writeError(err error) {
-	for messageId, _ := range c.clientMap {
-		c.submitServerResponse(&messages.Server{
-			MessageType: messages.Server_Error.Enum(),
-			MessageId:   proto.Uint64(messageId),
-			Error: &messages.Error{
-				Message: proto.String(err.Error()),
-			},
-		})
+func (c *Connection) submitError(err error, messageId uint64) {
+	c.submitServerResponse(&messages.Server{
+		MessageType: messages.Server_Error.Enum(),
+		MessageId:   proto.Uint64(messageId),
+		Error: &messages.Error{
+			Message: proto.String(err.Error()),
+		},
+	})
+}
+
+func (c *Connection) alertWaiting(err error) {
+	var msgIds []uint64
+
+	c.lock.Lock()
+	for msgId, _ := range c.clientMap {
+		msgIds = append(msgIds, msgId)
+	}
+	c.lock.Unlock()
+
+	for _, msgId := range msgIds {
+		c.submitError(err, msgId)
 	}
 }
 
@@ -167,7 +179,8 @@ func (c *Connection) readCore() {
 		msg, err := c.readMessage()
 		if err != nil {
 			c.log.Errorf("Failed to read from %s: %v", c.URL, err)
-			c.writeError(err)
+			c.conn.Close()
+			c.alertWaiting(err)
 			return
 		}
 
@@ -198,7 +211,7 @@ func (c *Connection) writeMessage(msg *messages.Client) {
 
 	if err = c.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 		c.log.Errorf("Failed to write to%s: %v", c.URL, err)
-		c.writeError(err)
+		c.submitError(err, msg.GetMessageId())
 		return
 	}
 }
