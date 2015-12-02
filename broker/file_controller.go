@@ -92,8 +92,12 @@ func (f *FileController) ReadFromFile(fileId uint64) ([]byte, int64, error) {
 	}
 
 	n, err := ioInfo.reader.Read(ioInfo.buffer)
+	if err != nil {
+		return nil, 0, err
+	}
+
 	offset := ioInfo.reader.NextIndex() - 1
-	return ioInfo.buffer[:n], offset, err
+	return ioInfo.buffer[:n], offset, nil
 }
 
 func (f *FileController) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, error) {

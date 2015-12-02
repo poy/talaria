@@ -1,6 +1,7 @@
 package broker_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path"
@@ -170,6 +171,11 @@ var _ = Describe("FileController", func() {
 	})
 
 	Describe("ReadFromFile", func() {
+
+		BeforeEach(func() {
+			populateLocalOrch(mockOrchestrator)
+		})
+
 		It("returns an error for an unknown file ID", func() {
 			_, _, err := fileController.ReadFromFile(0)
 			Expect(err).To(HaveOccurred())
@@ -177,7 +183,6 @@ var _ = Describe("FileController", func() {
 		})
 
 		It("reads from the correct file", func() {
-			populateLocalOrch(mockOrchestrator)
 			mockFileProvider.writerCh <- nil
 			file := createFile(tmpDir, "some-name-1")
 			mockFileProvider.readerCh <- file
@@ -205,6 +210,23 @@ var _ = Describe("FileController", func() {
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
 			Expect(offset).To(BeEquivalentTo(101))
+		})
+
+		It("returns an error if the reader returns an error and negative n", func(done Done) {
+			defer close(done)
+			mockReader := newMockReader()
+			mockReader.lengths <- -10
+			mockReader.errs <- fmt.Errorf("some-error")
+			mockFileProvider.readerCh <- mockReader
+			mockFileProvider.writerCh <- nil
+			mockFileProvider.indexCh <- 101
+
+			var fileId uint64 = 3
+			ffErr := fileController.FetchFile(fileId, "some-name-1")
+			Expect(ffErr).To(BeNil())
+
+			_, _, err := fileController.ReadFromFile(fileId)
+			Expect(err).To(HaveOccurred())
 		})
 	})
 
