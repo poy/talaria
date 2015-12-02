@@ -55,45 +55,45 @@ func (c *Connection) FetchFile(fileId uint64, name string) *ConnectionError {
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return NewConnectionError(serverMsg.Error.GetMessage(), "")
+		return NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileLocation {
-		return NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "")
+		return NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "", false)
 	}
 
 	if !serverMsg.FileLocation.GetLocal() {
-		return NewConnectionError("Redirect", serverMsg.FileLocation.GetUri())
+		return NewConnectionError("Redirect", serverMsg.FileLocation.GetUri(), false)
 	}
 
 	return nil
 }
 
-func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, error) {
+func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, *ConnectionError) {
 	respCh := c.writeWriteToFile(c.nextMsgId(), fileId, data)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return 0, fmt.Errorf(serverMsg.Error.GetMessage())
+		return 0, NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileOffset {
-		return 0, fmt.Errorf("Unexpected MessageType: %v", serverMsg.GetMessageType())
+		return 0, NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "", false)
 	}
 
 	return serverMsg.FileOffset.GetOffset(), nil
 }
 
-func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, error) {
+func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionError) {
 	respCh := c.writeReadFromFile(c.nextMsgId(), fileId)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return nil, 0, fmt.Errorf(serverMsg.Error.GetMessage())
+		return nil, 0, NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_ReadData {
-		return nil, 0, fmt.Errorf("Unexpected MessageType: %v", serverMsg.GetMessageType())
+		return nil, 0, NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "", false)
 	}
 
 	data := serverMsg.ReadData.GetData()
@@ -101,16 +101,16 @@ func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, error) {
 	return data, index, nil
 }
 
-func (c *Connection) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, error) {
+func (c *Connection) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, *ConnectionError) {
 	respCh := c.writeInitWriteIndex(c.nextMsgId(), fileId, index, data)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return 0, fmt.Errorf(serverMsg.Error.GetMessage())
+		return 0, NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileOffset {
-		return 0, fmt.Errorf("Unexpected MessageType: %v", serverMsg.GetMessageType())
+		return 0, NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "", false)
 	}
 
 	return serverMsg.FileOffset.GetOffset(), nil
@@ -125,12 +125,13 @@ func (c *Connection) nextMsgId() uint64 {
 	return atomic.AddUint64(&c.messageId, 1)
 }
 
-func (c *Connection) submitError(err error, messageId uint64) {
+func (c *Connection) submitWebsocketError(err error, messageId uint64) {
 	c.submitServerResponse(&messages.Server{
 		MessageType: messages.Server_Error.Enum(),
 		MessageId:   proto.Uint64(messageId),
 		Error: &messages.Error{
-			Message: proto.String(err.Error()),
+			Message:    proto.String(err.Error()),
+			Connection: proto.Bool(true),
 		},
 	})
 }
@@ -145,7 +146,7 @@ func (c *Connection) alertWaiting(err error) {
 	c.lock.Unlock()
 
 	for _, msgId := range msgIds {
-		c.submitError(err, msgId)
+		c.submitWebsocketError(err, msgId)
 	}
 }
 
@@ -211,7 +212,7 @@ func (c *Connection) writeMessage(msg *messages.Client) {
 
 	if err = c.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
 		c.log.Errorf("Failed to write to%s: %v", c.URL, err)
-		c.submitError(err, msg.GetMessageId())
+		c.submitWebsocketError(err, msg.GetMessageId())
 		return
 	}
 }

@@ -50,7 +50,7 @@ func NewFileController(skipOrch bool, ioProvider IoProvider, orchestrator Orches
 func (f *FileController) FetchFile(fileId uint64, name string) *ConnectionError {
 	info, ok := f.fileIdMap[fileId]
 	if ok && name != info.name {
-		return NewConnectionError(fmt.Sprintf("ID (%d) already used with %s", fileId, info.name), "")
+		return NewConnectionError(fmt.Sprintf("ID (%d) already used with %s", fileId, info.name), "", false)
 	}
 
 	if !ok {
@@ -60,7 +60,7 @@ func (f *FileController) FetchFile(fileId uint64, name string) *ConnectionError 
 		if !f.skipOrch {
 			uri, local := f.orchestrator.FetchLeader(name)
 			if !local {
-				return NewConnectionError("Redirect to the correct broker", uri)
+				return NewConnectionError("Redirect to the correct broker", uri, false)
 			}
 		}
 

@@ -33,6 +33,13 @@ var _ = Describe("ConnectionWrapper", func() {
 			Expect(mockConnection.fileIdCh).To(Receive(Equal(expectedFileId)))
 			Expect(mockConnection.dataCh).To(Receive(Equal(expectedData)))
 		})
+
+		It("returns a 'fully' nil error", func(done Done) {
+			defer close(done)
+
+			_, err := connWrapper.Write(expectedData)
+			Expect(err == nil).To(BeTrue())
+		})
 	})
 
 	Describe("InitWriteIndex()", func() {
@@ -45,6 +52,13 @@ var _ = Describe("ConnectionWrapper", func() {
 			Expect(mockConnection.fileIdCh).To(Receive(Equal(expectedFileId)))
 			Expect(mockConnection.indexCh).To(Receive(BeEquivalentTo(101)))
 			Expect(mockConnection.dataCh).To(Receive(Equal(expectedData)))
+		})
+
+		It("returns a 'fully' nil error", func(done Done) {
+			defer close(done)
+
+			_, err := connWrapper.InitWriteIndex(101, expectedData)
+			Expect(err == nil).To(BeTrue())
 		})
 	})
 

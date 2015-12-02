@@ -114,6 +114,7 @@ func (m *Server) GetReadData() *ReadData {
 
 type Error struct {
 	Message          *string `protobuf:"bytes,1,req,name=message" json:"message,omitempty"`
+	Connection       *bool   `protobuf:"varint,2,opt,name=connection" json:"connection,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -126,6 +127,13 @@ func (m *Error) GetMessage() string {
 		return *m.Message
 	}
 	return ""
+}
+
+func (m *Error) GetConnection() bool {
+	if m != nil && m.Connection != nil {
+		return *m.Connection
+	}
+	return false
 }
 
 type FileLocation struct {
@@ -421,6 +429,24 @@ func (m *Error) Unmarshal(data []byte) error {
 			s := string(data[index:postIndex])
 			m.Message = &s
 			index = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Connection", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			b := bool(v != 0)
+			m.Connection = &b
 		default:
 			var sizeOfWire int
 			for {
@@ -705,6 +731,9 @@ func (m *Error) Size() (n int) {
 		l = len(*m.Message)
 		n += 1 + l + sovServer(uint64(l))
 	}
+	if m.Connection != nil {
+		n += 2
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -859,6 +888,16 @@ func (m *Error) MarshalTo(data []byte) (n int, err error) {
 		i++
 		i = encodeVarintServer(data, i, uint64(len(*m.Message)))
 		i += copy(data[i:], *m.Message)
+	}
+	if m.Connection != nil {
+		data[i] = 0x10
+		i++
+		if *m.Connection {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

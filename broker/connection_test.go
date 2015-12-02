@@ -109,6 +109,7 @@ var _ = Describe("Connection", func() {
 			server.CloseClientConnections()
 			err := connection.FetchFile(9, "some-file")
 			Expect(err).To(HaveOccurred())
+			Expect(err.WebsocketError).To(BeTrue())
 		}, 3)
 	})
 
@@ -175,6 +176,7 @@ var _ = Describe("Connection", func() {
 			expectedData := []byte("some-data")
 			_, err := connection.WriteToFile(8, expectedData)
 			Expect(err).To(HaveOccurred())
+			Expect(err.WebsocketError).To(BeTrue())
 		}, 3)
 
 		It("returns an error for a dead connection detected by reading", func(done Done) {
@@ -187,6 +189,7 @@ var _ = Describe("Connection", func() {
 			expectedData := []byte("some-data")
 			_, err := connection.WriteToFile(8, expectedData)
 			Expect(err).To(HaveOccurred())
+			Expect(err.WebsocketError).To(BeTrue())
 		}, 3)
 	})
 
@@ -250,6 +253,7 @@ var _ = Describe("Connection", func() {
 			server.CloseClientConnections()
 			_, _, err := connection.ReadFromFile(8)
 			Expect(err).To(HaveOccurred())
+			Expect(err.WebsocketError).To(BeTrue())
 		}, 3)
 
 	})
@@ -319,6 +323,7 @@ var _ = Describe("Connection", func() {
 			expectedData := []byte("some-data")
 			_, err := connection.InitWriteIndex(8, 101, expectedData)
 			Expect(err).To(HaveOccurred())
+			Expect(err.WebsocketError).To(BeTrue())
 		}, 3)
 	})
 

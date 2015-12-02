@@ -53,7 +53,7 @@ var _ = Describe("Broker", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			mockController.fetchFileIdCh <- 0
-			mockController.fetchFileErrCh <- broker.NewConnectionError("some-error", "")
+			mockController.fetchFileErrCh <- broker.NewConnectionError("some-error", "", false)
 
 			fetchFile := buildFetchFile(99, "some-file")
 			data, err := proto.Marshal(fetchFile)
@@ -113,7 +113,7 @@ var _ = Describe("Broker", func() {
 
 			expectedUri := "http://some.url"
 			mockController.fetchFileIdCh <- 8
-			mockController.fetchFileErrCh <- broker.NewConnectionError("some-error", expectedUri)
+			mockController.fetchFileErrCh <- broker.NewConnectionError("some-error", expectedUri, false)
 
 			fetchFile := buildFetchFile(99, "some-file")
 			data, err := proto.Marshal(fetchFile)

@@ -19,6 +19,7 @@ message Server{
 
 message Error{
 	required string message = 1;
+  optional bool connection = 2;
 }
 
 message FileLocation{
