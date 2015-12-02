@@ -108,6 +108,15 @@ func (c *Client) ReadFromFile(fileId uint64) ([]byte, int64, error) {
 	return conn.conn.ReadFromFile(fileId)
 }
 
+func (c *Client) LeaderOf(fileId uint64) (string, error) {
+	conn := c.fetchConnectionById(fileId)
+	if conn == nil {
+		return "", fmt.Errorf("Unknown file ID: %d", fileId)
+	}
+
+	return conn.URL, nil
+}
+
 func (c *Client) saveFileId(fileId uint64, conn *connInfo) {
 	c.syncFileIds.Lock()
 	defer c.syncFileIds.Unlock()

@@ -240,7 +240,39 @@ var _ = Describe("Client", func() {
 		})
 	})
 
+	Describe("LeaderOf()", func() {
+		var (
+			id uint64
+		)
+
+		BeforeEach(func(done Done) {
+			defer close(done)
+			mockServers[0].serverCh <- buildFileLocation(1)
+
+			var ffErr error
+			id, ffErr = client.FetchFile("some-file-1")
+			Expect(ffErr).ToNot(HaveOccurred())
+		})
+
+		It("returns the broker URI that is the leader of the given file", func(done Done) {
+			defer close(done)
+			uri, err := client.LeaderOf(id)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(uri).To(Equal(htmlToWs(servers[0].URL)))
+		})
+
+		It("returns an error for an unknown file ID", func(done Done) {
+			defer close(done)
+			_, err := client.LeaderOf(999)
+			Expect(err).To(HaveOccurred())
+		})
+	})
+
 })
+
+func htmlToWs(URI string) string {
+	return "ws" + URI[4:]
+}
 
 func startMockServer() (*mockServer, *httptest.Server) {
 	mockServer := newMockServer()
