@@ -13,10 +13,10 @@ import (
 
 type Connection struct {
 	log       logging.Logger
+	url       string
 	conn      *websocket.Conn
 	messageId uint64
 	writeCh   chan clientMsgInfo
-	errCh     chan error
 
 	lock      sync.Mutex
 	clientMap map[uint64]chan<- *messages.Server
@@ -29,6 +29,8 @@ type clientMsgInfo struct {
 
 func NewConnection(URL string) (*Connection, error) {
 	log := logging.Log("Connection")
+
+	log.Debug("Connecting to %s", URL)
 	conn, _, err := websocket.DefaultDialer.Dial(URL, nil)
 	if err != nil {
 		return nil, err
@@ -36,8 +38,8 @@ func NewConnection(URL string) (*Connection, error) {
 
 	c := &Connection{
 		log:       log,
+		url:       URL,
 		conn:      conn,
-		errCh:     make(chan error, 100),
 		writeCh:   make(chan clientMsgInfo, 100),
 		clientMap: make(map[uint64]chan<- *messages.Server),
 	}
@@ -114,10 +116,6 @@ func (c *Connection) InitWriteIndex(fileId uint64, index int64, data []byte) (in
 	return serverMsg.FileOffset.GetOffset(), nil
 }
 
-func (c *Connection) Errored() error {
-	return nil
-}
-
 func (c *Connection) Close() {
 	c.conn.Close()
 	close(c.writeCh)
@@ -128,10 +126,14 @@ func (c *Connection) nextMsgId() uint64 {
 }
 
 func (c *Connection) writeError(err error) {
-	select {
-	case c.errCh <- err:
-	default:
-		c.log.Panic("Errors are not being read fast enough", err)
+	for messageId, _ := range c.clientMap {
+		c.submitServerResponse(&messages.Server{
+			MessageType: messages.Server_Error.Enum(),
+			MessageId:   proto.Uint64(messageId),
+			Error: &messages.Error{
+				Message: proto.String(err.Error()),
+			},
+		})
 	}
 }
 
@@ -164,22 +166,28 @@ func (c *Connection) readCore() {
 	for {
 		msg, err := c.readMessage()
 		if err != nil {
+			c.log.Errorf("Failed to read from %s: %v", c.url, err)
 			c.writeError(err)
 			return
 		}
 
-		c.lock.Lock()
-		respCh, ok := c.clientMap[msg.GetMessageId()]
-		if !ok {
-			c.log.Error("Reading client message", fmt.Errorf("Unexpected message ID: %d", msg.GetMessageId()))
-			c.lock.Unlock()
-			continue
-		}
-		delete(c.clientMap, msg.GetMessageId())
-		c.lock.Unlock()
-
-		respCh <- msg
+		c.submitServerResponse(msg)
 	}
+}
+
+func (c *Connection) submitServerResponse(msg *messages.Server) {
+	c.lock.Lock()
+	respCh, ok := c.clientMap[msg.GetMessageId()]
+	if !ok {
+		c.log.Errorf("Reading client message: Unexpected message ID: %d", msg.GetMessageId())
+		c.lock.Unlock()
+		return
+	}
+
+	delete(c.clientMap, msg.GetMessageId())
+	c.lock.Unlock()
+
+	respCh <- msg
 }
 
 func (c *Connection) writeMessage(msg *messages.Client) {
@@ -189,6 +197,7 @@ func (c *Connection) writeMessage(msg *messages.Client) {
 	}
 
 	if err = c.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
+		c.log.Errorf("Failed to write to%s: %v", c.url, err)
 		c.writeError(err)
 		return
 	}

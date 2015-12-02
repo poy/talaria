@@ -37,11 +37,15 @@ var _ = Describe("Connection", func() {
 
 		It("returns an error", func(done Done) {
 			defer close(done)
+			var wg sync.WaitGroup
+			defer wg.Wait()
 
-			mockServer.serverCh <- buildError(99, "some-error")
+			mockServer.serverCh <- buildError(1, "some-error")
 
+			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
+				defer wg.Done()
 				err := connection.FetchFile(9, "some-file")
 				Expect(err).ToNot(BeNil())
 				Expect(err.Error()).To(Equal("some-error"))
@@ -52,15 +56,19 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(clientMsg.FetchFile.GetName()).To(Equal("some-file"))
 			Expect(clientMsg.FetchFile.GetFileId()).To(BeEquivalentTo(9))
-		})
+		}, 3)
 
 		It("returns the file ID", func(done Done) {
 			defer close(done)
+			var wg sync.WaitGroup
+			defer wg.Wait()
 
-			mockServer.serverCh <- buildFileLocation(99)
+			mockServer.serverCh <- buildFileLocation(1)
 
+			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
+				defer wg.Done()
 				err := connection.FetchFile(9, "some-file")
 				Expect(err).To(BeNil())
 			}()
@@ -74,14 +82,18 @@ var _ = Describe("Connection", func() {
 
 		It("returns a redirect error", func(done Done) {
 			defer close(done)
+			var wg sync.WaitGroup
+			defer wg.Wait()
 
-			mockServer.serverCh <- buildRemoteFileLocation(99, "http://some.uri")
+			mockServer.serverCh <- buildRemoteFileLocation(1, "ws://some.uri")
 
+			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
+				defer wg.Done()
 				err := connection.FetchFile(9, "some-file")
 				Expect(err).ToNot(BeNil())
-				Expect(err.Uri).To(Equal("http://some.uri"))
+				Expect(err.Uri).To(Equal("ws://some.uri"))
 			}()
 
 			var clientMsg *messages.Client
@@ -90,6 +102,13 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.FetchFile).ToNot(BeNil())
 			Expect(clientMsg.FetchFile.GetName()).To(Equal("some-file"))
 		})
+
+		It("returns an error for a dead connection", func(done Done) {
+			defer close(done)
+			server.CloseClientConnections()
+			err := connection.FetchFile(9, "some-file")
+			Expect(err).To(HaveOccurred())
+		}, 3)
 	})
 
 	Describe("WriteToFile()", func() {
@@ -101,12 +120,16 @@ var _ = Describe("Connection", func() {
 
 		It("returns an error", func(done Done) {
 			defer close(done)
+			var wg sync.WaitGroup
+			defer wg.Wait()
 
 			expectedData := []byte("some-data")
-			mockServer.serverCh <- buildError(99, "some-error")
+			mockServer.serverCh <- buildError(1, "some-error")
 
+			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
+				defer wg.Done()
 				_, err := connection.WriteToFile(8, expectedData)
 				Expect(err).To(HaveOccurred())
 				Expect(err.Error()).To(Equal("some-error"))
@@ -122,12 +145,16 @@ var _ = Describe("Connection", func() {
 
 		It("returns the new file offset", func(done Done) {
 			defer close(done)
+			var wg sync.WaitGroup
+			defer wg.Wait()
 
 			expectedData := []byte("some-data")
-			mockServer.serverCh <- buildFileOffset(99, 101)
+			mockServer.serverCh <- buildFileOffset(1, 101)
 
+			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
+				defer wg.Done()
 				fileOffset, err := connection.WriteToFile(8, expectedData)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(fileOffset).To(BeEquivalentTo(101))
@@ -140,6 +167,14 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.WriteToFile.GetFileId()).To(BeEquivalentTo(8))
 			Expect(clientMsg.WriteToFile.GetData()).To(Equal(expectedData))
 		})
+
+		It("returns an error for a dead connection", func(done Done) {
+			defer close(done)
+			server.CloseClientConnections()
+			expectedData := []byte("some-data")
+			_, err := connection.WriteToFile(8, expectedData)
+			Expect(err).To(HaveOccurred())
+		}, 3)
 	})
 
 	Describe("ReadFromFile()", func() {
@@ -195,6 +230,13 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_ReadFromFile))
 			Expect(clientMsg.ReadFromFile).ToNot(BeNil())
 			Expect(clientMsg.ReadFromFile.GetFileId()).To(BeEquivalentTo(8))
+		}, 3)
+
+		It("returns an error for a dead connection", func(done Done) {
+			defer close(done)
+			server.CloseClientConnections()
+			_, _, err := connection.ReadFromFile(8)
+			Expect(err).To(HaveOccurred())
 		}, 3)
 	})
 
@@ -256,6 +298,14 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.InitWriteIndex.GetIndex()).To(BeEquivalentTo(101))
 			Expect(clientMsg.InitWriteIndex.GetData()).To(Equal(expectedData))
 		})
+
+		It("returns an error for a dead connection", func(done Done) {
+			defer close(done)
+			server.CloseClientConnections()
+			expectedData := []byte("some-data")
+			_, err := connection.InitWriteIndex(8, 101, expectedData)
+			Expect(err).To(HaveOccurred())
+		}, 3)
 	})
 
 	Describe("Close()", func() {
