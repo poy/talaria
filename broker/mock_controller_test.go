@@ -5,7 +5,7 @@ import "github.com/apoydence/talaria/broker"
 type mockController struct {
 	fetchFileCh    chan string
 	fetchFileIdCh  chan uint64
-	fetchFileErrCh chan *broker.FetchFileError
+	fetchFileErrCh chan *broker.ConnectionError
 
 	writeFileIdCh     chan uint64
 	writeFileDataCh   chan []byte
@@ -28,7 +28,7 @@ func newMockController() *mockController {
 	return &mockController{
 		fetchFileCh:    make(chan string, 100),
 		fetchFileIdCh:  make(chan uint64, 100),
-		fetchFileErrCh: make(chan *broker.FetchFileError, 100),
+		fetchFileErrCh: make(chan *broker.ConnectionError, 100),
 
 		writeFileIdCh:     make(chan uint64, 100),
 		writeFileDataCh:   make(chan []byte, 100),
@@ -48,7 +48,7 @@ func newMockController() *mockController {
 	}
 }
 
-func (m *mockController) FetchFile(fileId uint64, name string) *broker.FetchFileError {
+func (m *mockController) FetchFile(fileId uint64, name string) *broker.ConnectionError {
 	m.fetchFileCh <- name
 	m.fetchFileIdCh <- fileId
 	return <-m.fetchFileErrCh

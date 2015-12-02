@@ -50,20 +50,20 @@ func NewConnection(URL string) (*Connection, error) {
 	return c, nil
 }
 
-func (c *Connection) FetchFile(fileId uint64, name string) *FetchFileError {
+func (c *Connection) FetchFile(fileId uint64, name string) *ConnectionError {
 	respCh := c.writeFetchFile(c.nextMsgId(), fileId, name)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return NewFetchFileError(serverMsg.Error.GetMessage(), "")
+		return NewConnectionError(serverMsg.Error.GetMessage(), "")
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileLocation {
-		return NewFetchFileError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "")
+		return NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "")
 	}
 
 	if !serverMsg.FileLocation.GetLocal() {
-		return NewFetchFileError("Redirect", serverMsg.FileLocation.GetUri())
+		return NewConnectionError("Redirect", serverMsg.FileLocation.GetUri())
 	}
 
 	return nil

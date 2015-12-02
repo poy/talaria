@@ -21,7 +21,7 @@ const (
 )
 
 type Controller interface {
-	FetchFile(id uint64, name string) *FetchFileError
+	FetchFile(id uint64, name string) *ConnectionError
 	WriteToFile(id uint64, data []byte) (int64, error)
 	ReadFromFile(id uint64) ([]byte, int64, error)
 	InitWriteIndex(id uint64, index int64, data []byte) (int64, error)
@@ -164,10 +164,10 @@ func (b *Broker) writeError(errStr string, message *messages.Client, conn *webso
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeFileLocation(fetchFileErr *FetchFileError, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) writeFileLocation(connectionErr *ConnectionError, message *messages.Client, conn *websocket.Conn) {
 	var uri string
-	if fetchFileErr != nil {
-		uri = fetchFileErr.Uri
+	if connectionErr != nil {
+		uri = connectionErr.Uri
 	}
 
 	msgType := messages.Server_FileLocation
