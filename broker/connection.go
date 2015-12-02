@@ -13,7 +13,7 @@ import (
 
 type Connection struct {
 	log       logging.Logger
-	url       string
+	URL       string
 	conn      *websocket.Conn
 	messageId uint64
 	writeCh   chan clientMsgInfo
@@ -38,7 +38,7 @@ func NewConnection(URL string) (*Connection, error) {
 
 	c := &Connection{
 		log:       log,
-		url:       URL,
+		URL:       URL,
 		conn:      conn,
 		writeCh:   make(chan clientMsgInfo, 100),
 		clientMap: make(map[uint64]chan<- *messages.Server),
@@ -166,7 +166,7 @@ func (c *Connection) readCore() {
 	for {
 		msg, err := c.readMessage()
 		if err != nil {
-			c.log.Errorf("Failed to read from %s: %v", c.url, err)
+			c.log.Errorf("Failed to read from %s: %v", c.URL, err)
 			c.writeError(err)
 			return
 		}
@@ -197,7 +197,7 @@ func (c *Connection) writeMessage(msg *messages.Client) {
 	}
 
 	if err = c.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {
-		c.log.Errorf("Failed to write to%s: %v", c.url, err)
+		c.log.Errorf("Failed to write to%s: %v", c.URL, err)
 		c.writeError(err)
 		return
 	}
