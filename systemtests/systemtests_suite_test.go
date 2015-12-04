@@ -33,6 +33,7 @@ var (
 )
 
 var _ = BeforeSuite(func() {
+	logging.SetLevel(logging.CRITICAL)
 	nextTalariaPort = 8888
 	nextHealthPort = 9999
 	var err error
@@ -45,8 +46,6 @@ var _ = AfterSuite(func() {
 })
 
 var _ = BeforeEach(func() {
-	logging.SetLevel(logging.CRITICAL)
-
 	if consulSession != nil {
 		consulSession.Kill()
 		consulSession.Wait("60s", "200ms")
