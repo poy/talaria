@@ -20,6 +20,7 @@ type Client struct {
 
 	syncFileIds sync.RWMutex
 	fileIds     map[uint64]*connInfo
+	fileNames   map[string]uint64
 
 	conns []*connInfo
 }
@@ -42,37 +43,38 @@ func NewClient(URLs ...string) (*Client, error) {
 	}
 
 	return &Client{
-		log:     log,
-		conns:   conns,
-		fileIds: make(map[uint64]*connInfo),
+		log:       log,
+		conns:     conns,
+		fileIds:   make(map[uint64]*connInfo),
+		fileNames: make(map[string]uint64),
 	}, nil
 }
 
-func (c *Client) FetchFile(name string) (uint64, error) {
+func (c *Client) FetchFile(name string) error {
 	fileId := c.getNextFetchIdx()
 	conn := c.conns[int(fileId)%len(c.conns)]
 	err := conn.conn.FetchFile(fileId, name)
 	if err == nil {
-		c.saveFileId(fileId, conn)
-		return fileId, nil
+		c.saveFileId(fileId, name, conn)
+		return nil
 	}
 
 	if err.Uri == "" {
-		return 0, fmt.Errorf(err.errMessage)
+		return fmt.Errorf(err.errMessage)
 	}
 
 	conn = c.fetchConnection(err.Uri)
 	if conn == nil {
-		return 0, fmt.Errorf("Unknown broker: %s", err.Uri)
+		return fmt.Errorf("Unknown broker: %s", err.Uri)
 	}
 
 	err = conn.conn.FetchFile(fileId, name)
 	if err == nil {
-		c.saveFileId(fileId, conn)
-		return fileId, nil
+		c.saveFileId(fileId, name, conn)
+		return nil
 	}
 
-	return 0, fmt.Errorf(err.Error())
+	return fmt.Errorf(err.Error())
 }
 
 func (c *Client) Close() {
@@ -81,16 +83,12 @@ func (c *Client) Close() {
 	}
 }
 
-func (c *Client) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, error) {
-	conn := c.fetchConnectionById(fileId)
-	if conn == nil {
-		return 0, fmt.Errorf("Unknown file ID: %d", fileId)
+func (c *Client) WriteToFile(fileName string, data []byte) (int64, error) {
+	fileId, ok := c.fetchIdByName(fileName)
+	if !ok {
+		return 0, fmt.Errorf("Unknown file name: %s", fileName)
 	}
 
-	return conn.conn.InitWriteIndex(fileId, index, data)
-}
-
-func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	conn := c.fetchConnectionById(fileId)
 	if conn == nil {
 		return 0, fmt.Errorf("Unknown file ID: %d", fileId)
@@ -99,7 +97,12 @@ func (c *Client) WriteToFile(fileId uint64, data []byte) (int64, error) {
 	return conn.conn.WriteToFile(fileId, data)
 }
 
-func (c *Client) ReadFromFile(fileId uint64) ([]byte, int64, error) {
+func (c *Client) ReadFromFile(fileName string) ([]byte, int64, error) {
+	fileId, ok := c.fetchIdByName(fileName)
+	if !ok {
+		return nil, 0, fmt.Errorf("Unknown file name: %s", fileName)
+	}
+
 	conn := c.fetchConnectionById(fileId)
 	if conn == nil {
 		return nil, 0, fmt.Errorf("Unknown file ID: %d", fileId)
@@ -117,10 +120,18 @@ func (c *Client) LeaderOf(fileId uint64) (string, error) {
 	return conn.URL, nil
 }
 
-func (c *Client) saveFileId(fileId uint64, conn *connInfo) {
+func (c *Client) saveFileId(fileId uint64, name string, conn *connInfo) {
 	c.syncFileIds.Lock()
 	defer c.syncFileIds.Unlock()
 	c.fileIds[fileId] = conn
+	c.fileNames[name] = fileId
+}
+
+func (c *Client) fetchIdByName(fileName string) (uint64, bool) {
+	c.syncFileIds.RLock()
+	defer c.syncFileIds.RUnlock()
+	id, ok := c.fileNames[fileName]
+	return id, ok
 }
 
 func (c *Client) fetchConnectionById(fileId uint64) *connInfo {

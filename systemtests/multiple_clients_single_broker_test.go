@@ -40,15 +40,15 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 		runTest := func(name string) {
 			defer wg.Done()
 			client := startClient(URL)
-			fileId, err := client.FetchFile(name)
+			err := client.FetchFile(name)
 			Expect(err).ToNot(HaveOccurred())
 			for i := byte(0); i < 100; i++ {
-				_, err = client.WriteToFile(fileId, []byte{i})
+				_, err = client.WriteToFile(name, []byte{i})
 				Expect(err).ToNot(HaveOccurred())
 			}
 
 			for i := 0; i < 100; i++ {
-				data, _, err := client.ReadFromFile(fileId)
+				data, _, err := client.ReadFromFile(name)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(data).To(HaveLen(1))
 				Expect(data[0]).To(BeEquivalentTo(i))
@@ -74,16 +74,17 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 
 		runTest := func(value byte) {
 			defer wg.Done()
+			name := "some-name"
 			clientW := startClient(URL)
 			clientR := startClient(URL)
-			fileIdW, err := clientW.FetchFile("some-name")
+			err := clientW.FetchFile(name)
 			Expect(err).ToNot(HaveOccurred())
-			fileIdR, err := clientR.FetchFile("some-name")
+			err = clientR.FetchFile(name)
 			Expect(err).ToNot(HaveOccurred())
 			go func() {
 				defer GinkgoRecover()
 				for i := 0; i < 100; i++ {
-					_, err = clientW.WriteToFile(fileIdW, []byte{value})
+					_, err = clientW.WriteToFile(name, []byte{value})
 					Expect(err).ToNot(HaveOccurred())
 					time.Sleep(time.Millisecond)
 				}
@@ -91,7 +92,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 
 			valueCount := 0
 			for i := 0; i < count*100; {
-				data, _, err := clientR.ReadFromFile(fileIdR)
+				data, _, err := clientR.ReadFromFile(name)
 				Expect(err).ToNot(HaveOccurred())
 				i += len(data)
 				for _, d := range data {

@@ -41,16 +41,17 @@ var _ = Describe("Benchmarks", func() {
 
 		Measure("It should read and write to single file 1000 times in under 2 seconds", func(b Benchmarker) {
 			runtime := b.Time("runtime", func() {
-				fileId, err := client.FetchFile("some-file")
+				fileName := "some-file"
+				err := client.FetchFile(fileName)
 				Expect(err).ToNot(HaveOccurred())
 
 				for i := 0; i < 1000; i++ {
-					_, err = client.WriteToFile(fileId, []byte{byte(i)})
+					_, err = client.WriteToFile(fileName, []byte{byte(i)})
 					Expect(err).ToNot(HaveOccurred())
 				}
 
 				for i := 0; i < 1000; i++ {
-					data, _, err := client.ReadFromFile(fileId)
+					data, _, err := client.ReadFromFile(fileName)
 					Expect(err).ToNot(HaveOccurred())
 					Expect(data).To(HaveLen(1))
 					Expect(data[0]).To(Equal(byte(i)))
@@ -103,7 +104,7 @@ var _ = Describe("Benchmarks", func() {
 				defer wg.Wait()
 
 				runTest := func(name string) {
-					fileId, err := client.FetchFile(name)
+					err := client.FetchFile(name)
 					Expect(err).ToNot(HaveOccurred())
 					var wg1 sync.WaitGroup
 					wg1.Add(1)
@@ -112,7 +113,7 @@ var _ = Describe("Benchmarks", func() {
 						defer wg1.Done()
 						defer GinkgoRecover()
 						for i := 0; i < 1000; i++ {
-							_, err := client.WriteToFile(fileId, []byte{byte(i)})
+							_, err := client.WriteToFile(name, []byte{byte(i)})
 							Expect(err).ToNot(HaveOccurred())
 						}
 					}()
@@ -122,7 +123,7 @@ var _ = Describe("Benchmarks", func() {
 						defer wg.Done()
 						wg1.Wait()
 						for i := 0; i < 1000; i++ {
-							data, _, err := client.ReadFromFile(fileId)
+							data, _, err := client.ReadFromFile(name)
 							Expect(err).ToNot(HaveOccurred())
 							Expect(data).To(HaveLen(1))
 							Expect(data[0]).To(Equal(byte(i)))

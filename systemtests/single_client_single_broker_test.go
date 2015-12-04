@@ -38,15 +38,16 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 
 	It("Writes and reads from a single file", func(done Done) {
 		defer close(done)
-		fileId, err := client.FetchFile("some-file")
+		name := "some-file"
+		err := client.FetchFile(name)
 		Expect(err).ToNot(HaveOccurred())
 		for i := byte(0); i < 100; i++ {
-			_, err = client.WriteToFile(fileId, []byte{i})
+			_, err = client.WriteToFile(name, []byte{i})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
 		for i := 0; i < 100; i++ {
-			data, index, err := client.ReadFromFile(fileId)
+			data, index, err := client.ReadFromFile(name)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(HaveLen(1))
 			Expect(data[0]).To(BeEquivalentTo(i))
@@ -56,11 +57,12 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 
 	It("Writes and reads from a single file at the same time", func(done Done) {
 		defer close(done)
+		name := "some-file"
 		clientW := startClient(URL)
 		clientR := startClient(URL)
-		fileIdW, err := clientW.FetchFile("some-file")
+		err := clientW.FetchFile(name)
 		Expect(err).ToNot(HaveOccurred())
-		fileIdR, err := clientR.FetchFile("some-file")
+		err = clientR.FetchFile(name)
 		Expect(err).ToNot(HaveOccurred())
 
 		var wg sync.WaitGroup
@@ -70,7 +72,7 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 			defer GinkgoRecover()
 			defer wg.Done()
 			for i := 0; i < 10; i++ {
-				_, err = clientW.WriteToFile(fileIdW, []byte{byte(i)})
+				_, err = clientW.WriteToFile(name, []byte{byte(i)})
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(time.Millisecond)
 			}
@@ -78,7 +80,7 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 
 		var result []byte
 		for len(result) < 10 {
-			data, _, err := clientR.ReadFromFile(fileIdR)
+			data, _, err := clientR.ReadFromFile(name)
 			Expect(err).ToNot(HaveOccurred())
 			result = append(result, data...)
 		}
@@ -87,19 +89,5 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 			Expect(result[i]).To(BeEquivalentTo(i))
 		}
 	}, 5)
-
-	It("inits a file", func(done Done) {
-		defer close(done)
-
-		fileId, err := client.FetchFile("some-file")
-		Expect(err).ToNot(HaveOccurred())
-		expectedData := []byte("some-data")
-		client.InitWriteIndex(fileId, 1000, expectedData)
-		data, index, err := client.ReadFromFile(fileId)
-
-		Expect(err).ToNot(HaveOccurred())
-		Expect(data).To(Equal(expectedData))
-		Expect(index).To(BeEquivalentTo(1000))
-	}, 3)
 
 })

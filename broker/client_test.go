@@ -69,7 +69,7 @@ var _ = Describe("Client", func() {
 				go func(iter int) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					_, err := client.FetchFile(fmt.Sprintf("some-file-%d", iter))
+					err := client.FetchFile(fmt.Sprintf("some-file-%d", iter))
 					Expect(err).ToNot(HaveOccurred())
 				}(i)
 			}
@@ -87,7 +87,7 @@ var _ = Describe("Client", func() {
 			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
 			mockServers[1].serverCh <- buildFileLocation(1)
 
-			_, err := client.FetchFile("some-file-1")
+			err := client.FetchFile("some-file-1")
 			Expect(err).ToNot(HaveOccurred())
 
 			var msg *messages.Client
@@ -107,13 +107,14 @@ var _ = Describe("Client", func() {
 				mockServers[1].serverCh <- buildFileOffset(uint64(i+2), 101)
 			}
 
-			id, ffErr := client.FetchFile("some-file-1")
+			fileName := "some-file-1"
+			ffErr := client.FetchFile(fileName)
 			Expect(ffErr).ToNot(HaveOccurred())
 
 			var msg *messages.Client
 			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
 			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(msg.GetFetchFile().GetName()).To(Equal("some-file-1"))
+			Expect(msg.GetFetchFile().GetName()).To(Equal(fileName))
 
 			var wg sync.WaitGroup
 			defer wg.Wait()
@@ -123,7 +124,7 @@ var _ = Describe("Client", func() {
 					defer GinkgoRecover()
 					defer wg.Done()
 					expectedData := []byte("some-data")
-					_, err := client.WriteToFile(id, expectedData)
+					_, err := client.WriteToFile(fileName, expectedData)
 					Expect(err).ToNot(HaveOccurred())
 
 					var msg *messages.Client
@@ -151,13 +152,14 @@ var _ = Describe("Client", func() {
 					}
 				}()
 
-				id, ffErr := client.FetchFile("some-file-1")
+				fileName := "some-file-1"
+				ffErr := client.FetchFile(fileName)
 				Expect(ffErr).ToNot(HaveOccurred())
 
 				data := []byte("some-data")
 
 				for i := 0; i < count; i++ {
-					client.WriteToFile(id, data)
+					client.WriteToFile(fileName, data)
 				}
 			})
 
@@ -174,15 +176,16 @@ var _ = Describe("Client", func() {
 			mockServers[1].serverCh <- buildFileLocation(1)
 			mockServers[1].serverCh <- buildReadData(2, expectedData, 101)
 
-			id, ffErr := client.FetchFile("some-file-1")
+			fileName := "some-file-1"
+			ffErr := client.FetchFile(fileName)
 			Expect(ffErr).ToNot(HaveOccurred())
 
 			var msg *messages.Client
 			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
 			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(msg.GetFetchFile().GetName()).To(Equal("some-file-1"))
+			Expect(msg.GetFetchFile().GetName()).To(Equal(fileName))
 
-			data, index, err := client.ReadFromFile(id)
+			data, index, err := client.ReadFromFile(fileName)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
 			Expect(index).To(BeEquivalentTo(101))
@@ -206,11 +209,12 @@ var _ = Describe("Client", func() {
 					}
 				}()
 
-				id, ffErr := client.FetchFile("some-file-1")
+				fileName := "some-file-1"
+				ffErr := client.FetchFile(fileName)
 				Expect(ffErr).ToNot(HaveOccurred())
 
 				for i := 0; i < count; i++ {
-					client.ReadFromFile(id)
+					client.ReadFromFile(fileName)
 				}
 			})
 
@@ -219,28 +223,7 @@ var _ = Describe("Client", func() {
 		}, 5)
 	})
 
-	Describe("InitWriteIndex()", func() {
-		It("initialize a file write index", func(done Done) {
-			defer close(done)
-			expectedData := []byte("some-data")
-			mockServers[0].serverCh <- buildFileLocation(1)
-			mockServers[0].serverCh <- buildFileOffset(uint64(2), 101)
-
-			id, ffErr := client.FetchFile("some-file-1")
-			Expect(ffErr).ToNot(HaveOccurred())
-
-			var msg *messages.Client
-			Eventually(mockServers[0].clientCh).Should(Receive(&msg))
-			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(msg.GetFetchFile().GetName()).To(Equal("some-file-1"))
-
-			index, err := client.InitWriteIndex(id, 101, expectedData)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(index).To(BeEquivalentTo(101))
-		})
-	})
-
-	Describe("LeaderOf()", func() {
+	PDescribe("LeaderOf()", func() {
 		var (
 			id uint64
 		)
@@ -250,7 +233,7 @@ var _ = Describe("Client", func() {
 			mockServers[0].serverCh <- buildFileLocation(1)
 
 			var ffErr error
-			id, ffErr = client.FetchFile("some-file-1")
+			ffErr = client.FetchFile("some-file-1")
 			Expect(ffErr).ToNot(HaveOccurred())
 		})
 
