@@ -42,11 +42,9 @@ var _ = Describe("Benchmarks", func() {
 		Measure("It should read and write to single file 1000 times in under 2 seconds", func(b Benchmarker) {
 			runtime := b.Time("runtime", func() {
 				fileName := "some-file"
-				err := client.FetchFile(fileName)
-				Expect(err).ToNot(HaveOccurred())
 
 				for i := 0; i < 1000; i++ {
-					_, err = client.WriteToFile(fileName, []byte{byte(i)})
+					_, err := client.WriteToFile(fileName, []byte{byte(i)})
 					Expect(err).ToNot(HaveOccurred())
 				}
 
@@ -104,8 +102,6 @@ var _ = Describe("Benchmarks", func() {
 				defer wg.Wait()
 
 				runTest := func(name string) {
-					err := client.FetchFile(name)
-					Expect(err).ToNot(HaveOccurred())
 					var wg1 sync.WaitGroup
 					wg1.Add(1)
 

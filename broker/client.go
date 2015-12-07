@@ -9,8 +9,8 @@ import (
 )
 
 type connInfo struct {
-	URL  string
-	conn *Connection
+	fileName string
+	conn     *Connection
 }
 
 type Client struct {
@@ -22,24 +22,21 @@ type Client struct {
 	fileIds     map[uint64]*connInfo
 	fileNames   map[string]uint64
 
-	conns []*connInfo
+	conns []*Connection
 }
 
 func NewClient(URLs ...string) (*Client, error) {
 	log := logging.Log("Client")
 	log.Debug("Broker List: %v", URLs)
 
-	var conns []*connInfo
+	var conns []*Connection
 	for _, URL := range URLs {
 		verifyUrl(URL, log)
 		conn, err := NewConnection(URL)
 		if err != nil {
 			return nil, err
 		}
-		conns = append(conns, &connInfo{
-			URL:  URL,
-			conn: conn,
-		})
+		conns = append(conns, conn)
 	}
 
 	return &Client{
@@ -48,33 +45,6 @@ func NewClient(URLs ...string) (*Client, error) {
 		fileIds:   make(map[uint64]*connInfo),
 		fileNames: make(map[string]uint64),
 	}, nil
-}
-
-func (c *Client) FetchFile(name string) error {
-	fileId := c.getNextFetchIdx()
-	conn := c.conns[int(fileId)%len(c.conns)]
-	err := conn.conn.FetchFile(fileId, name)
-	if err == nil {
-		c.saveFileId(fileId, name, conn)
-		return nil
-	}
-
-	if err.Uri == "" {
-		return fmt.Errorf(err.errMessage)
-	}
-
-	conn = c.fetchConnection(err.Uri)
-	if conn == nil {
-		return fmt.Errorf("Unknown broker: %s", err.Uri)
-	}
-
-	err = conn.conn.FetchFile(fileId, name)
-	if err == nil {
-		c.saveFileId(fileId, name, conn)
-		return nil
-	}
-
-	return fmt.Errorf(err.Error())
 }
 
 func (c *Client) Close() {
@@ -86,7 +56,11 @@ func (c *Client) Close() {
 func (c *Client) WriteToFile(fileName string, data []byte) (int64, error) {
 	fileId, ok := c.fetchIdByName(fileName)
 	if !ok {
-		return 0, fmt.Errorf("Unknown file name: %s", fileName)
+		if err := c.fetchFile(fileName); err != nil {
+			return 0, err
+		}
+
+		return c.WriteToFile(fileName, data)
 	}
 
 	conn := c.fetchConnectionById(fileId)
@@ -100,7 +74,11 @@ func (c *Client) WriteToFile(fileName string, data []byte) (int64, error) {
 func (c *Client) ReadFromFile(fileName string) ([]byte, int64, error) {
 	fileId, ok := c.fetchIdByName(fileName)
 	if !ok {
-		return nil, 0, fmt.Errorf("Unknown file name: %s", fileName)
+		if err := c.fetchFile(fileName); err != nil {
+			return nil, 0, err
+		}
+
+		return c.ReadFromFile(fileName)
 	}
 
 	conn := c.fetchConnectionById(fileId)
@@ -117,13 +95,43 @@ func (c *Client) LeaderOf(fileId uint64) (string, error) {
 		return "", fmt.Errorf("Unknown file ID: %d", fileId)
 	}
 
-	return conn.URL, nil
+	return conn.conn.URL, nil
 }
 
-func (c *Client) saveFileId(fileId uint64, name string, conn *connInfo) {
+func (c *Client) fetchFile(name string) error {
+	fileId := c.getNextFetchIdx()
+	conn := c.conns[int(fileId)%len(c.conns)]
+	err := conn.FetchFile(fileId, name)
+	if err == nil {
+		c.saveFileId(fileId, name, conn)
+		return nil
+	}
+
+	if err.Uri == "" {
+		return fmt.Errorf(err.errMessage)
+	}
+
+	conn = c.fetchConnection(err.Uri)
+	if conn == nil {
+		return fmt.Errorf("Unknown broker: %s", err.Uri)
+	}
+
+	err = conn.FetchFile(fileId, name)
+	if err == nil {
+		c.saveFileId(fileId, name, conn)
+		return nil
+	}
+
+	return fmt.Errorf(err.Error())
+}
+
+func (c *Client) saveFileId(fileId uint64, name string, conn *Connection) {
 	c.syncFileIds.Lock()
 	defer c.syncFileIds.Unlock()
-	c.fileIds[fileId] = conn
+	c.fileIds[fileId] = &connInfo{
+		conn:     conn,
+		fileName: name,
+	}
 	c.fileNames[name] = fileId
 }
 
@@ -154,7 +162,7 @@ func (c *Client) getNextFetchIdx() uint64 {
 	return c.nextFetchIdx
 }
 
-func (c *Client) fetchConnection(URL string) *connInfo {
+func (c *Client) fetchConnection(URL string) *Connection {
 	c.log.Debug("Fetching connection for %s", URL)
 	for _, info := range c.conns {
 		if info.URL == URL {

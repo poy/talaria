@@ -1,9 +1,7 @@
 package broker_test
 
 import (
-	"fmt"
 	"net/http/httptest"
-	"sync"
 
 	"github.com/apoydence/talaria/broker"
 	"github.com/apoydence/talaria/pb/messages"
@@ -54,49 +52,6 @@ var _ = Describe("Client", func() {
 		}
 	})
 
-	Describe("FetchFile", func() {
-		It("round robins the brokers while fetching new files", func(done Done) {
-			defer close(done)
-
-			for _, server := range mockServers {
-				server.serverCh <- buildFileLocation(1)
-			}
-
-			var wg sync.WaitGroup
-			defer wg.Wait()
-			wg.Add(len(mockServers))
-			for i := range mockServers {
-				go func(iter int) {
-					defer GinkgoRecover()
-					defer wg.Done()
-					err := client.FetchFile(fmt.Sprintf("some-file-%d", iter))
-					Expect(err).ToNot(HaveOccurred())
-				}(i)
-			}
-
-			for i, server := range mockServers {
-				var msg *messages.Client
-				Eventually(server.clientCh).Should(Receive(&msg))
-				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
-				Expect(msg.GetFetchFile().GetName()).To(Equal(fmt.Sprintf("some-file-%d", i)))
-			}
-		}, 5)
-
-		It("re-fetches a file if it is redirected", func(done Done) {
-			defer close(done)
-			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
-			mockServers[1].serverCh <- buildFileLocation(1)
-
-			err := client.FetchFile("some-file-1")
-			Expect(err).ToNot(HaveOccurred())
-
-			var msg *messages.Client
-			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
-			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(msg.GetFetchFile().GetName()).To(Equal("some-file-1"))
-		})
-	})
-
 	Describe("WriteToFile()", func() {
 		It("writes to the correct broker", func(done Done) {
 			defer close(done)
@@ -108,31 +63,18 @@ var _ = Describe("Client", func() {
 			}
 
 			fileName := "some-file-1"
-			ffErr := client.FetchFile(fileName)
-			Expect(ffErr).ToNot(HaveOccurred())
+
+			expectedData := []byte("some-data")
+			_, err := client.WriteToFile(fileName, expectedData)
+			Expect(err).ToNot(HaveOccurred())
 
 			var msg *messages.Client
 			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
 			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(msg.GetFetchFile().GetName()).To(Equal(fileName))
 
-			var wg sync.WaitGroup
-			defer wg.Wait()
-			for i := 0; i < 10; i++ {
-				wg.Add(1)
-				go func() {
-					defer GinkgoRecover()
-					defer wg.Done()
-					expectedData := []byte("some-data")
-					_, err := client.WriteToFile(fileName, expectedData)
-					Expect(err).ToNot(HaveOccurred())
-
-					var msg *messages.Client
-					Eventually(mockServers[1].clientCh).Should(Receive(&msg))
-					Expect(msg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
-					Expect(msg.GetWriteToFile().GetData()).To(Equal(expectedData))
-				}()
-			}
+			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
+			Expect(msg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
+			Expect(msg.GetWriteToFile().GetData()).To(Equal(expectedData))
 		}, 5)
 
 		Measure("Writes to a file 1000 times in under a second", func(b Benchmarker) {
@@ -153,9 +95,6 @@ var _ = Describe("Client", func() {
 				}()
 
 				fileName := "some-file-1"
-				ffErr := client.FetchFile(fileName)
-				Expect(ffErr).ToNot(HaveOccurred())
-
 				data := []byte("some-data")
 
 				for i := 0; i < count; i++ {
@@ -177,18 +116,15 @@ var _ = Describe("Client", func() {
 			mockServers[1].serverCh <- buildReadData(2, expectedData, 101)
 
 			fileName := "some-file-1"
-			ffErr := client.FetchFile(fileName)
-			Expect(ffErr).ToNot(HaveOccurred())
+			data, index, err := client.ReadFromFile(fileName)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(Equal(expectedData))
+			Expect(index).To(BeEquivalentTo(101))
 
 			var msg *messages.Client
 			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
 			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(msg.GetFetchFile().GetName()).To(Equal(fileName))
-
-			data, index, err := client.ReadFromFile(fileName)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(data).To(Equal(expectedData))
-			Expect(index).To(BeEquivalentTo(101))
 		})
 
 		Measure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
@@ -210,9 +146,6 @@ var _ = Describe("Client", func() {
 				}()
 
 				fileName := "some-file-1"
-				ffErr := client.FetchFile(fileName)
-				Expect(ffErr).ToNot(HaveOccurred())
-
 				for i := 0; i < count; i++ {
 					client.ReadFromFile(fileName)
 				}
@@ -223,7 +156,7 @@ var _ = Describe("Client", func() {
 		}, 5)
 	})
 
-	PDescribe("LeaderOf()", func() {
+	XDescribe("LeaderOf()", func() {
 		var (
 			id uint64
 		)
@@ -231,10 +164,6 @@ var _ = Describe("Client", func() {
 		BeforeEach(func(done Done) {
 			defer close(done)
 			mockServers[0].serverCh <- buildFileLocation(1)
-
-			var ffErr error
-			ffErr = client.FetchFile("some-file-1")
-			Expect(ffErr).ToNot(HaveOccurred())
 		})
 
 		It("returns the broker URI that is the leader of the given file", func(done Done) {

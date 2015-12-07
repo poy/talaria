@@ -59,7 +59,7 @@ func (c *Connection) FetchFile(fileId uint64, name string) *ConnectionError {
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileLocation {
-		return NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "", false)
+		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileLocation, serverMsg.GetMessageType()), "", false)
 	}
 
 	if !serverMsg.FileLocation.GetLocal() {
