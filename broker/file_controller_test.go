@@ -172,13 +172,33 @@ var _ = Describe("FileController", func() {
 
 	Describe("ReadFromFile", func() {
 
+		var (
+			callback func([]byte, int64, error)
+			dataCh   chan []byte
+			offsetCh chan int64
+			errCh    chan error
+		)
+
+		var createCallback = func(dataCh chan []byte, offsetCh chan int64, errCh chan error) func([]byte, int64, error) {
+			return func(data []byte, offset int64, err error) {
+				dataCh <- data
+				offsetCh <- offset
+				errCh <- err
+			}
+		}
+
 		BeforeEach(func() {
 			populateLocalOrch(mockOrchestrator)
+
+			dataCh = make(chan []byte, 100)
+			offsetCh = make(chan int64, 100)
+			errCh = make(chan error, 100)
+			callback = createCallback(dataCh, offsetCh, errCh)
 		})
 
 		It("returns an error for an unknown file ID", func() {
-			_, _, err := fileController.ReadFromFile(0)
-			Expect(err).To(HaveOccurred())
+			fileController.ReadFromFile(0, callback)
+			Eventually(errCh).Should(Receive(HaveOccurred()))
 			Expect(mockFileProvider.writerNameCh).ToNot(Receive())
 		})
 
@@ -198,18 +218,18 @@ var _ = Describe("FileController", func() {
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
 
 			By("reading from the first offset")
-			data, offset, err := fileController.ReadFromFile(fileId1)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(data).To(Equal(expectedData))
-			Expect(offset).To(BeEquivalentTo(100))
+			fileController.ReadFromFile(fileId1, callback)
+			Eventually(errCh).ShouldNot(Receive(HaveOccurred()))
+			Eventually(dataCh).Should(Receive(Equal(expectedData)))
+			Eventually(offsetCh).Should(Receive(BeEquivalentTo(100)))
 
 			By("reading from the next offset")
 			writeToFile(file, expectedData, int64(-len(expectedData)), 2)
 
-			data, offset, err = fileController.ReadFromFile(fileId1)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(data).To(Equal(expectedData))
-			Expect(offset).To(BeEquivalentTo(101))
+			fileController.ReadFromFile(fileId1, callback)
+			Eventually(errCh).ShouldNot(Receive(HaveOccurred()))
+			Eventually(dataCh).Should(Receive(Equal(expectedData)))
+			Eventually(offsetCh).Should(Receive(BeEquivalentTo(101)))
 		})
 
 		It("returns an error if the reader returns an error and negative n", func(done Done) {
@@ -225,8 +245,8 @@ var _ = Describe("FileController", func() {
 			ffErr := fileController.FetchFile(fileId, "some-name-1")
 			Expect(ffErr).To(BeNil())
 
-			_, _, err := fileController.ReadFromFile(fileId)
-			Expect(err).To(HaveOccurred())
+			fileController.ReadFromFile(fileId, callback)
+			Eventually(errCh).ShouldNot(Receive(HaveOccurred()))
 		})
 	})
 

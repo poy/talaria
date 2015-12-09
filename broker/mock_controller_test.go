@@ -60,9 +60,9 @@ func (m *mockController) WriteToFile(id uint64, data []byte) (int64, error) {
 	return <-m.writeFileOffsetCh, <-m.writeFileErrCh
 }
 
-func (m *mockController) ReadFromFile(id uint64) ([]byte, int64, error) {
+func (m *mockController) ReadFromFile(id uint64, callback func([]byte, int64, error)) {
 	m.readFileIdCh <- id
-	return <-m.readFileDataCh, <-m.readOffsetCh, <-m.readFileErrCh
+	go callback(<-m.readFileDataCh, <-m.readOffsetCh, <-m.readFileErrCh)
 }
 
 func (m *mockController) InitWriteIndex(id uint64, index int64, data []byte) (int64, error) {

@@ -37,7 +37,7 @@ var _ = BeforeSuite(func() {
 	nextTalariaPort = 8888
 	nextHealthPort = 9999
 	var err error
-	path, err = gexec.Build("github.com/apoydence/talaria")
+	path, err = gexec.Build("github.com/apoydence/talaria", "-race")
 	Expect(err).ToNot(HaveOccurred())
 })
 

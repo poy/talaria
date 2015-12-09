@@ -65,7 +65,7 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 		}
 	}, 5)
 
-	FIt("Writes and reads from separate files", func(done Done) {
+	It("Writes and reads from separate files", func(done Done) {
 		defer close(done)
 		var wg sync.WaitGroup
 		defer wg.Wait()

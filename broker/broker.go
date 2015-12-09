@@ -2,6 +2,7 @@ package broker
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 
 	"github.com/apoydence/talaria/logging"
@@ -23,7 +24,7 @@ const (
 type Controller interface {
 	FetchFile(id uint64, name string) *ConnectionError
 	WriteToFile(id uint64, data []byte) (int64, error)
-	ReadFromFile(id uint64) ([]byte, int64, error)
+	ReadFromFile(id uint64, callback func([]byte, int64, error))
 	InitWriteIndex(id uint64, index int64, data []byte) (int64, error)
 }
 
@@ -70,6 +71,8 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	conWriter := newConcurrentWriter(conn)
+
 	for {
 		_, data, err := conn.ReadMessage()
 		if err != nil {
@@ -86,18 +89,18 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 
 		switch message.GetMessageType() {
 		case messages.Client_FetchFile:
-			b.fetchFile(controller, message, conn)
+			b.fetchFile(controller, message, conWriter)
 		case messages.Client_WriteToFile:
-			b.writeToFile(controller, message, conn)
+			b.writeToFile(controller, message, conWriter)
 		case messages.Client_ReadFromFile:
-			b.readFromFile(controller, message, conn)
+			b.readFromFile(controller, message, conWriter)
 		case messages.Client_InitWriteIndex:
-			b.initWriteIndex(controller, message, conn)
+			b.initWriteIndex(controller, message, conWriter)
 		}
 	}
 }
 
-func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn *concurrentWriter) {
 	fetchFile := message.GetFetchFile()
 	err := controller.FetchFile(fetchFile.GetFileId(), fetchFile.GetName())
 	if err != nil && err.Uri == "" {
@@ -108,7 +111,7 @@ func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn
 	b.writeFileLocation(err, message, conn)
 }
 
-func (b *Broker) writeToFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) writeToFile(controller Controller, message *messages.Client, conn *concurrentWriter) {
 	offset, err := controller.WriteToFile(message.WriteToFile.GetFileId(), message.WriteToFile.GetData())
 
 	if err != nil {
@@ -119,17 +122,19 @@ func (b *Broker) writeToFile(controller Controller, message *messages.Client, co
 	b.writeFileOffset(offset, message, conn)
 }
 
-func (b *Broker) readFromFile(controller Controller, message *messages.Client, conn *websocket.Conn) {
-	data, offset, err := controller.ReadFromFile(message.ReadFromFile.GetFileId())
-	if err != nil {
-		b.writeError(err.Error(), message, conn)
-		return
-	}
+func (b *Broker) readFromFile(controller Controller, message *messages.Client, conn *concurrentWriter) {
+	callback := func(data []byte, offset int64, err error) {
+		if err != nil {
+			b.writeError(err.Error(), message, conn)
+			return
+		}
 
-	b.writeReadData(data, offset, message, conn)
+		b.writeReadData(data, offset, message, conn)
+	}
+	controller.ReadFromFile(message.ReadFromFile.GetFileId(), callback)
 }
 
-func (b *Broker) initWriteIndex(controller Controller, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) initWriteIndex(controller Controller, message *messages.Client, conn *concurrentWriter) {
 	offset, err := controller.InitWriteIndex(message.InitWriteIndex.GetFileId(), message.InitWriteIndex.GetIndex(), message.InitWriteIndex.GetData())
 
 	if err != nil {
@@ -140,19 +145,19 @@ func (b *Broker) initWriteIndex(controller Controller, message *messages.Client,
 	b.writeFileOffset(offset, message, conn)
 }
 
-func (b *Broker) writeMessage(message *messages.Server, conn *websocket.Conn) {
+func (b *Broker) writeMessage(message *messages.Server, writer io.Writer) {
 	data, err := message.Marshal()
 	if err != nil {
 		b.log.Panic("Unable to marshal error", err)
 	}
 
-	err = conn.WriteMessage(websocket.BinaryMessage, data)
+	_, err = writer.Write(data)
 	if err != nil {
 		b.log.Panic("Unable to write message", err)
 	}
 }
 
-func (b *Broker) writeError(errStr string, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) writeError(errStr string, message *messages.Client, conn *concurrentWriter) {
 	msgType := messages.Server_Error
 	server := &messages.Server{
 		MessageType: &msgType,
@@ -164,7 +169,7 @@ func (b *Broker) writeError(errStr string, message *messages.Client, conn *webso
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeFileLocation(connectionErr *ConnectionError, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) writeFileLocation(connectionErr *ConnectionError, message *messages.Client, conn *concurrentWriter) {
 	var uri string
 	if connectionErr != nil {
 		uri = connectionErr.Uri
@@ -182,7 +187,7 @@ func (b *Broker) writeFileLocation(connectionErr *ConnectionError, message *mess
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeFileOffset(offset int64, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) writeFileOffset(offset int64, message *messages.Client, conn *concurrentWriter) {
 	msgType := messages.Server_FileOffset
 	server := &messages.Server{
 		MessageType: &msgType,
@@ -194,7 +199,7 @@ func (b *Broker) writeFileOffset(offset int64, message *messages.Client, conn *w
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeReadData(data []byte, offset int64, message *messages.Client, conn *websocket.Conn) {
+func (b *Broker) writeReadData(data []byte, offset int64, message *messages.Client, conn *concurrentWriter) {
 	msgType := messages.Server_ReadData
 	server := &messages.Server{
 		MessageType: &msgType,

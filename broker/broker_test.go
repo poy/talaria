@@ -36,7 +36,6 @@ var _ = Describe("Broker", func() {
 
 	AfterEach(func() {
 		server.CloseClientConnections()
-		server.Close()
 	})
 
 	It("Accepts websocket connections and grabs a controller", func() {
@@ -243,24 +242,32 @@ var _ = Describe("Broker", func() {
 	})
 
 	Describe("ReadFromFile()", func() {
+
+		var (
+			conn         *websocket.Conn
+			expectedData []byte
+		)
+
+		BeforeEach(func() {
+			expectedData = []byte("some-data")
+
+			var err error
+			conn, _, err = websocket.DefaultDialer.Dial(wsUrl, nil)
+			Expect(err).ToNot(HaveOccurred())
+		})
+
 		It("returns an error if there is one", func(done Done) {
 			defer close(done)
-			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
-			Expect(err).ToNot(HaveOccurred())
 
 			mockController.readFileDataCh <- nil
 			mockController.readOffsetCh <- 0
 			mockController.readFileErrCh <- fmt.Errorf("some-error")
 
-			readFromFile := buildReadFromFile(99, 8)
-			data, err := proto.Marshal(readFromFile)
-			Expect(err).ToNot(HaveOccurred())
-
-			conn.WriteMessage(websocket.BinaryMessage, data)
+			Expect(conn.WriteMessage(websocket.BinaryMessage, buildReadFromFile(99, 8))).To(Succeed())
 
 			Eventually(mockController.readFileIdCh).Should(Receive(BeEquivalentTo(8)))
 
-			_, data, err = conn.ReadMessage()
+			_, data, err := conn.ReadMessage()
 			Expect(err).ToNot(HaveOccurred())
 
 			server := &messages.Server{}
@@ -274,23 +281,16 @@ var _ = Describe("Broker", func() {
 
 		It("returns the data", func(done Done) {
 			defer close(done)
-			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
-			Expect(err).ToNot(HaveOccurred())
 
-			expectedData := []byte("some-data")
 			mockController.readFileDataCh <- expectedData
 			mockController.readOffsetCh <- 1010
 			mockController.readFileErrCh <- nil
 
-			readFromFile := buildReadFromFile(99, 8)
-			data, err := proto.Marshal(readFromFile)
-			Expect(err).ToNot(HaveOccurred())
-
-			conn.WriteMessage(websocket.BinaryMessage, data)
+			Expect(conn.WriteMessage(websocket.BinaryMessage, buildReadFromFile(99, 8))).To(Succeed())
 
 			Eventually(mockController.readFileIdCh).Should(Receive(BeEquivalentTo(8)))
 
-			_, data, err = conn.ReadMessage()
+			_, data, err := conn.ReadMessage()
 			Expect(err).ToNot(HaveOccurred())
 
 			server := &messages.Server{}
@@ -310,7 +310,6 @@ var _ = Describe("Broker", func() {
 
 			runtime := b.Time("runtime", func() {
 				count := 1000
-				expectedData := []byte("some-data")
 				go func() {
 					for i := 0; i < count; i++ {
 						mockController.readFileDataCh <- expectedData
@@ -333,16 +332,11 @@ var _ = Describe("Broker", func() {
 					}
 				}()
 
-				conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
-				Expect(err).ToNot(HaveOccurred())
-
 				readFromFile := buildReadFromFile(99, 8)
-				data, err := proto.Marshal(readFromFile)
-				Expect(err).ToNot(HaveOccurred())
-
 				for i := 0; i < count; i++ {
-					conn.WriteMessage(websocket.BinaryMessage, data)
-					_, _, err = conn.ReadMessage()
+					conn.WriteMessage(websocket.BinaryMessage, readFromFile)
+					_, _, err := conn.ReadMessage()
+					Expect(err).ToNot(HaveOccurred())
 				}
 				mockController.closeChannels()
 			})
@@ -437,15 +431,19 @@ func buildWriteToFile(msgId, fileId uint64, data []byte) *messages.Client {
 	}
 }
 
-func buildReadFromFile(msgId, fileId uint64) *messages.Client {
+func buildReadFromFile(msgId, fileId uint64) []byte {
 	messageType := messages.Client_ReadFromFile
-	return &messages.Client{
+	msg := &messages.Client{
 		MessageType: &messageType,
 		MessageId:   &msgId,
 		ReadFromFile: &messages.ReadFromFile{
 			FileId: &fileId,
 		},
 	}
+
+	data, err := proto.Marshal(msg)
+	Expect(err).ToNot(HaveOccurred())
+	return data
 }
 
 func buildInitWriteIndex(msgId, fileId uint64, index int64, data []byte) *messages.Client {

@@ -208,6 +208,7 @@ func (c *Connection) writeMessage(msg *messages.Client) {
 	data, err := msg.Marshal()
 	if err != nil {
 		c.log.Panic("Unable to marshal message", err)
+		return
 	}
 
 	if err = c.conn.WriteMessage(websocket.BinaryMessage, data); err != nil {

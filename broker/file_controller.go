@@ -85,19 +85,23 @@ func (f *FileController) WriteToFile(fileId uint64, data []byte) (int64, error) 
 	return ioInfo.writerOffset, err
 }
 
-func (f *FileController) ReadFromFile(fileId uint64) ([]byte, int64, error) {
+func (f *FileController) ReadFromFile(fileId uint64, callback func([]byte, int64, error)) {
 	ioInfo, ok := f.fileIdMap[fileId]
 	if !ok {
-		return nil, 0, fmt.Errorf("Unknown file ID: %d", fileId)
+		callback(nil, 0, fmt.Errorf("Unknown file ID: %d", fileId))
+		return
 	}
 
-	n, err := ioInfo.reader.Read(ioInfo.buffer)
-	if err != nil {
-		return nil, 0, err
-	}
+	go func() {
+		n, err := ioInfo.reader.Read(ioInfo.buffer)
+		if err != nil {
+			callback(nil, 0, err)
+			return
+		}
 
-	offset := ioInfo.reader.NextIndex() - 1
-	return ioInfo.buffer[:n], offset, nil
+		offset := ioInfo.reader.NextIndex() - 1
+		callback(ioInfo.buffer[:n], offset, nil)
+	}()
 }
 
 func (f *FileController) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, error) {
