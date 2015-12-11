@@ -107,16 +107,20 @@ var _ = Describe("Client", func() {
 		}, 5)
 	})
 
-	Describe("ReadFromFile()", func() {
+	Describe("FetchReader()", func() {
+
 		It("reads from the correct broker", func(done Done) {
 			defer close(done)
+			fileName := "some-file-1"
 			expectedData := []byte("some-data")
 			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
 			mockServers[1].serverCh <- buildFileLocation(1)
 			mockServers[1].serverCh <- buildReadData(2, expectedData, 101)
 
-			fileName := "some-file-1"
-			data, index, err := client.ReadFromFile(fileName)
+			reader, err := client.FetchReader(fileName)
+			Expect(err).ToNot(HaveOccurred())
+
+			data, index, err := reader.ReadFromFile()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(Equal(expectedData))
 			Expect(index).To(BeEquivalentTo(101))
@@ -145,9 +149,10 @@ var _ = Describe("Client", func() {
 					}
 				}()
 
-				fileName := "some-file-1"
+				reader, err := client.FetchReader("some-file")
+				Expect(err).ToNot(HaveOccurred())
 				for i := 0; i < count; i++ {
-					client.ReadFromFile(fileName)
+					reader.ReadFromFile()
 				}
 			})
 

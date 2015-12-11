@@ -44,8 +44,11 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
+		reader, err := client.FetchReader(name)
+		Expect(err).ToNot(HaveOccurred())
+
 		for i := 0; i < 100; i++ {
-			data, index, err := client.ReadFromFile(name)
+			data, index, err := reader.ReadFromFile()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(HaveLen(1))
 			Expect(data[0]).To(BeEquivalentTo(i))
@@ -72,9 +75,12 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 			}
 		}()
 
+		reader, err := clientR.FetchReader(name)
+		Expect(err).ToNot(HaveOccurred())
+
 		var result []byte
 		for len(result) < 10 {
-			data, _, err := clientR.ReadFromFile(name)
+			data, _, err := reader.ReadFromFile()
 			Expect(err).ToNot(HaveOccurred())
 			result = append(result, data...)
 		}

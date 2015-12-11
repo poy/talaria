@@ -56,7 +56,7 @@ func (c *Client) Close() {
 func (c *Client) WriteToFile(fileName string, data []byte) (int64, error) {
 	fileId, ok := c.fetchIdByName(fileName)
 	if !ok {
-		if err := c.fetchFile(fileName); err != nil {
+		if _, err := c.fetchFile(fileName); err != nil {
 			return 0, err
 		}
 
@@ -71,22 +71,18 @@ func (c *Client) WriteToFile(fileName string, data []byte) (int64, error) {
 	return conn.conn.WriteToFile(fileId, data)
 }
 
-func (c *Client) ReadFromFile(fileName string) ([]byte, int64, error) {
-	fileId, ok := c.fetchIdByName(fileName)
-	if !ok {
-		if err := c.fetchFile(fileName); err != nil {
-			return nil, 0, err
-		}
-
-		return c.ReadFromFile(fileName)
+func (c *Client) FetchReader(fileName string) (*Reader, error) {
+	fileId, err := c.fetchFile(fileName)
+	if err != nil {
+		return nil, err
 	}
 
 	conn := c.fetchConnectionById(fileId)
 	if conn == nil {
-		return nil, 0, fmt.Errorf("Unknown file ID: %d", fileId)
+		return nil, fmt.Errorf("Unknown file ID: %d", fileId)
 	}
 
-	return conn.conn.ReadFromFile(fileId)
+	return NewReader(fileId, conn.conn), nil
 }
 
 func (c *Client) LeaderOf(fileId uint64) (string, error) {
@@ -98,31 +94,31 @@ func (c *Client) LeaderOf(fileId uint64) (string, error) {
 	return conn.conn.URL, nil
 }
 
-func (c *Client) fetchFile(name string) error {
+func (c *Client) fetchFile(name string) (uint64, error) {
 	fileId := c.getNextFetchIdx()
 	conn := c.conns[int(fileId)%len(c.conns)]
 	err := conn.FetchFile(fileId, name)
 	if err == nil {
 		c.saveFileId(fileId, name, conn)
-		return nil
+		return fileId, nil
 	}
 
 	if err.Uri == "" {
-		return fmt.Errorf(err.errMessage)
+		return 0, fmt.Errorf(err.errMessage)
 	}
 
 	conn = c.fetchConnection(err.Uri)
 	if conn == nil {
-		return fmt.Errorf("Unknown broker: %s", err.Uri)
+		return 0, fmt.Errorf("Unknown broker: %s", err.Uri)
 	}
 
 	err = conn.FetchFile(fileId, name)
 	if err == nil {
 		c.saveFileId(fileId, name, conn)
-		return nil
+		return fileId, nil
 	}
 
-	return fmt.Errorf(err.Error())
+	return 0, fmt.Errorf(err.Error())
 }
 
 func (c *Client) saveFileId(fileId uint64, name string, conn *Connection) {

@@ -57,8 +57,11 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 			Expect(err).ToNot(HaveOccurred())
 		}
 
+		reader, err := client.FetchReader(name)
+		Expect(err).ToNot(HaveOccurred())
+
 		for i := 0; i < 100; i++ {
-			data, _, err := client.ReadFromFile(name)
+			data, _, err := reader.ReadFromFile()
 			Expect(err).ToNot(HaveOccurred())
 			Expect(data).To(HaveLen(1))
 			Expect(data[0]).To(BeEquivalentTo(i))
@@ -88,8 +91,12 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 				defer wg.Done()
 				By(fmt.Sprintf("start reading from %s", name))
 				defer By(fmt.Sprintf("done reading from %s", name))
+
+				reader, err := client.FetchReader(name)
+				Expect(err).ToNot(HaveOccurred())
+
 				for i := 0; i < 100; i++ {
-					data, _, err := client.ReadFromFile(name)
+					data, _, err := reader.ReadFromFile()
 					Expect(err).ToNot(HaveOccurred())
 					Expect(data).To(HaveLen(1))
 					Expect(data[0]).To(BeEquivalentTo(i))

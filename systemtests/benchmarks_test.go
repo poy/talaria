@@ -48,8 +48,11 @@ var _ = Describe("Benchmarks", func() {
 					Expect(err).ToNot(HaveOccurred())
 				}
 
+				reader, err := client.FetchReader(fileName)
+				Expect(err).ToNot(HaveOccurred())
+
 				for i := 0; i < 1000; i++ {
-					data, _, err := client.ReadFromFile(fileName)
+					data, _, err := reader.ReadFromFile()
 					Expect(err).ToNot(HaveOccurred())
 					Expect(data).To(HaveLen(1))
 					Expect(data[0]).To(Equal(byte(i)))
@@ -118,8 +121,11 @@ var _ = Describe("Benchmarks", func() {
 						defer GinkgoRecover()
 						defer wg.Done()
 						wg1.Wait()
+
+						reader, err := client.FetchReader(name)
+						Expect(err).ToNot(HaveOccurred())
 						for i := 0; i < 1000; i++ {
-							data, _, err := client.ReadFromFile(name)
+							data, _, err := reader.ReadFromFile()
 							Expect(err).ToNot(HaveOccurred())
 							Expect(data).To(HaveLen(1))
 							Expect(data[0]).To(Equal(byte(i)))
