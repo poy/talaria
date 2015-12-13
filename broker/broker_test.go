@@ -346,66 +346,6 @@ var _ = Describe("Broker", func() {
 
 	})
 
-	Describe("InitWriteIndex()", func() {
-		It("returns an error if there is one", func(done Done) {
-			defer close(done)
-			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			mockController.initOffsetCh <- 0
-			mockController.initErrCh <- fmt.Errorf("some-error")
-
-			initWriteIndex := buildInitWriteIndex(99, 8, 101, []byte("some-data"))
-			data, err := proto.Marshal(initWriteIndex)
-			Expect(err).ToNot(HaveOccurred())
-
-			conn.WriteMessage(websocket.BinaryMessage, data)
-
-			Eventually(mockController.initIdCh).Should(Receive(BeEquivalentTo(8)))
-
-			_, data, err = conn.ReadMessage()
-			Expect(err).ToNot(HaveOccurred())
-
-			server := &messages.Server{}
-			err = server.Unmarshal(data)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(server.GetMessageId()).To(BeEquivalentTo(99))
-			Expect(server.GetMessageType()).To(Equal(messages.Server_Error))
-			Expect(server.Error).ToNot(BeNil())
-			Expect(server.Error.GetMessage()).To(Equal("some-error"))
-		}, 3)
-
-		It("returns the new offset", func(done Done) {
-			defer close(done)
-			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			mockController.initOffsetCh <- 77
-			mockController.initErrCh <- nil
-
-			expectedData := []byte("some-data")
-			initWriteIndex := buildInitWriteIndex(99, 8, 101, expectedData)
-			data, err := proto.Marshal(initWriteIndex)
-			Expect(err).ToNot(HaveOccurred())
-
-			conn.WriteMessage(websocket.BinaryMessage, data)
-
-			Eventually(mockController.initIdCh).Should(Receive(BeEquivalentTo(8)))
-			Eventually(mockController.initIndexCh).Should(Receive(BeEquivalentTo(101)))
-			Eventually(mockController.initDataCh).Should(Receive(Equal(expectedData)))
-
-			_, data, err = conn.ReadMessage()
-			Expect(err).ToNot(HaveOccurred())
-
-			server := &messages.Server{}
-			err = server.Unmarshal(data)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(server.GetMessageId()).To(BeEquivalentTo(99))
-			Expect(server.GetMessageType()).To(Equal(messages.Server_FileOffset))
-			Expect(server.FileOffset).ToNot(BeNil())
-			Expect(server.FileOffset.GetOffset()).To(BeEquivalentTo(77))
-		})
-	})
 })
 
 func buildFetchFile(id uint64, name string) *messages.Client {
@@ -444,17 +384,4 @@ func buildReadFromFile(msgId, fileId uint64) []byte {
 	data, err := proto.Marshal(msg)
 	Expect(err).ToNot(HaveOccurred())
 	return data
-}
-
-func buildInitWriteIndex(msgId, fileId uint64, index int64, data []byte) *messages.Client {
-	messageType := messages.Client_InitWriteIndex
-	return &messages.Client{
-		MessageType: messageType.Enum(),
-		MessageId:   proto.Uint64(msgId),
-		InitWriteIndex: &messages.InitWriteIndex{
-			FileId: proto.Uint64(fileId),
-			Index:  proto.Int64(index),
-			Data:   data,
-		},
-	}
 }

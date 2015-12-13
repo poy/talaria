@@ -34,31 +34,6 @@ var _ = Describe("ReplicatedFileManager", func() {
 			manager.Add(expectedName, expectedReplica)
 			Expect(mockWriterFactory.nameCh).To(Receive(Equal(expectedName)))
 		})
-
-		It("updates the sub-writer when the replica changes", func(done Done) {
-			defer close(done)
-			subWriter := newMockSubscribableWriter()
-			mockWriterFactory.resultCh <- subWriter
-			expectedWriter := newMockWriter()
-			mockInnerBrokerProvider.resultCh <- expectedWriter
-			expectedAddr := "some-addr"
-
-			manager.Add(expectedName, expectedReplica)
-
-			Eventually(mockReplicaListener.nameCh).Should(Receive(Equal(expectedName)))
-			var callback func(name string, replica uint, addr string)
-			Eventually(mockReplicaListener.callbackCh).Should(Receive(&callback))
-
-			By("invoking with the next replica")
-			callback(expectedName, expectedReplica+1, expectedAddr)
-			Eventually(mockInnerBrokerProvider.nameCh).Should(Receive(Equal(expectedName)))
-			Eventually(mockInnerBrokerProvider.addrCh).Should(Receive(Equal(expectedAddr)))
-			Eventually(subWriter.subWriterCh).Should(Receive(Equal(expectedWriter)))
-
-			By("invoking with the wrong replica")
-			callback(expectedName, expectedReplica+10, expectedAddr)
-			Consistently(mockInnerBrokerProvider.addrCh).ShouldNot(Receive())
-		}, 5)
 	})
 
 	Describe("Participate", func() {

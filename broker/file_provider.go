@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"io"
 	"path"
 	"sync"
 	"time"
@@ -17,7 +18,7 @@ type FileProvider struct {
 	polling       time.Duration
 
 	lock      sync.RWMutex
-	writerMap map[string]SubscribableWriter
+	writerMap map[string]io.Writer
 }
 
 func NewFileProvider(dir string, desiredLength, maxSegments uint64, polling time.Duration) *FileProvider {
@@ -26,12 +27,12 @@ func NewFileProvider(dir string, desiredLength, maxSegments uint64, polling time
 		dir:           dir,
 		desiredLength: desiredLength,
 		maxSegments:   maxSegments,
-		writerMap:     make(map[string]SubscribableWriter),
+		writerMap:     make(map[string]io.Writer),
 		polling:       polling,
 	}
 }
 
-func (f *FileProvider) ProvideWriter(name string) SubscribableWriter {
+func (f *FileProvider) ProvideWriter(name string) io.Writer {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 
@@ -39,9 +40,8 @@ func (f *FileProvider) ProvideWriter(name string) SubscribableWriter {
 	if !ok {
 		dir := path.Join(f.dir, name)
 		segWriter := files.NewSegmentedFileWriter(dir, f.desiredLength, f.maxSegments)
-		preReader := f.provideReader(name, 0)
-		writer = files.NewReplicatedFileLeader(segWriter, preReader)
-		f.writerMap[name] = writer
+		f.writerMap[name] = segWriter
+		writer = segWriter
 	}
 
 	return writer

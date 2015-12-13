@@ -101,21 +101,6 @@ func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionErro
 	return data, index, nil
 }
 
-func (c *Connection) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, *ConnectionError) {
-	respCh := c.writeInitWriteIndex(c.nextMsgId(), fileId, index, data)
-	serverMsg := <-respCh
-
-	if serverMsg.GetMessageType() == messages.Server_Error {
-		return 0, NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
-	}
-
-	if serverMsg.GetMessageType() != messages.Server_FileOffset {
-		return 0, NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "", false)
-	}
-
-	return serverMsg.FileOffset.GetOffset(), nil
-}
-
 func (c *Connection) Close() {
 	c.conn.Close()
 	close(c.writeCh)
@@ -265,27 +250,6 @@ func (c *Connection) writeReadFromFile(msgId, fileId uint64) <-chan *messages.Se
 		MessageId:   proto.Uint64(msgId),
 		ReadFromFile: &messages.ReadFromFile{
 			FileId: proto.Uint64(fileId),
-		},
-	}
-
-	respCh := make(chan *messages.Server, 1)
-	c.writeCh <- clientMsgInfo{
-		respCh: respCh,
-		msg:    msg,
-	}
-
-	return respCh
-}
-
-func (c *Connection) writeInitWriteIndex(msgId, fileId uint64, index int64, data []byte) <-chan *messages.Server {
-	messageType := messages.Client_InitWriteIndex
-	msg := &messages.Client{
-		MessageType: messageType.Enum(),
-		MessageId:   proto.Uint64(msgId),
-		InitWriteIndex: &messages.InitWriteIndex{
-			FileId: proto.Uint64(fileId),
-			Index:  proto.Int64(index),
-			Data:   data,
 		},
 	}
 

@@ -3,18 +3,10 @@ package broker
 import (
 	"io"
 	"sync"
-
-	"github.com/apoydence/talaria/files"
 )
 
-type SubscribableWriter interface {
-	io.Writer
-	UpdateWriter(writer files.InitableWriter)
-	InitWriteIndex(index int64, data []byte) (int64, error)
-}
-
 type InnerBrokerProvider interface {
-	ProvideConn(name, addr string) files.InitableWriter
+	ProvideConn(name, addr string) io.Writer
 }
 
 type ReplicaListener interface {
@@ -22,11 +14,11 @@ type ReplicaListener interface {
 }
 
 type WriterFactory interface {
-	ProvideWriter(name string) SubscribableWriter
+	ProvideWriter(name string) io.Writer
 }
 
 type writerInfo struct {
-	writer  SubscribableWriter
+	writer  io.Writer
 	replica uint
 }
 
@@ -62,8 +54,8 @@ func (r *ReplicatedFileManager) Add(name string, replica uint) {
 		if replica+1 != rep {
 			return
 		}
-		innerConn := r.innerBrokerProvider.ProvideConn(name, addr)
-		writer.UpdateWriter(innerConn)
+		//innerConn := r.innerBrokerProvider.ProvideConn(name, addr)
+		println("TODO: START READING")
 	})
 }
 

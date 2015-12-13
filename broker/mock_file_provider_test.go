@@ -4,7 +4,6 @@ import (
 	"io"
 
 	"github.com/apoydence/talaria/broker"
-	"github.com/apoydence/talaria/files"
 )
 
 type mockFileProvider struct {
@@ -35,7 +34,7 @@ func newMockFileProvider() *mockFileProvider {
 	}
 }
 
-func (m *mockFileProvider) ProvideWriter(name string) broker.SubscribableWriter {
+func (m *mockFileProvider) ProvideWriter(name string) io.Writer {
 	m.writerNameCh <- name
 	return newSubWrapper(<-m.writerCh, m.indexCh)
 }
@@ -50,15 +49,6 @@ func newSubWrapper(writer io.Writer, indexCh chan int64) *subWrapper {
 		Writer:  writer,
 		indexCh: indexCh,
 	}
-}
-
-func (s *subWrapper) UpdateWriter(files.InitableWriter) {
-	// NOP
-}
-
-func (s *subWrapper) InitWriteIndex(index int64, data []byte) (int64, error) {
-	s.indexCh <- index
-	return index, nil
 }
 
 func newIndexWrapper(reader io.Reader, indexCh chan int64) *offsetWrapper {

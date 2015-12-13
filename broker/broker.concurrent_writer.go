@@ -1,8 +1,9 @@
 package broker
 
 import (
-	"github.com/gorilla/websocket"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 type concurrentWriter struct {

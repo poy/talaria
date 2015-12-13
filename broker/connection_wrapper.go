@@ -2,7 +2,6 @@ package broker
 
 type Conn interface {
 	WriteToFile(fileId uint64, data []byte) (int64, *ConnectionError)
-	InitWriteIndex(fileId uint64, index int64, data []byte) (int64, *ConnectionError)
 }
 
 type ConnectionWrapper struct {
@@ -23,12 +22,4 @@ func (c *ConnectionWrapper) Write(data []byte) (int, error) {
 		return 0, nil
 	}
 	return len(data), nil
-}
-
-func (c *ConnectionWrapper) InitWriteIndex(index int64, data []byte) (int64, error) {
-	n, err := c.conn.InitWriteIndex(c.fileId, index, data)
-	if err != nil {
-		return 0, nil
-	}
-	return n, nil
 }

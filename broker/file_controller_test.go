@@ -250,34 +250,6 @@ var _ = Describe("FileController", func() {
 		})
 	})
 
-	Describe("InitWriteIndex()", func() {
-		It("returns an error for an unknown file ID", func() {
-			_, err := fileController.InitWriteIndex(0, 101, []byte("some-data"))
-			Expect(err).To(HaveOccurred())
-			Expect(mockFileProvider.writerNameCh).ToNot(Receive())
-		})
-
-		It("inits the correct file", func() {
-			populateLocalOrch(mockOrchestrator)
-			populateLocalOrch(mockOrchestrator)
-			mockFileProvider.writerCh <- createFile(tmpDir, "some-name-1")
-			mockFileProvider.writerCh <- createFile(tmpDir, "some-name-2")
-			mockFileProvider.readerCh <- nil
-			mockFileProvider.readerCh <- nil
-			expectedData := []byte("some-data")
-
-			var fileId1 uint64 = 3
-			ffErr := fileController.FetchFile(fileId1, "some-name-1")
-			Expect(ffErr).To(BeNil())
-			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
-
-			offset, err := fileController.InitWriteIndex(fileId1, 101, expectedData)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(offset).To(BeEquivalentTo(101))
-			Expect(mockFileProvider.indexCh).To(Receive(BeEquivalentTo(101)))
-		})
-
-	})
 })
 
 func populateLocalOrch(orch *mockOrchestrator) {

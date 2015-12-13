@@ -13,7 +13,7 @@ type OffsetReader interface {
 }
 
 type IoProvider interface {
-	ProvideWriter(name string) SubscribableWriter
+	ProvideWriter(name string) io.Writer
 	ProvideReader(name string) OffsetReader
 }
 
@@ -23,7 +23,7 @@ type Orchestrator interface {
 
 type ioInfo struct {
 	name         string
-	writer       SubscribableWriter
+	writer       io.Writer
 	reader       OffsetReader
 	writerOffset int64
 	buffer       []byte
@@ -102,13 +102,4 @@ func (f *FileController) ReadFromFile(fileId uint64, callback func([]byte, int64
 		offset := ioInfo.reader.NextIndex() - 1
 		callback(ioInfo.buffer[:n], offset, nil)
 	}()
-}
-
-func (f *FileController) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, error) {
-	ioInfo, ok := f.fileIdMap[fileId]
-	if !ok {
-		return 0, fmt.Errorf("Unknown file ID: %d", fileId)
-	}
-
-	return ioInfo.writer.InitWriteIndex(index, data)
 }
