@@ -34,8 +34,10 @@ func SetLevel(level LogLevel) {
 }
 
 func Log(name string) Logger {
+	l := gologging.MustGetLogger(name)
+	l.ExtraCalldepth = 1
 	return Logger{
-		log: gologging.MustGetLogger(name),
+		log: l,
 	}
 }
 
