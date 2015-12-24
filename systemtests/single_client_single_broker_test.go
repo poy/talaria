@@ -36,7 +36,7 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		client.Close()
 	})
 
-	It("Writes and reads from a single file", func(done Done) {
+	It("writes and reads from a single file", func(done Done) {
 		defer close(done)
 		name := "some-file"
 		for i := byte(0); i < 100; i++ {
@@ -56,7 +56,31 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		}
 	}, 5)
 
-	It("Writes and reads from a single file at the same time", func(done Done) {
+	It("seeks in a single file", func(done Done) {
+		defer close(done)
+
+		name := "some-file"
+		for i := byte(0); i < 100; i++ {
+			_, err := client.WriteToFile(name, []byte{i})
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		reader, err := client.FetchReader(name)
+		Expect(err).ToNot(HaveOccurred())
+		By("Seeking to 50")
+		Expect(reader.SeekIndex(50)).To(Succeed())
+		By("Done seeking to 50")
+
+		for i := 50; i < 100; i++ {
+			data, index, err := reader.ReadFromFile()
+			Expect(err).ToNot(HaveOccurred())
+			Expect(data).To(HaveLen(1))
+			Expect(data[0]).To(BeEquivalentTo(i))
+			Expect(index).To(BeEquivalentTo(i))
+		}
+	}, 5)
+
+	It("writes and reads from a single file at the same time", func(done Done) {
 		defer close(done)
 		name := "some-file"
 		clientW := startClient(URL)

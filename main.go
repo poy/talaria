@@ -80,8 +80,9 @@ func run(c *cli.Context) {
 	kvStore := kvstore.New(clientAddr, c.Int(healthPort))
 	ioProvider := broker.NewFileProvider(c.String(dataDir), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)), time.Second)
 	orch := orchestrator.New(clientAddr, uint(c.Int(numReplicas)), kvStore)
-	innerBrokerProvider := broker.NewInnerBroker()
-	replicaManager := broker.NewReplicatedFileManager(ioProvider, innerBrokerProvider, orch)
+	readerFetcher := broker.NewLazyReaderFetcher(clientAddr)
+
+	replicaManager := broker.NewReplicatedFileManager(ioProvider, readerFetcher)
 	orch.ParticipateInElection(replicaManager)
 
 	broker.StartBrokerServer(c.Int(port), orch, ioProvider)

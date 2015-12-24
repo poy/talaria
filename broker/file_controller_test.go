@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
+	"sync"
 
 	"github.com/apoydence/talaria/broker"
 
@@ -34,7 +35,7 @@ var _ = Describe("FileController", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
-	Describe("FetchFile", func() {
+	Describe("FetchFile()", func() {
 		Context("Don't skip orch", func() {
 			It("gives the correct file ID", func(done Done) {
 				defer close(done)
@@ -125,7 +126,7 @@ var _ = Describe("FileController", func() {
 		})
 	})
 
-	Describe("WriteToFile", func() {
+	Describe("WriteToFile()", func() {
 		It("returns an error for an unknown file ID", func() {
 			_, err := fileController.WriteToFile(0, []byte("some-data"))
 			Expect(err).To(HaveOccurred())
@@ -170,13 +171,16 @@ var _ = Describe("FileController", func() {
 		})
 	})
 
-	Describe("ReadFromFile", func() {
+	Describe("ReadFromFile()", func() {
 
 		var (
-			callback func([]byte, int64, error)
-			dataCh   chan []byte
-			offsetCh chan int64
-			errCh    chan error
+			mockReader *mockReader
+			wg         sync.WaitGroup
+			callback   func([]byte, int64, error)
+			dataCh     chan []byte
+			sendCh     chan []byte
+			offsetCh   chan int64
+			errCh      chan error
 		)
 
 		var createCallback = func(dataCh chan []byte, offsetCh chan int64, errCh chan error) func([]byte, int64, error) {
@@ -187,13 +191,35 @@ var _ = Describe("FileController", func() {
 			}
 		}
 
+		var setupMockReader = func() {
+			sendCh = make(chan []byte, 100)
+			close(mockReader.readErrs)
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				for buffer := range mockReader.buffers {
+					var data []byte
+					Expect(sendCh).To(Receive(&data))
+					copy(buffer, data)
+					mockReader.lengths <- len(data)
+				}
+			}()
+		}
+
 		BeforeEach(func() {
+			mockReader = newMockReader()
 			populateLocalOrch(mockOrchestrator)
 
 			dataCh = make(chan []byte, 100)
 			offsetCh = make(chan int64, 100)
 			errCh = make(chan error, 100)
 			callback = createCallback(dataCh, offsetCh, errCh)
+			setupMockReader()
+		})
+
+		AfterEach(func() {
+			close(mockReader.buffers)
+			wg.Wait()
 		})
 
 		It("returns an error for an unknown file ID", func() {
@@ -204,13 +230,12 @@ var _ = Describe("FileController", func() {
 
 		It("reads from the correct file", func() {
 			mockFileProvider.writerCh <- nil
-			file := createFile(tmpDir, "some-name-1")
-			mockFileProvider.readerCh <- file
-			mockFileProvider.indexCh <- 101
-			mockFileProvider.indexCh <- 102
+			mockFileProvider.readerCh <- mockReader
+			mockReader.nextIndexes <- 101
+			mockReader.nextIndexes <- 102
 			expectedData := []byte("some-data")
 
-			writeToFile(file, expectedData, 0, 0)
+			sendCh <- expectedData
 
 			var fileId1 uint64 = 3
 			ffErr := fileController.FetchFile(fileId1, "some-name-1")
@@ -219,12 +244,12 @@ var _ = Describe("FileController", func() {
 
 			By("reading from the first offset")
 			fileController.ReadFromFile(fileId1, callback)
-			Eventually(errCh).ShouldNot(Receive(HaveOccurred()))
+			Consistently(errCh).ShouldNot(Receive(HaveOccurred()))
 			Eventually(dataCh).Should(Receive(Equal(expectedData)))
 			Eventually(offsetCh).Should(Receive(BeEquivalentTo(100)))
 
 			By("reading from the next offset")
-			writeToFile(file, expectedData, int64(-len(expectedData)), 2)
+			sendCh <- expectedData
 
 			fileController.ReadFromFile(fileId1, callback)
 			Eventually(errCh).ShouldNot(Receive(HaveOccurred()))
@@ -236,7 +261,7 @@ var _ = Describe("FileController", func() {
 			defer close(done)
 			mockReader := newMockReader()
 			mockReader.lengths <- -10
-			mockReader.errs <- fmt.Errorf("some-error")
+			mockReader.readErrs <- fmt.Errorf("some-error")
 			mockFileProvider.readerCh <- mockReader
 			mockFileProvider.writerCh <- nil
 			mockFileProvider.indexCh <- 101
@@ -250,6 +275,45 @@ var _ = Describe("FileController", func() {
 		})
 	})
 
+	Describe("SeekIndex()", func() {
+		var (
+			expectedIndex uint64
+		)
+
+		BeforeEach(func() {
+			expectedIndex = 101
+		})
+
+		Context("without existing file", func() {
+			It("returns an error for an unknown file ID", func() {
+				Expect(fileController.SeekIndex(0, expectedIndex)).ToNot(Succeed())
+				Expect(mockFileProvider.writerNameCh).ToNot(Receive())
+			})
+		})
+
+		Context("with existing file", func() {
+			var (
+				mockReader     *mockReader
+				expectedFileId uint64
+			)
+
+			BeforeEach(func() {
+				mockReader = newMockReader()
+				mockFileProvider.writerCh <- nil
+				mockFileProvider.readerCh <- mockReader
+				expectedFileId = 3
+				close(mockReader.seekErrs)
+
+				populateLocalOrch(mockOrchestrator)
+				Expect(fileController.FetchFile(expectedFileId, "some-name")).To(Succeed())
+			})
+
+			It("seeks within the reader", func() {
+				Expect(fileController.SeekIndex(expectedFileId, expectedIndex)).To(Succeed())
+				Expect(mockReader.seekIndexes).To(Receive(Equal(expectedIndex)))
+			})
+		})
+	})
 })
 
 func populateLocalOrch(orch *mockOrchestrator) {

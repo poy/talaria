@@ -22,7 +22,8 @@ type Client struct {
 	fileIds     map[uint64]*connInfo
 	fileNames   map[string]uint64
 
-	conns []*Connection
+	syncConns sync.RWMutex
+	conns     []*Connection
 }
 
 func NewClient(URLs ...string) (*Client, error) {
@@ -48,6 +49,9 @@ func NewClient(URLs ...string) (*Client, error) {
 }
 
 func (c *Client) Close() {
+	c.syncConns.RLock()
+	defer c.syncConns.RUnlock()
+
 	for _, info := range c.conns {
 		info.conn.Close()
 	}
@@ -82,6 +86,7 @@ func (c *Client) FetchReader(fileName string) (*Reader, error) {
 		return nil, fmt.Errorf("Unknown file ID: %d", fileId)
 	}
 
+	c.log.Debug("Creating new Reader (fileId=%d) for %s", fileId, fileName)
 	return NewReader(fileId, conn.conn), nil
 }
 
@@ -95,8 +100,12 @@ func (c *Client) LeaderOf(fileId uint64) (string, error) {
 }
 
 func (c *Client) fetchFile(name string) (uint64, error) {
+	c.syncConns.Lock()
+	c.syncConns.Unlock()
+
 	fileId := c.getNextFetchIdx()
-	conn := c.conns[int(fileId)%len(c.conns)]
+	conn := c.roundRobinConns(fileId)
+
 	err := conn.FetchFile(fileId, name)
 	if err == nil {
 		c.saveFileId(fileId, name, conn)
@@ -109,7 +118,8 @@ func (c *Client) fetchFile(name string) (uint64, error) {
 
 	conn = c.fetchConnection(err.Uri)
 	if conn == nil {
-		return 0, fmt.Errorf("Unknown broker: %s", err.Uri)
+		conn = c.createConnection(err.Uri)
+		c.conns = append(c.conns, conn)
 	}
 
 	err = conn.FetchFile(fileId, name)
@@ -119,6 +129,19 @@ func (c *Client) fetchFile(name string) (uint64, error) {
 	}
 
 	return 0, fmt.Errorf(err.Error())
+}
+
+func (c *Client) roundRobinConns(fileId uint64) *Connection {
+	return c.conns[int(fileId)%len(c.conns)]
+}
+
+func (c *Client) createConnection(URL string) *Connection {
+	conn, err := NewConnection(URL)
+	if err != nil {
+		c.log.Panicf("Unable to create connection to %s: %v", URL, err)
+	}
+
+	return conn
 }
 
 func (c *Client) saveFileId(fileId uint64, name string, conn *Connection) {

@@ -55,7 +55,7 @@ var _ = BeforeEach(func() {
 })
 
 func startTalaria(tmpDir string) (string, *gexec.Session) {
-	cmd := exec.Command(path, "-d", tmpDir, "-logLevel", "CRITICAL", "-port", fmt.Sprintf("%d", nextTalariaPort), "-healthPort", fmt.Sprintf("%d", nextHealthPort), "-numReplicas", "2")
+	cmd := exec.Command(path, "-d", tmpDir, "-logLevel", "DEBUG", "-port", fmt.Sprintf("%d", nextTalariaPort), "-healthPort", fmt.Sprintf("%d", nextHealthPort), "-numReplicas", "2")
 	session, err := gexec.Start(cmd, GinkgoWriter, GinkgoWriter)
 	Expect(err).ToNot(HaveOccurred())
 	Consistently(session.Exited, 1).ShouldNot(BeClosed())

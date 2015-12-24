@@ -22,6 +22,10 @@ type mockController struct {
 	initIndexCh  chan int64
 	initOffsetCh chan int64
 	initErrCh    chan error
+
+	seekIdCh    chan uint64
+	seekIndexCh chan uint64
+	seekErrCh   chan error
 }
 
 func newMockController() *mockController {
@@ -45,6 +49,10 @@ func newMockController() *mockController {
 		initIndexCh:  make(chan int64, 100),
 		initOffsetCh: make(chan int64, 100),
 		initErrCh:    make(chan error, 100),
+
+		seekIdCh:    make(chan uint64, 100),
+		seekIndexCh: make(chan uint64, 100),
+		seekErrCh:   make(chan error, 100),
 	}
 }
 
@@ -63,6 +71,12 @@ func (m *mockController) WriteToFile(id uint64, data []byte) (int64, error) {
 func (m *mockController) ReadFromFile(id uint64, callback func([]byte, int64, error)) {
 	m.readFileIdCh <- id
 	go callback(<-m.readFileDataCh, <-m.readOffsetCh, <-m.readFileErrCh)
+}
+
+func (m *mockController) SeekIndex(id, index uint64) error {
+	m.seekIdCh <- id
+	m.seekIndexCh <- index
+	return <-m.seekErrCh
 }
 
 func (m *mockController) InitWriteIndex(id uint64, index int64, data []byte) (int64, error) {

@@ -346,6 +346,85 @@ var _ = Describe("Broker", func() {
 
 	})
 
+	Describe("SeekIndex()", func() {
+		var (
+			expectedError error
+			expectedIndex uint64
+			conn          *websocket.Conn
+		)
+
+		JustBeforeEach(func() {
+			expectedIndex = 101
+
+			var err error
+			conn, _, err = websocket.DefaultDialer.Dial(wsUrl, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			mockController.seekErrCh <- expectedError
+		})
+
+		Context("an error occurred", func() {
+
+			BeforeEach(func() {
+				expectedError = fmt.Errorf("some-error")
+			})
+
+			It("returns the error", func(done Done) {
+				defer close(done)
+
+				seekIndex := buildSeekIndex(99, 8, expectedIndex)
+				data, err := proto.Marshal(seekIndex)
+				Expect(err).ToNot(HaveOccurred())
+				conn.WriteMessage(websocket.BinaryMessage, data)
+
+				Eventually(mockController.seekIdCh).Should(Receive(BeEquivalentTo(8)))
+				Eventually(mockController.seekIndexCh).Should(Receive(Equal(expectedIndex)))
+
+				_, data, err = conn.ReadMessage()
+				Expect(err).ToNot(HaveOccurred())
+
+				server := new(messages.Server)
+				err = server.Unmarshal(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(server.GetMessageId()).To(BeEquivalentTo(99))
+				Expect(server.GetMessageType()).To(Equal(messages.Server_Error))
+				Expect(server.Error).ToNot(BeNil())
+				Expect(server.Error.GetMessage()).To(Equal(expectedError.Error()))
+			})
+		})
+
+		Context("no error", func() {
+
+			BeforeEach(func() {
+				expectedError = nil
+			})
+
+			It("returns the given index", func(done Done) {
+				defer close(done)
+
+				seekIndex := buildSeekIndex(99, 8, expectedIndex)
+				data, err := proto.Marshal(seekIndex)
+				Expect(err).ToNot(HaveOccurred())
+				conn.WriteMessage(websocket.BinaryMessage, data)
+
+				Eventually(mockController.seekIdCh).Should(Receive(BeEquivalentTo(8)))
+				Eventually(mockController.seekIndexCh).Should(Receive(Equal(expectedIndex)))
+
+				_, data, err = conn.ReadMessage()
+				Expect(err).ToNot(HaveOccurred())
+
+				server := new(messages.Server)
+				err = server.Unmarshal(data)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(server.GetMessageId()).To(BeEquivalentTo(99))
+				Expect(server.GetMessageType()).To(Equal(messages.Server_FileOffset))
+				Expect(server.Error).To(BeNil())
+				Expect(server.FileOffset.GetOffset()).To(Equal(int64(expectedIndex)))
+			})
+		})
+
+	})
+
 })
 
 func buildFetchFile(id uint64, name string) *messages.Client {
@@ -367,6 +446,18 @@ func buildWriteToFile(msgId, fileId uint64, data []byte) *messages.Client {
 		WriteToFile: &messages.WriteToFile{
 			FileId: &fileId,
 			Data:   data,
+		},
+	}
+}
+
+func buildSeekIndex(msgId, fileId, index uint64) *messages.Client {
+	messageType := messages.Client_SeekIndex
+	return &messages.Client{
+		MessageType: &messageType,
+		MessageId:   &msgId,
+		SeekIndex: &messages.SeekIndex{
+			FileId: &fileId,
+			Index:  proto.Uint64(index),
 		},
 	}
 }

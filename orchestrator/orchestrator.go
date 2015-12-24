@@ -59,13 +59,6 @@ func (o *Orchestrator) FetchLeader(name string) (string, bool) {
 	return result, result == o.clientAddr
 }
 
-func (o *Orchestrator) ListenForReplicas(name string, callback func(name string, replica uint, addr string)) {
-	o.kvStore.ListenForLeader(name, func(encodedName, addr string) {
-		decodedName, replica := o.decodeIndex(encodedName)
-		callback(decodedName, replica, addr)
-	})
-}
-
 func (o *Orchestrator) ParticipateInElection(partManager PartitionManager) {
 	o.kvStore.ListenForAnnouncements(func(fullName string) {
 		o.participateInElection(fullName, partManager)
@@ -85,9 +78,20 @@ func (o *Orchestrator) participateInElection(fullName string, partManager Partit
 
 	partManager.Add(name, replica)
 
-	if replica < o.numberOfReplicas {
-		o.kvStore.Announce(o.encodeIndex(name, replica+1))
+	if replica != 0 {
+		return
 	}
+
+	for i := uint(1); i <= o.numberOfReplicas; i++ {
+		o.kvStore.Announce(o.encodeIndex(name, i))
+	}
+}
+
+func (o *Orchestrator) listenForReplicas(name string, callback func(name string, replica uint, addr string)) {
+	o.kvStore.ListenForLeader(name, func(encodedName, addr string) {
+		decodedName, replica := o.decodeIndex(encodedName)
+		callback(decodedName, replica, addr)
+	})
 }
 
 func (o *Orchestrator) encodeIndex(name string, replica uint) string {

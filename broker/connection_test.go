@@ -258,6 +258,61 @@ var _ = Describe("Connection", func() {
 
 	})
 
+	Describe("SeekIndex()", func() {
+
+		var (
+			expectedIndex uint64
+		)
+
+		BeforeEach(func() {
+			expectedIndex = 101
+		})
+
+		Context("live connection", func() {
+			It("returns the new file offset", func(done Done) {
+				defer close(done)
+
+				mockServer.serverCh <- buildFileOffset(1, int64(expectedIndex))
+
+				err := connection.SeekIndex(8, expectedIndex)
+				Expect(err).ToNot(HaveOccurred())
+
+				var clientMsg *messages.Client
+				Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+				Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_SeekIndex))
+				Expect(clientMsg.SeekIndex).ToNot(BeNil())
+				Expect(clientMsg.SeekIndex.GetFileId()).To(BeEquivalentTo(8))
+				Expect(clientMsg.SeekIndex.GetIndex()).To(Equal(expectedIndex))
+			})
+
+			It("returns an error if the returned index does not match", func(done Done) {
+				defer close(done)
+
+				mockServer.serverCh <- buildFileOffset(1, int64(expectedIndex+1))
+
+				err := connection.SeekIndex(8, expectedIndex)
+				Expect(err).To(HaveOccurred())
+			})
+
+		})
+
+		Context("dead connection", func() {
+
+			BeforeEach(func() {
+				server.CloseClientConnections()
+			})
+
+			It("returns an error for a dead connection", func(done Done) {
+				defer close(done)
+				err := connection.SeekIndex(8, expectedIndex)
+
+				Expect(err).To(HaveOccurred())
+				Expect(err.WebsocketError).To(BeTrue())
+			}, 3)
+		})
+
+	})
+
 	Describe("Close()", func() {
 		It("closes the connection to the server", func(done Done) {
 			defer close(done)

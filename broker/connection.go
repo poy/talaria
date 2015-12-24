@@ -78,7 +78,7 @@ func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, *Connection
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileOffset {
-		return 0, NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "", false)
+		return 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileOffset, serverMsg.GetMessageType()), "", false)
 	}
 
 	return serverMsg.FileOffset.GetOffset(), nil
@@ -93,12 +93,31 @@ func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionErro
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_ReadData {
-		return nil, 0, NewConnectionError(fmt.Sprintf("Unexpected MessageType: %v", serverMsg.GetMessageType()), "", false)
+		return nil, 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_ReadData, serverMsg.GetMessageType()), "", false)
 	}
 
 	data := serverMsg.ReadData.GetData()
 	index := serverMsg.ReadData.GetOffset()
 	return data, index, nil
+}
+
+func (c *Connection) SeekIndex(fileId uint64, index uint64) *ConnectionError {
+	respCh := c.writeSeekIndex(c.nextMsgId(), fileId, index)
+	serverMsg := <-respCh
+
+	if serverMsg.GetMessageType() == messages.Server_Error {
+		return NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
+	}
+
+	if serverMsg.GetMessageType() != messages.Server_FileOffset {
+		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileOffset, serverMsg.GetMessageType()), "", false)
+	}
+
+	if index != uint64(serverMsg.FileOffset.GetOffset()) {
+		return NewConnectionError(fmt.Sprintf("Expected index: %d. Received %d", index, serverMsg.FileOffset.GetOffset()), "", false)
+	}
+
+	return nil
 }
 
 func (c *Connection) Close() {
@@ -250,6 +269,26 @@ func (c *Connection) writeReadFromFile(msgId, fileId uint64) <-chan *messages.Se
 		MessageId:   proto.Uint64(msgId),
 		ReadFromFile: &messages.ReadFromFile{
 			FileId: proto.Uint64(fileId),
+		},
+	}
+
+	respCh := make(chan *messages.Server, 1)
+	c.writeCh <- clientMsgInfo{
+		respCh: respCh,
+		msg:    msg,
+	}
+
+	return respCh
+}
+
+func (c *Connection) writeSeekIndex(msgId, fileId, index uint64) <-chan *messages.Server {
+	messageType := messages.Client_SeekIndex
+	msg := &messages.Client{
+		MessageType: messageType.Enum(),
+		MessageId:   proto.Uint64(msgId),
+		SeekIndex: &messages.SeekIndex{
+			FileId: proto.Uint64(fileId),
+			Index:  proto.Uint64(index),
 		},
 	}
 

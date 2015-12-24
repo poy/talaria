@@ -16,21 +16,42 @@ var _ = Describe("Client", func() {
 		mockServers []*mockServer
 		servers     []*httptest.Server
 		client      *broker.Client
+
+		extraMockServer *mockServer
+		extraServerURL  string
 	)
 
-	BeforeEach(func() {
-		mockServers = nil
-		servers = nil
+	var convertToWs = func(URL string) string {
+		return "ws" + URL[4:]
+	}
+
+	var createKnownMockServers = func() []string {
 		var urls []string
 		for i := 0; i < 3; i++ {
 			mockServer, server := startMockServer()
 			mockServers = append(mockServers, mockServer)
 			servers = append(servers, server)
-			urls = append(urls, "ws"+server.URL[4:])
+			urls = append(urls, convertToWs(server.URL))
 		}
 
+		return urls
+	}
+
+	var createExtraMockServer = func() {
+		mockServer, server := startMockServer()
+		extraMockServer = mockServer
+		servers = append(servers, server)
+		extraServerURL = convertToWs(server.URL)
+	}
+
+	BeforeEach(func() {
+		mockServers = nil
+		servers = nil
+		URLs := createKnownMockServers()
+		createExtraMockServer()
+
 		var err error
-		client, err = broker.NewClient(urls...)
+		client, err = broker.NewClient(URLs...)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -109,26 +130,65 @@ var _ = Describe("Client", func() {
 
 	Describe("FetchReader()", func() {
 
-		It("reads from the correct broker", func(done Done) {
-			defer close(done)
-			fileName := "some-file-1"
-			expectedData := []byte("some-data")
-			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
-			mockServers[1].serverCh <- buildFileLocation(1)
-			mockServers[1].serverCh <- buildReadData(2, expectedData, 101)
+		var (
+			expectedFileName string
+			expectedData     []byte
+		)
 
-			reader, err := client.FetchReader(fileName)
-			Expect(err).ToNot(HaveOccurred())
+		BeforeEach(func() {
+			expectedFileName = "some-file-1"
+			expectedData = []byte("some-data")
+		})
 
-			data, index, err := reader.ReadFromFile()
-			Expect(err).ToNot(HaveOccurred())
-			Expect(data).To(Equal(expectedData))
-			Expect(index).To(BeEquivalentTo(101))
+		Context("for known server", func() {
 
-			var msg *messages.Client
-			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
-			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
-			Expect(msg.GetFetchFile().GetName()).To(Equal(fileName))
+			BeforeEach(func() {
+				mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
+				mockServers[1].serverCh <- buildFileLocation(1)
+				mockServers[1].serverCh <- buildReadData(2, expectedData, 101)
+			})
+
+			It("reads from the correct broker", func(done Done) {
+				defer close(done)
+
+				reader, err := client.FetchReader(expectedFileName)
+				Expect(err).ToNot(HaveOccurred())
+
+				data, index, err := reader.ReadFromFile()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(data).To(Equal(expectedData))
+				Expect(index).To(BeEquivalentTo(101))
+
+				var msg *messages.Client
+				Eventually(mockServers[1].clientCh).Should(Receive(&msg))
+				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+				Expect(msg.GetFetchFile().GetName()).To(Equal(expectedFileName))
+			})
+		})
+
+		Context("for unknown server", func() {
+			BeforeEach(func() {
+				mockServers[0].serverCh <- buildRemoteFileLocation(1, extraServerURL)
+				extraMockServer.serverCh <- buildFileLocation(1)
+				extraMockServer.serverCh <- buildReadData(2, expectedData, 101)
+			})
+
+			It("reads from the new broker", func(done Done) {
+				defer close(done)
+
+				reader, err := client.FetchReader(expectedFileName)
+				Expect(err).ToNot(HaveOccurred())
+
+				data, index, err := reader.ReadFromFile()
+				Expect(err).ToNot(HaveOccurred())
+				Expect(data).To(Equal(expectedData))
+				Expect(index).To(BeEquivalentTo(101))
+
+				var msg *messages.Client
+				Eventually(extraMockServer.clientCh).Should(Receive(&msg))
+				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+				Expect(msg.GetFetchFile().GetName()).To(Equal(expectedFileName))
+			})
 		})
 
 		Measure("Reads from a file 1000 times in under a second", func(b Benchmarker) {

@@ -14,6 +14,7 @@
 		FetchFile
 		WriteToFile
 		ReadFromFile
+		SeekIndex
 */
 package messages
 
@@ -36,17 +37,20 @@ const (
 	Client_FetchFile    Client_MessageType = 1
 	Client_WriteToFile  Client_MessageType = 2
 	Client_ReadFromFile Client_MessageType = 3
+	Client_SeekIndex    Client_MessageType = 4
 )
 
 var Client_MessageType_name = map[int32]string{
 	1: "FetchFile",
 	2: "WriteToFile",
 	3: "ReadFromFile",
+	4: "SeekIndex",
 }
 var Client_MessageType_value = map[string]int32{
 	"FetchFile":    1,
 	"WriteToFile":  2,
 	"ReadFromFile": 3,
+	"SeekIndex":    4,
 }
 
 func (x Client_MessageType) Enum() *Client_MessageType {
@@ -72,6 +76,7 @@ type Client struct {
 	FetchFile        *FetchFile          `protobuf:"bytes,3,opt,name=fetchFile" json:"fetchFile,omitempty"`
 	WriteToFile      *WriteToFile        `protobuf:"bytes,4,opt,name=writeToFile" json:"writeToFile,omitempty"`
 	ReadFromFile     *ReadFromFile       `protobuf:"bytes,5,opt,name=readFromFile" json:"readFromFile,omitempty"`
+	SeekIndex        *SeekIndex          `protobuf:"bytes,6,opt,name=seekIndex" json:"seekIndex,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
 }
 
@@ -110,6 +115,13 @@ func (m *Client) GetWriteToFile() *WriteToFile {
 func (m *Client) GetReadFromFile() *ReadFromFile {
 	if m != nil {
 		return m.ReadFromFile
+	}
+	return nil
+}
+
+func (m *Client) GetSeekIndex() *SeekIndex {
+	if m != nil {
+		return m.SeekIndex
 	}
 	return nil
 }
@@ -174,6 +186,30 @@ func (*ReadFromFile) ProtoMessage()    {}
 func (m *ReadFromFile) GetFileId() uint64 {
 	if m != nil && m.FileId != nil {
 		return *m.FileId
+	}
+	return 0
+}
+
+type SeekIndex struct {
+	FileId           *uint64 `protobuf:"varint,1,req,name=fileId" json:"fileId,omitempty"`
+	Index            *uint64 `protobuf:"varint,2,req,name=index" json:"index,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *SeekIndex) Reset()         { *m = SeekIndex{} }
+func (m *SeekIndex) String() string { return proto.CompactTextString(m) }
+func (*SeekIndex) ProtoMessage()    {}
+
+func (m *SeekIndex) GetFileId() uint64 {
+	if m != nil && m.FileId != nil {
+		return *m.FileId
+	}
+	return 0
+}
+
+func (m *SeekIndex) GetIndex() uint64 {
+	if m != nil && m.Index != nil {
+		return *m.Index
 	}
 	return 0
 }
@@ -312,6 +348,33 @@ func (m *Client) Unmarshal(data []byte) error {
 				m.ReadFromFile = &ReadFromFile{}
 			}
 			if err := m.ReadFromFile.Unmarshal(data[index:postIndex]); err != nil {
+				return err
+			}
+			index = postIndex
+		case 6:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field SeekIndex", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.SeekIndex == nil {
+				m.SeekIndex = &SeekIndex{}
+			}
+			if err := m.SeekIndex.Unmarshal(data[index:postIndex]); err != nil {
 				return err
 			}
 			index = postIndex
@@ -560,6 +623,82 @@ func (m *ReadFromFile) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *SeekIndex) Unmarshal(data []byte) error {
+	l := len(data)
+	index := 0
+	for index < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if index >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[index]
+			index++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FileId", wireType)
+			}
+			var v uint64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.FileId = &v
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
+			}
+			var v uint64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Index = &v
+		default:
+			var sizeOfWire int
+			for {
+				sizeOfWire++
+				wire >>= 7
+				if wire == 0 {
+					break
+				}
+			}
+			index -= sizeOfWire
+			skippy, err := github_com_gogo_protobuf_proto.Skip(data[index:])
+			if err != nil {
+				return err
+			}
+			if (index + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, data[index:index+skippy]...)
+			index += skippy
+		}
+	}
+	return nil
+}
 func (m *Client) Size() (n int) {
 	var l int
 	_ = l
@@ -579,6 +718,10 @@ func (m *Client) Size() (n int) {
 	}
 	if m.ReadFromFile != nil {
 		l = m.ReadFromFile.Size()
+		n += 1 + l + sovClient(uint64(l))
+	}
+	if m.SeekIndex != nil {
+		l = m.SeekIndex.Size()
 		n += 1 + l + sovClient(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -624,6 +767,21 @@ func (m *ReadFromFile) Size() (n int) {
 	_ = l
 	if m.FileId != nil {
 		n += 1 + sovClient(uint64(*m.FileId))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *SeekIndex) Size() (n int) {
+	var l int
+	_ = l
+	if m.FileId != nil {
+		n += 1 + sovClient(uint64(*m.FileId))
+	}
+	if m.Index != nil {
+		n += 1 + sovClient(uint64(*m.Index))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -698,6 +856,16 @@ func (m *Client) MarshalTo(data []byte) (n int, err error) {
 			return 0, err
 		}
 		i += n3
+	}
+	if m.SeekIndex != nil {
+		data[i] = 0x32
+		i++
+		i = encodeVarintClient(data, i, uint64(m.SeekIndex.Size()))
+		n4, err := m.SeekIndex.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n4
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)
@@ -788,6 +956,37 @@ func (m *ReadFromFile) MarshalTo(data []byte) (n int, err error) {
 		data[i] = 0x8
 		i++
 		i = encodeVarintClient(data, i, uint64(*m.FileId))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(data[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *SeekIndex) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *SeekIndex) MarshalTo(data []byte) (n int, err error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.FileId != nil {
+		data[i] = 0x8
+		i++
+		i = encodeVarintClient(data, i, uint64(*m.FileId))
+	}
+	if m.Index != nil {
+		data[i] = 0x10
+		i++
+		i = encodeVarintClient(data, i, uint64(*m.Index))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

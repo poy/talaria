@@ -1,7 +1,6 @@
 package broker
 
 import (
-	"io"
 	"path"
 	"sync"
 	"time"
@@ -18,7 +17,7 @@ type FileProvider struct {
 	polling       time.Duration
 
 	lock      sync.RWMutex
-	writerMap map[string]io.Writer
+	writerMap map[string]InitableWriter
 }
 
 func NewFileProvider(dir string, desiredLength, maxSegments uint64, polling time.Duration) *FileProvider {
@@ -27,12 +26,12 @@ func NewFileProvider(dir string, desiredLength, maxSegments uint64, polling time
 		dir:           dir,
 		desiredLength: desiredLength,
 		maxSegments:   maxSegments,
-		writerMap:     make(map[string]io.Writer),
+		writerMap:     make(map[string]InitableWriter),
 		polling:       polling,
 	}
 }
 
-func (f *FileProvider) ProvideWriter(name string) io.Writer {
+func (f *FileProvider) ProvideWriter(name string) InitableWriter {
 	f.lock.Lock()
 	defer f.lock.Unlock()
 

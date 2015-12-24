@@ -10,10 +10,16 @@ import (
 type OffsetReader interface {
 	io.Reader
 	NextIndex() int64
+	SeekIndex(index uint64) error
+}
+
+type InitableWriter interface {
+	io.Writer
+	InitWriteIndex(index int64, data []byte) (int64, error)
 }
 
 type IoProvider interface {
-	ProvideWriter(name string) io.Writer
+	ProvideWriter(name string) InitableWriter
 	ProvideReader(name string) OffsetReader
 }
 
@@ -102,4 +108,13 @@ func (f *FileController) ReadFromFile(fileId uint64, callback func([]byte, int64
 		offset := ioInfo.reader.NextIndex() - 1
 		callback(ioInfo.buffer[:n], offset, nil)
 	}()
+}
+
+func (f *FileController) SeekIndex(fileId, index uint64) error {
+	ioInfo, ok := f.fileIdMap[fileId]
+	if !ok {
+		return fmt.Errorf("Unknown file ID: %d", fileId)
+	}
+
+	return ioInfo.reader.SeekIndex(index)
 }

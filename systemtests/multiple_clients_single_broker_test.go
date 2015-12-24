@@ -38,6 +38,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 		defer wg.Wait()
 
 		runTest := func(name string) {
+			By(fmt.Sprintf("start test for %s", name))
 			defer wg.Done()
 			client := startClient(URL)
 			for i := byte(0); i < 100; i++ {
@@ -49,6 +50,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 			Expect(err).ToNot(HaveOccurred())
 
 			for i := 0; i < 100; i++ {
+				By(fmt.Sprintf("reading index and data %d", i))
 				data, _, err := reader.ReadFromFile()
 				Expect(err).ToNot(HaveOccurred())
 				Expect(data).To(HaveLen(1))
@@ -56,7 +58,7 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 			}
 		}
 
-		count := 10
+		count := 1
 		wg.Add(count)
 		for i := 0; i < count; i++ {
 			go func(num int) {
