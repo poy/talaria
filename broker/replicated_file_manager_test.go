@@ -174,15 +174,29 @@ var _ = Describe("ReplicatedFileManager", func() {
 				Expect(manager.Participate("some-name-1", 3)).To(BeFalse())
 			})
 
-			It("returns true if the replica would be an upgrade", func(done Done) {
-				defer close(done)
-				manager.Add("some-name-1", 2)
+			Context("upgrade", func() {
 
-				By("giving a replia index less than the current")
-				Expect(manager.Participate("some-name-1", 1)).To(BeTrue())
+				var (
+					currentIndex uint
+				)
 
-				By("giving a replia index more than the current")
-				Expect(manager.Participate("some-name-1", 4)).To(BeFalse())
+				BeforeEach(func() {
+					currentIndex = 2
+				})
+
+				It("returns true if the replica index is less than current", func(done Done) {
+					defer close(done)
+					manager.Add("some-name-1", currentIndex)
+
+					Expect(manager.Participate("some-name-1", currentIndex-1)).To(BeTrue())
+				})
+
+				It("returns false if the replica index is more than current", func(done Done) {
+					defer close(done)
+					manager.Add("some-name-1", 2)
+
+					Expect(manager.Participate("some-name-1", currentIndex+1)).To(BeFalse())
+				})
 			})
 		})
 
