@@ -10,7 +10,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Kvstore", func() {
+var _ = Describe("KVStore", func() {
 	var (
 		clientAddr    string
 		kv            *kvstore.KVStore
@@ -29,6 +29,9 @@ var _ = Describe("Kvstore", func() {
 		_, err := consulClient.KV().DeleteTree(kvstore.Prefix, nil)
 		Expect(err).ToNot(HaveOccurred())
 
+		_, err = consulClient.KV().DeleteTree(kvstore.AnnouncePrefix, nil)
+		Expect(err).ToNot(HaveOccurred())
+
 		sessions, _, err := consulClient.Session().List(nil)
 		for _, session := range sessions {
 			_, err = consulClient.Session().Destroy(session.ID, nil)
@@ -36,7 +39,7 @@ var _ = Describe("Kvstore", func() {
 		}
 	})
 
-	Describe("Announcements", func() {
+	Describe("Announce()/ListenForAnnouncments()", func() {
 		It("invokes callback when announcement is made", func() {
 			results1 := make(chan string, 10)
 			results2 := make(chan string, 10)
@@ -74,146 +77,162 @@ var _ = Describe("Kvstore", func() {
 		})
 	})
 
-	Describe("Acquire", func() {
-		It("saves a KV with a prefix", func(done Done) {
-			defer close(done)
-			acquired := kv.Acquire(key)
-
-			pair, _, err := consulClient.KV().Get(keyWithPrefix, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pair).ToNot(BeNil())
-			Expect(pair.Key).To(Equal(keyWithPrefix))
-			Expect(pair.Value).To(Equal([]byte(clientAddr)))
-			Expect(pair.Session).ToNot(BeEmpty())
-			Expect(acquired).To(BeTrue())
+	Describe("DeleteAnnouncement()", func() {
+		BeforeEach(func() {
+			kv.Announce(key)
 		})
 
-		It("does not overwrite a key if there is already a value", func(done Done) {
+		It("deletes the announcement", func() {
+			kv.DeleteAnnouncement(key)
+
+			pairs, _, err := consulClient.KV().List(kvstore.AnnouncePrefix, nil)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pairs).To(BeEmpty())
+		})
+	})
+
+	Describe("Acquire()", func() {
+		Context("gets lock", func() {
+			It("saves a KV with a prefix", func(done Done) {
+				defer close(done)
+				acquired := kv.Acquire(key)
+
+				pair, _, err := consulClient.KV().Get(keyWithPrefix, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pair).ToNot(BeNil())
+				Expect(pair.Key).To(Equal(keyWithPrefix))
+				Expect(pair.Value).To(Equal([]byte(clientAddr)))
+				Expect(pair.Session).ToNot(BeEmpty())
+				Expect(acquired).To(BeTrue())
+			})
+
+			It("registers a session with a healthcheck", func() {
+				sessions, _, err := consulClient.Session().List(nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(sessions).To(HaveLen(1))
+				Expect(sessions[0].Checks).To(HaveLen(1))
+			})
+		})
+
+		Context("does not get lock", func() {
+
+			It("does not overwrite a key if there is already a value", func(done Done) {
+				defer close(done)
+				session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				pair := &api.KVPair{
+					Key:     keyWithPrefix,
+					Session: session,
+					Value:   []byte("127.0.0.2"),
+				}
+
+				_, _, err = consulClient.KV().Acquire(pair, nil)
+				Expect(err).ToNot(HaveOccurred())
+
+				acquired := kv.Acquire(key)
+
+				pair, _, err = consulClient.KV().Get(keyWithPrefix, nil)
+				Expect(err).ToNot(HaveOccurred())
+				Expect(pair).ToNot(BeNil())
+				Expect(pair.Key).To(Equal(keyWithPrefix))
+				Expect(pair.Value).To(Equal([]byte("127.0.0.2")))
+				Expect(acquired).To(BeFalse())
+			})
+		})
+
+	})
+
+	Describe("FetchLeader()", func() {
+		It("returns false for a leaderless key", func() {
+			_, ok := kv.FetchLeader(key)
+			Expect(ok).To(BeFalse())
+		})
+
+		It("returns true and the leader if there is a leader", func(done Done) {
 			defer close(done)
+			expectedLeader := "127.0.0.2"
 			session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
 			Expect(err).ToNot(HaveOccurred())
 
 			pair := &api.KVPair{
 				Key:     keyWithPrefix,
 				Session: session,
-				Value:   []byte("127.0.0.2"),
+				Value:   []byte(expectedLeader),
 			}
 
 			_, _, err = consulClient.KV().Acquire(pair, nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			acquired := kv.Acquire(key)
+			results := make(chan string, 1)
+			go func() {
+				for {
+					leader, ok := kv.FetchLeader(key)
+					if !ok {
+						continue
+					}
+					results <- leader
+					return
+				}
+			}()
 
-			pair, _, err = consulClient.KV().Get(keyWithPrefix, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pair).ToNot(BeNil())
-			Expect(pair.Key).To(Equal(keyWithPrefix))
-			Expect(pair.Value).To(Equal([]byte("127.0.0.2")))
-			Expect(acquired).To(BeFalse())
+			Eventually(results).Should(Receive(Equal(expectedLeader)))
 		})
-
-		It("registers a session with a healthcheck", func() {
-			sessions, _, err := consulClient.Session().List(nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(sessions).To(HaveLen(1))
-			Expect(sessions[0].Checks).To(HaveLen(1))
-		})
-
 	})
 
-	Describe("Get Leader", func() {
-		Describe("FetchLeader", func() {
-			It("returns false for a leaderless key", func() {
-				_, ok := kv.FetchLeader(key)
-				Expect(ok).To(BeFalse())
+	Describe("ListenForLeader()", func() {
+		It("invokes callback when a leader is elected", func(done Done) {
+			defer close(done)
+
+			nameCh := make(chan string, 100)
+			uriCh := make(chan string, 100)
+			kv.ListenForLeader(key, func(name, uri string) {
+				nameCh <- name
+				uriCh <- uri
 			})
 
-			It("returns true and the leader if there is a leader", func(done Done) {
-				defer close(done)
-				expectedLeader := "127.0.0.2"
-				session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
-				Expect(err).ToNot(HaveOccurred())
+			expectedLeader := "127.0.0.2"
+			session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
+			Expect(err).ToNot(HaveOccurred())
 
-				pair := &api.KVPair{
-					Key:     keyWithPrefix,
-					Session: session,
-					Value:   []byte(expectedLeader),
-				}
+			pair := &api.KVPair{
+				Key:     keyWithPrefix,
+				Session: session,
+				Value:   []byte(expectedLeader),
+			}
 
-				_, _, err = consulClient.KV().Acquire(pair, nil)
-				Expect(err).ToNot(HaveOccurred())
+			_, _, err = consulClient.KV().Acquire(pair, nil)
+			Expect(err).ToNot(HaveOccurred())
 
-				results := make(chan string, 1)
-				go func() {
-					for {
-						leader, ok := kv.FetchLeader(key)
-						if !ok {
-							continue
-						}
-						results <- leader
-						return
-					}
-				}()
+			Eventually(nameCh).Should(Receive(Equal(key)))
+			Eventually(uriCh).Should(Receive(Equal(expectedLeader)))
+		}, 5)
 
-				Eventually(results).Should(Receive(Equal(expectedLeader)))
+		It("invokes callback if a leader is already elected", func(done Done) {
+			defer close(done)
+			expectedLeader := "127.0.0.2"
+			session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			pair := &api.KVPair{
+				Key:     keyWithPrefix,
+				Session: session,
+				Value:   []byte(expectedLeader),
+			}
+
+			_, _, err = consulClient.KV().Acquire(pair, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			nameCh := make(chan string, 100)
+			uriCh := make(chan string, 100)
+			kv.ListenForLeader(key, func(name, uri string) {
+				nameCh <- name
+				uriCh <- uri
 			})
-		})
 
-		Describe("ListenForLeader/Prefix", func() {
-			It("invokes callback when a leader is elected", func(done Done) {
-				defer close(done)
-
-				nameCh := make(chan string, 100)
-				uriCh := make(chan string, 100)
-				kv.ListenForLeader(key, func(name, uri string) {
-					nameCh <- name
-					uriCh <- uri
-				})
-
-				expectedLeader := "127.0.0.2"
-				session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				pair := &api.KVPair{
-					Key:     keyWithPrefix,
-					Session: session,
-					Value:   []byte(expectedLeader),
-				}
-
-				_, _, err = consulClient.KV().Acquire(pair, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				Eventually(nameCh).Should(Receive(Equal(key)))
-				Eventually(uriCh).Should(Receive(Equal(expectedLeader)))
-			}, 5)
-
-			It("invokes callback if a leader is already elected", func(done Done) {
-				defer close(done)
-				expectedLeader := "127.0.0.2"
-				session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				pair := &api.KVPair{
-					Key:     keyWithPrefix,
-					Session: session,
-					Value:   []byte(expectedLeader),
-				}
-
-				_, _, err = consulClient.KV().Acquire(pair, nil)
-				Expect(err).ToNot(HaveOccurred())
-
-				nameCh := make(chan string, 100)
-				uriCh := make(chan string, 100)
-				kv.ListenForLeader(key, func(name, uri string) {
-					nameCh <- name
-					uriCh <- uri
-				})
-
-				Eventually(nameCh).Should(Receive(Equal(key)))
-				Eventually(uriCh).Should(Receive(Equal(expectedLeader)))
-			}, 5)
-		})
-
+			Eventually(nameCh).Should(Receive(Equal(key)))
+			Eventually(uriCh).Should(Receive(Equal(expectedLeader)))
+		}, 5)
 	})
 
 })

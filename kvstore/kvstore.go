@@ -68,7 +68,20 @@ func (k *KVStore) Announce(name string) {
 
 	_, err := k.kv.Put(pair, nil)
 	if err != nil {
-		k.log.Panic("Error putting key", err)
+		k.log.Panicf("Error putting key %s: %v", name, err)
+	}
+}
+
+func (k *KVStore) DeleteAnnouncement(name string) {
+	pairs, _, err := k.kv.List(AnnouncePrefix, nil)
+	pair := findMatch(pairs, name)
+	if pair == nil {
+		return
+	}
+
+	_, err = k.kv.Delete(pair.Key, nil)
+	if err != nil {
+		k.log.Panicf("Error deleting key %s: %v", name, err)
 	}
 }
 
@@ -93,7 +106,7 @@ func (k *KVStore) tryAcquire(key string) bool {
 		time.Sleep(time.Second)
 	}
 
-	k.log.Panic("Error acquiring key", err)
+	k.log.Panicf("Error acquiring key %s: %v", key, err)
 	return false
 }
 
@@ -124,12 +137,22 @@ func (k *KVStore) listenForLeader(name string, callback func(name, uri string)) 
 	}
 }
 
+func (k *KVStore) ListenForAnnouncements(callback func(name string)) {
+	go k.listenForAnnouncements(callback)
+}
+
 func stripLeaderPrefix(key string) string {
 	return key[len(Prefix)+1:]
 }
 
-func (k *KVStore) ListenForAnnouncements(callback func(name string)) {
-	go k.listenForAnnouncements(callback)
+func findMatch(pairs api.KVPairs, name string) *api.KVPair {
+	for _, pair := range pairs {
+		if string(pair.Value) == name {
+			return pair
+		}
+	}
+
+	return nil
 }
 
 func (k *KVStore) listenForAnnouncements(callback func(name string)) {

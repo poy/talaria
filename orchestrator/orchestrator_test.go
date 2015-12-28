@@ -26,7 +26,7 @@ var _ = Describe("Orchestrator", func() {
 		orch = orchestrator.New(clientAddr, 2, mockKvStore)
 	})
 
-	Describe("FetchLeader", func() {
+	Describe("FetchLeader()", func() {
 		It("returns an already elected leader", func() {
 			expectedLeader := "some-leader"
 			mockKvStore.fetchLeaderTx <- expectedLeader
@@ -59,7 +59,7 @@ var _ = Describe("Orchestrator", func() {
 		})
 	})
 
-	Describe("ParticipateInElection", func() {
+	Describe("ParticipateInElection()", func() {
 
 		var (
 			expectedReplica int
@@ -73,7 +73,7 @@ var _ = Describe("Orchestrator", func() {
 				mockPartManager.partCh <- true
 			})
 
-			Context("not for the leader", func() {
+			Context("not the leader", func() {
 
 				BeforeEach(func() {
 					expectedReplica = 1
@@ -89,6 +89,12 @@ var _ = Describe("Orchestrator", func() {
 					orch.ParticipateInElection(mockPartManager)
 
 					Eventually(mockKvStore.acquireRx).Should(Receive(Equal(fmt.Sprintf("%s~%d", key, expectedReplica))))
+				})
+
+				It("deletes the announcement", func() {
+					orch.ParticipateInElection(mockPartManager)
+
+					Eventually(mockKvStore.deleteAnnounceCh).Should(Receive(Equal("some-key~1")))
 				})
 
 				It("adds to the partition manager", func() {

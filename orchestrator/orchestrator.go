@@ -19,6 +19,7 @@ type KvStore interface {
 	ListenForAnnouncements(callback func(name string))
 	ListenForLeader(name string, callback func(name, uri string))
 	FetchLeader(name string) (string, bool)
+	DeleteAnnouncement(name string)
 }
 
 type Orchestrator struct {
@@ -76,6 +77,7 @@ func (o *Orchestrator) participateInElection(fullName string, partManager Partit
 		return
 	}
 
+	o.kvStore.DeleteAnnouncement(fullName)
 	partManager.Add(name, replica)
 
 	if replica != 0 {
