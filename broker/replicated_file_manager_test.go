@@ -155,6 +155,27 @@ var _ = Describe("ReplicatedFileManager", func() {
 				})
 			})
 
+			Describe("upgrades", func() {
+				Context("is upgrade", func() {
+
+					BeforeEach(func() {
+						expectedReplica = 1
+						mockIoProvider.writerCh <- mockWriter
+						mockReaderFetcher.readerCh <- reader
+
+						manager.Add(expectedName, expectedReplica+1)
+					})
+
+					It("returns the replica that needs to be announced", func(done Done) {
+						defer close(done)
+						replica, ok := manager.Add(expectedName, expectedReplica)
+
+						Expect(ok).To(BeTrue())
+						Expect(replica).To(BeEquivalentTo(expectedReplica + 1))
+					})
+				})
+			})
+
 		})
 
 	})

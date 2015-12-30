@@ -10,7 +10,7 @@ import (
 
 type PartitionManager interface {
 	Participate(name string, index uint) bool
-	Add(name string, replica uint)
+	Add(name string, replica uint) (uint, bool)
 }
 
 type KvStore interface {
@@ -78,7 +78,11 @@ func (o *Orchestrator) participateInElection(fullName string, partManager Partit
 	}
 
 	o.kvStore.DeleteAnnouncement(fullName)
-	partManager.Add(name, replica)
+
+	prevReplica, prevReplicaNeeded := partManager.Add(name, replica)
+	if prevReplicaNeeded {
+		o.kvStore.Announce(o.encodeIndex(name, prevReplica))
+	}
 
 	if replica != 0 {
 		return

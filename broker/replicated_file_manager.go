@@ -34,15 +34,17 @@ func NewReplicatedFileManager(ioProvider IoProvider, readerFetcher ReaderFetcher
 	}
 }
 
-func (r *ReplicatedFileManager) Add(name string, replica uint) {
+func (r *ReplicatedFileManager) Add(name string, replica uint) (uint, bool) {
 	r.lockWriters.Lock()
 	defer r.lockWriters.Unlock()
+
+	currentReplica, currentOk := r.currentReplica(name)
 
 	if replica == 0 {
 		r.writers[name] = &writerInfo{
 			replica: 0,
 		}
-		return
+		return currentReplica, currentOk
 	}
 
 	r.log.Debug("Adding replica %d for %s", replica, name)
@@ -58,6 +60,8 @@ func (r *ReplicatedFileManager) Add(name string, replica uint) {
 	}
 
 	go r.copyToWriter(reader, writer)
+
+	return currentReplica, currentOk
 }
 
 func (r *ReplicatedFileManager) Participate(name string, replica uint) bool {
@@ -70,6 +74,15 @@ func (r *ReplicatedFileManager) Participate(name string, replica uint) bool {
 	}
 
 	return false
+}
+
+func (r *ReplicatedFileManager) currentReplica(name string) (uint, bool) {
+	info, ok := r.writers[name]
+	if !ok {
+		return 0, false
+	}
+
+	return info.replica, true
 }
 
 func (r *ReplicatedFileManager) copyToWriter(reader *Reader, writer InitableWriter) {

@@ -65,6 +65,11 @@ var _ = Describe("Orchestrator", func() {
 			expectedReplica int
 		)
 
+		JustBeforeEach(func() {
+			close(mockPartManager.addResultCh)
+			close(mockPartManager.addResultOkCh)
+		})
+
 		Context("wins election", func() {
 
 			JustBeforeEach(func() {
@@ -73,7 +78,7 @@ var _ = Describe("Orchestrator", func() {
 				mockPartManager.partCh <- true
 			})
 
-			Context("not the leader", func() {
+			Context("regardless of leader", func() {
 
 				BeforeEach(func() {
 					expectedReplica = 1
@@ -103,6 +108,29 @@ var _ = Describe("Orchestrator", func() {
 					Eventually(mockPartManager.addCh).Should(Receive(Equal(key)))
 					Eventually(mockPartManager.indexCh).Should(Receive(BeEquivalentTo(expectedReplica)))
 				})
+
+				Context("told to announce replica", func() {
+
+					var (
+						expectedAnnounce uint
+					)
+
+					BeforeEach(func() {
+						expectedAnnounce = 99
+
+						mockPartManager.addResultCh <- expectedAnnounce
+						mockPartManager.addResultOkCh <- true
+					})
+
+					It("announces replica", func() {
+						orch.ParticipateInElection(mockPartManager)
+
+						Eventually(mockKvStore.announceCh).Should(Receive(Equal("some-key~99")))
+					})
+				})
+			})
+
+			Context("not the leader", func() {
 
 				It("does not start elections for replicas", func() {
 					orch.ParticipateInElection(mockPartManager)
