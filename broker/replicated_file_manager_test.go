@@ -173,6 +173,13 @@ var _ = Describe("ReplicatedFileManager", func() {
 						Expect(ok).To(BeTrue())
 						Expect(replica).To(BeEquivalentTo(expectedReplica + 1))
 					})
+
+					It("does not start reading from the leader again", func(done Done) {
+						defer close(done)
+						manager.Add(expectedName, expectedReplica)
+
+						Expect(mockReaderFetcher.readerCh).To(HaveLen(1))
+					})
 				})
 			})
 

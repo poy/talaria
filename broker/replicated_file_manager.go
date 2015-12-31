@@ -38,13 +38,44 @@ func (r *ReplicatedFileManager) Add(name string, replica uint) (uint, bool) {
 	r.lockWriters.Lock()
 	defer r.lockWriters.Unlock()
 
-	currentReplica, currentOk := r.currentReplica(name)
+	currentReplica, isUpgrade := r.currentReplica(name)
 
-	if replica == 0 {
-		r.writers[name] = &writerInfo{
-			replica: 0,
-		}
-		return currentReplica, currentOk
+	if r.setupAsLeader(name, replica) {
+		return currentReplica, isUpgrade
+	}
+
+	r.setupCopy(name, replica, isUpgrade)
+
+	return currentReplica, isUpgrade
+}
+
+func (r *ReplicatedFileManager) Participate(name string, replica uint) bool {
+	r.lockWriters.RLock()
+	defer r.lockWriters.RUnlock()
+
+	info, ok := r.writers[name]
+	if !ok || info.replica > replica {
+		return true
+	}
+
+	return false
+}
+
+func (r *ReplicatedFileManager) setupAsLeader(name string, replica uint) bool {
+	if replica != 0 {
+		return false
+	}
+
+	r.writers[name] = &writerInfo{
+		replica: 0,
+	}
+
+	return true
+}
+
+func (r *ReplicatedFileManager) setupCopy(name string, replica uint, isUpgrade bool) {
+	if isUpgrade {
+		return
 	}
 
 	r.log.Debug("Adding replica %d for %s", replica, name)
@@ -60,20 +91,6 @@ func (r *ReplicatedFileManager) Add(name string, replica uint) (uint, bool) {
 	}
 
 	go r.copyToWriter(reader, writer)
-
-	return currentReplica, currentOk
-}
-
-func (r *ReplicatedFileManager) Participate(name string, replica uint) bool {
-	r.lockWriters.RLock()
-	defer r.lockWriters.RUnlock()
-
-	info, ok := r.writers[name]
-	if !ok || info.replica > replica {
-		return true
-	}
-
-	return false
 }
 
 func (r *ReplicatedFileManager) currentReplica(name string) (uint, bool) {
