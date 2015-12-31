@@ -1,16 +1,16 @@
 package broker
 
-type DirectConnection interface {
+type ReadConnection interface {
 	ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionError)
 	SeekIndex(fileId, index uint64) *ConnectionError
 }
 
 type Reader struct {
 	fileId uint64
-	conn   DirectConnection
+	conn   ReadConnection
 }
 
-func NewReader(fileId uint64, conn DirectConnection) *Reader {
+func NewReader(fileId uint64, conn ReadConnection) *Reader {
 	return &Reader{
 		fileId: fileId,
 		conn:   conn,

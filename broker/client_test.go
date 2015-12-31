@@ -73,30 +73,49 @@ var _ = Describe("Client", func() {
 		}
 	})
 
-	Describe("WriteToFile()", func() {
-		It("writes to the correct broker", func(done Done) {
-			defer close(done)
-			mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
-			mockServers[1].serverCh <- buildFileLocation(1)
+	Describe("FetchWriter()", func() {
 
-			for i := 0; i < 10; i++ {
-				mockServers[1].serverCh <- buildFileOffset(uint64(i+2), 101)
-			}
+		var (
+			expectedFileName string
+			expectedData     []byte
+		)
 
-			fileName := "some-file-1"
+		BeforeEach(func() {
+			expectedFileName = "some-file-1"
+			expectedData = []byte("some-data")
+		})
 
-			expectedData := []byte("some-data")
-			_, err := client.WriteToFile(fileName, expectedData)
-			Expect(err).ToNot(HaveOccurred())
+		Context("without errors", func() {
 
-			var msg *messages.Client
-			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
-			Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+			BeforeEach(func() {
 
-			Eventually(mockServers[1].clientCh).Should(Receive(&msg))
-			Expect(msg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
-			Expect(msg.GetWriteToFile().GetData()).To(Equal(expectedData))
-		}, 5)
+				mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
+				mockServers[1].serverCh <- buildFileLocation(1)
+
+				for i := 0; i < 10; i++ {
+					mockServers[1].serverCh <- buildFileOffset(uint64(i+2), 101)
+				}
+			})
+
+			It("writes to the correct broker", func(done Done) {
+				defer close(done)
+
+				writer, err := client.FetchWriter(expectedFileName)
+				Expect(err).ToNot(HaveOccurred())
+
+				_, err = writer.WriteToFile(expectedData)
+				Expect(err).ToNot(HaveOccurred())
+
+				var msg *messages.Client
+				Eventually(mockServers[1].clientCh).Should(Receive(&msg))
+				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+
+				Eventually(mockServers[1].clientCh).Should(Receive(&msg))
+				Expect(msg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
+				Expect(msg.GetWriteToFile().GetData()).To(Equal(expectedData))
+			}, 5)
+
+		})
 
 		Measure("Writes to a file 1000 times in under a second", func(b Benchmarker) {
 			runtime := b.Time("runtime", func() {
@@ -115,11 +134,10 @@ var _ = Describe("Client", func() {
 					}
 				}()
 
-				fileName := "some-file-1"
-				data := []byte("some-data")
+				writer, _ := client.FetchWriter(expectedFileName)
 
 				for i := 0; i < count; i++ {
-					client.WriteToFile(fileName, data)
+					writer.WriteToFile(expectedData)
 				}
 			})
 

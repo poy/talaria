@@ -9,15 +9,15 @@ import (
 
 var _ = Describe("Reader", func() {
 	var (
-		mockDirectConnection *mockDirectConnection
-		reader               *broker.Reader
-		fileId               uint64
+		mockReadConnection *mockReadConnection
+		reader             *broker.Reader
+		fileId             uint64
 	)
 
 	BeforeEach(func() {
 		fileId = 99
-		mockDirectConnection = newMockDirectConnection()
-		reader = broker.NewReader(fileId, mockDirectConnection)
+		mockReadConnection = newMockReadConnection()
+		reader = broker.NewReader(fileId, mockReadConnection)
 	})
 
 	Describe("ReadFromFile()", func() {
@@ -28,12 +28,12 @@ var _ = Describe("Reader", func() {
 		)
 
 		BeforeEach(func() {
-			close(mockDirectConnection.errCh)
+			close(mockReadConnection.errCh)
 			expectedData = []byte("some-data")
 			expectedIndex = 101
 
-			mockDirectConnection.resultCh <- expectedData
-			mockDirectConnection.indexCh <- expectedIndex
+			mockReadConnection.resultCh <- expectedData
+			mockReadConnection.indexCh <- expectedIndex
 		})
 
 		Context("without errors", func() {
@@ -43,7 +43,7 @@ var _ = Describe("Reader", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(data).To(Equal(expectedData))
 				Expect(index).To(Equal(expectedIndex))
-				Expect(mockDirectConnection.fileIdCh).To(Receive(Equal(fileId)))
+				Expect(mockReadConnection.fileIdCh).To(Receive(Equal(fileId)))
 			})
 		})
 	})
@@ -55,7 +55,7 @@ var _ = Describe("Reader", func() {
 		)
 
 		BeforeEach(func() {
-			close(mockDirectConnection.seekErrCh)
+			close(mockReadConnection.seekErrCh)
 		})
 
 		Context("without errors", func() {
@@ -63,8 +63,8 @@ var _ = Describe("Reader", func() {
 			It("seeks for the given fileId", func() {
 				Expect(reader.SeekIndex(expectedIndex)).To(Succeed())
 
-				Expect(mockDirectConnection.seekIndexCh).To(Receive(Equal(expectedIndex)))
-				Expect(mockDirectConnection.fileIdCh).To(Receive(Equal(fileId)))
+				Expect(mockReadConnection.seekIndexCh).To(Receive(Equal(expectedIndex)))
+				Expect(mockReadConnection.fileIdCh).To(Receive(Equal(fileId)))
 			})
 		})
 	})

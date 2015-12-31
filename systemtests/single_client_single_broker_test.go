@@ -39,8 +39,12 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 	It("writes and reads from a single file", func(done Done) {
 		defer close(done)
 		name := "some-file"
+
+		writer, err := client.FetchWriter(name)
+		Expect(err).ToNot(HaveOccurred())
+
 		for i := byte(0); i < 100; i++ {
-			_, err := client.WriteToFile(name, []byte{i})
+			_, err := writer.WriteToFile([]byte{i})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -60,8 +64,12 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		defer close(done)
 
 		name := "some-file"
+
+		writer, err := client.FetchWriter(name)
+		Expect(err).ToNot(HaveOccurred())
+
 		for i := byte(0); i < 100; i++ {
-			_, err := client.WriteToFile(name, []byte{i})
+			_, err := writer.WriteToFile([]byte{i})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -92,8 +100,12 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		go func() {
 			defer GinkgoRecover()
 			defer wg.Done()
+
+			writer, err := clientW.FetchWriter(name)
+			Expect(err).ToNot(HaveOccurred())
+
 			for i := 0; i < 10; i++ {
-				_, err := clientW.WriteToFile(name, []byte{byte(i)})
+				_, err := writer.WriteToFile([]byte{byte(i)})
 				Expect(err).ToNot(HaveOccurred())
 				time.Sleep(time.Millisecond)
 			}

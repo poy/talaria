@@ -52,8 +52,11 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 		defer close(done)
 		name := "some-file"
 
+		writer, err := client.FetchWriter(name)
+		Expect(err).ToNot(HaveOccurred())
+
 		for i := byte(0); i < 100; i++ {
-			_, err := client.WriteToFile(name, []byte{i})
+			_, err := writer.WriteToFile([]byte{i})
 			Expect(err).ToNot(HaveOccurred())
 		}
 
@@ -80,8 +83,12 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 				defer GinkgoRecover()
 				By(fmt.Sprintf("start writing to %s", name))
 				defer By(fmt.Sprintf("done writing to %s", name))
+
+				writer, err := client.FetchWriter(name)
+				Expect(err).ToNot(HaveOccurred())
+
 				for i := byte(0); i < 100; i++ {
-					_, err := client.WriteToFile(name, []byte{i})
+					_, err := writer.WriteToFile([]byte{i})
 					Expect(err).ToNot(HaveOccurred())
 				}
 			}()

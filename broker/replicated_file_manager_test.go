@@ -9,7 +9,7 @@ import (
 
 var _ = Describe("ReplicatedFileManager", func() {
 	var (
-		mockDirectConn    *mockDirectConnection
+		mockReadConn      *mockReadConnection
 		mockIoProvider    *mockFileProvider
 		mockReaderFetcher *mockReaderFetcher
 		manager           *broker.ReplicatedFileManager
@@ -19,11 +19,11 @@ var _ = Describe("ReplicatedFileManager", func() {
 	)
 
 	BeforeEach(func() {
-		mockDirectConn = newMockDirectConnection()
+		mockReadConn = newMockReadConnection()
 		mockWriter = newMockWriter()
 		mockIoProvider = newMockFileProvider()
 		mockReaderFetcher = newMockReaderFetcher()
-		reader = broker.NewReader(99, mockDirectConn)
+		reader = broker.NewReader(99, mockReadConn)
 
 		manager = broker.NewReplicatedFileManager(mockIoProvider, mockReaderFetcher)
 
@@ -59,15 +59,15 @@ var _ = Describe("ReplicatedFileManager", func() {
 				expectedReplica = 7
 			})
 
-			var writeToDirectConn = func(data []byte, index int64, err *broker.ConnectionError) {
-				mockDirectConn.resultCh <- data
-				mockDirectConn.indexCh <- index
-				mockDirectConn.errCh <- err
+			var writeToReadConn = func(data []byte, index int64, err *broker.ConnectionError) {
+				mockReadConn.resultCh <- data
+				mockReadConn.indexCh <- index
+				mockReadConn.errCh <- err
 			}
 
 			AfterEach(func() {
 				By("closing the read loop with an error")
-				writeToDirectConn(nil, 0, broker.NewConnectionError("asdf", "", false))
+				writeToReadConn(nil, 0, broker.NewConnectionError("asdf", "", false))
 			})
 
 			Context("reading from the start of the file", func() {
@@ -89,8 +89,8 @@ var _ = Describe("ReplicatedFileManager", func() {
 
 					BeforeEach(func() {
 						expectedData = []byte("some-data")
-						writeToDirectConn(expectedData, 0, nil)
-						writeToDirectConn(expectedData, 1, nil)
+						writeToReadConn(expectedData, 0, nil)
+						writeToReadConn(expectedData, 1, nil)
 					})
 
 					It("copies from the reader to the writer", func() {
@@ -117,7 +117,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 				BeforeEach(func() {
 					expectedData = []byte("some-data")
 					expectedIndex = 101
-					writeToDirectConn(expectedData, expectedIndex, nil)
+					writeToReadConn(expectedData, expectedIndex, nil)
 				})
 
 				Context("reading non-zero start", func() {
@@ -131,7 +131,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 
 						Eventually(mockIoProvider.indexCh).Should(Receive(Equal(expectedIndex)))
 						Eventually(mockWriter.dataCh).Should(Receive(Equal(expectedData)))
-						Expect(mockDirectConn.seekIndexCh).To(HaveLen(0))
+						Expect(mockReadConn.seekIndexCh).To(HaveLen(0))
 					})
 				})
 
@@ -142,7 +142,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 					)
 
 					BeforeEach(func() {
-						close(mockDirectConn.seekErrCh)
+						close(mockReadConn.seekErrCh)
 						expectedSeekIndex = 202
 						mockIoProvider.initIndexResultCh <- expectedSeekIndex
 					})
@@ -150,7 +150,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 					It("seeks the reader to the correct index", func() {
 						manager.Add(expectedName, expectedReplica)
 
-						Eventually(mockDirectConn.seekIndexCh).Should(Receive(BeEquivalentTo(expectedSeekIndex)))
+						Eventually(mockReadConn.seekIndexCh).Should(Receive(BeEquivalentTo(expectedSeekIndex)))
 					})
 				})
 			})

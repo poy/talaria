@@ -57,22 +57,19 @@ func (c *Client) Close() {
 	}
 }
 
-func (c *Client) WriteToFile(fileName string, data []byte) (int64, error) {
-	fileId, ok := c.fetchIdByName(fileName)
-	if !ok {
-		if _, err := c.fetchFile(fileName); err != nil {
-			return 0, err
-		}
-
-		return c.WriteToFile(fileName, data)
+func (c *Client) FetchWriter(fileName string) (*Writer, error) {
+	fileId, err := c.fetchFile(fileName)
+	if err != nil {
+		return nil, err
 	}
 
 	conn := c.fetchConnectionById(fileId)
 	if conn == nil {
-		return 0, fmt.Errorf("Unknown file ID: %d", fileId)
+		return nil, fmt.Errorf("Unknown file ID: %d", fileId)
 	}
 
-	return conn.conn.WriteToFile(fileId, data)
+	c.log.Debug("Creating new Writer (fileId=%d) for %s", fileId, fileName)
+	return NewWriter(fileId, conn.conn), nil
 }
 
 func (c *Client) FetchReader(fileName string) (*Reader, error) {
