@@ -277,16 +277,23 @@ var _ = Describe("FileController", func() {
 
 	Describe("SeekIndex()", func() {
 		var (
+			errCh         chan error
 			expectedIndex uint64
 		)
 
 		BeforeEach(func() {
 			expectedIndex = 101
+			errCh = make(chan error, 100)
 		})
+
+		var callback = func(err error) {
+			errCh <- err
+		}
 
 		Context("without existing file", func() {
 			It("returns an error for an unknown file ID", func() {
-				Expect(fileController.SeekIndex(0, expectedIndex)).ToNot(Succeed())
+				fileController.SeekIndex(0, expectedIndex, callback)
+				Expect(errCh).To(Receive(HaveOccurred()))
 				Expect(mockFileProvider.writerNameCh).ToNot(Receive())
 			})
 		})
@@ -309,7 +316,8 @@ var _ = Describe("FileController", func() {
 			})
 
 			It("seeks within the reader", func() {
-				Expect(fileController.SeekIndex(expectedFileId, expectedIndex)).To(Succeed())
+				fileController.SeekIndex(expectedFileId, expectedIndex, callback)
+				Eventually(errCh).Should(Receive(BeNil()))
 				Expect(mockReader.seekIndexes).To(Receive(Equal(expectedIndex)))
 			})
 		})

@@ -25,7 +25,7 @@ type Controller interface {
 	FetchFile(id uint64, name string) *ConnectionError
 	WriteToFile(id uint64, data []byte) (int64, error)
 	ReadFromFile(id uint64, callback func([]byte, int64, error))
-	SeekIndex(id, index uint64) error
+	SeekIndex(id, index uint64, callback func(error))
 }
 
 type ControllerProvider interface {
@@ -135,14 +135,17 @@ func (b *Broker) readFromFile(controller Controller, message *messages.Client, c
 }
 
 func (b *Broker) seekIndex(controller Controller, message *messages.Client, conn *concurrentWriter) {
-	err := controller.SeekIndex(message.SeekIndex.GetFileId(), message.SeekIndex.GetIndex())
+	callback := func(err error) {
 
-	if err != nil {
-		b.writeError(err.Error(), message, conn)
-		return
+		if err != nil {
+			b.writeError(err.Error(), message, conn)
+			return
+		}
+
+		b.writeFileOffset(int64(message.SeekIndex.GetIndex()), message, conn)
 	}
 
-	b.writeFileOffset(int64(message.SeekIndex.GetIndex()), message, conn)
+	controller.SeekIndex(message.SeekIndex.GetFileId(), message.SeekIndex.GetIndex(), callback)
 }
 
 func (b *Broker) writeMessage(message *messages.Server, writer io.Writer) {

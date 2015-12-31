@@ -351,6 +351,7 @@ var _ = Describe("Broker", func() {
 			expectedError error
 			expectedIndex uint64
 			conn          *websocket.Conn
+			wg            sync.WaitGroup
 		)
 
 		JustBeforeEach(func() {
@@ -360,7 +361,17 @@ var _ = Describe("Broker", func() {
 			conn, _, err = websocket.DefaultDialer.Dial(wsUrl, nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			mockController.seekErrCh <- expectedError
+			wg.Add(1)
+			go func() {
+				defer GinkgoRecover()
+				defer wg.Done()
+				callback := <-mockController.seekCallbackCh
+				callback(expectedError)
+			}()
+		})
+
+		AfterEach(func() {
+			wg.Wait()
 		})
 
 		Context("an error occurred", func() {

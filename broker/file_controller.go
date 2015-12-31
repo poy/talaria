@@ -110,11 +110,14 @@ func (f *FileController) ReadFromFile(fileId uint64, callback func([]byte, int64
 	}()
 }
 
-func (f *FileController) SeekIndex(fileId, index uint64) error {
+func (f *FileController) SeekIndex(fileId, index uint64, callback func(error)) {
 	ioInfo, ok := f.fileIdMap[fileId]
 	if !ok {
-		return fmt.Errorf("Unknown file ID: %d", fileId)
+		callback(fmt.Errorf("Unknown file ID: %d", fileId))
+		return
 	}
 
-	return ioInfo.reader.SeekIndex(index)
+	go func() {
+		callback(ioInfo.reader.SeekIndex(index))
+	}()
 }
