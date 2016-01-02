@@ -9,8 +9,8 @@ type LazyReaderFetcher struct {
 	log  logging.Logger
 	addr string
 
-	lock   sync.Mutex
-	client *Client
+	lock    sync.Mutex
+	fetcher *ConnectionFetcher
 }
 
 func NewLazyReaderFetcher(addr string) *LazyReaderFetcher {
@@ -20,27 +20,27 @@ func NewLazyReaderFetcher(addr string) *LazyReaderFetcher {
 	}
 }
 
-func (l *LazyReaderFetcher) FetchReader(name string) (*Reader, error) {
-	return l.fetchClient().FetchReader(name)
+func (l *LazyReaderFetcher) FetchReader(name string) (ReadConnection, uint64, error) {
+	return l.fetchFetcher().Fetch(name)
 }
 
-func (l *LazyReaderFetcher) fetchClient() *Client {
+func (l *LazyReaderFetcher) fetchFetcher() *ConnectionFetcher {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
-	if l.client == nil {
-		l.log.Debug("Lazy creation of client: %s", l.addr)
-		l.client = l.createClient()
+	if l.fetcher == nil {
+		l.log.Debug("Lazy creation of ConnectionFetcher: %s", l.addr)
+		l.fetcher = l.createFetcher()
 	}
 
-	return l.client
+	return l.fetcher
 }
 
-func (l *LazyReaderFetcher) createClient() *Client {
-	client, err := NewClient(l.addr)
+func (l *LazyReaderFetcher) createFetcher() *ConnectionFetcher {
+	fetcher, err := NewConnectionFetcher([]string{l.addr}, l.addr)
 	if err != nil {
-		l.log.Panic("Unable to create client", err)
+		l.log.Panic("Unable to create ConnectionFetcher", err)
 	}
 
-	return client
+	return fetcher
 }

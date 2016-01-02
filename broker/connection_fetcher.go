@@ -7,15 +7,20 @@ import (
 	"sync"
 )
 
+var (
+	BlacklistedErr = fmt.Errorf("blacklisted")
+)
+
 type ConnectionFetcher struct {
-	log logging.Logger
+	log       logging.Logger
+	blacklist []string
 
 	syncConns    sync.RWMutex
 	conns        []*Connection
 	nextFetchIdx uint64
 }
 
-func NewConnectionFetcher(URLs ...string) (*ConnectionFetcher, error) {
+func NewConnectionFetcher(blacklist []string, URLs ...string) (*ConnectionFetcher, error) {
 	log := logging.Log("ConnectionFetcher")
 	log.Debug("Broker List: %v", URLs)
 
@@ -30,8 +35,9 @@ func NewConnectionFetcher(URLs ...string) (*ConnectionFetcher, error) {
 	}
 
 	return &ConnectionFetcher{
-		log:   log,
-		conns: conns,
+		log:       log,
+		blacklist: blacklist,
+		conns:     conns,
 	}, nil
 }
 
@@ -44,7 +50,7 @@ func (c *ConnectionFetcher) Fetch(fileName string) (*Connection, uint64, error) 
 
 	err := conn.FetchFile(fileId, fileName)
 	if err == nil {
-		return conn, fileId, nil
+		return c.checkBlacklist(conn, fileId, nil)
 	}
 
 	if err.Uri == "" {
@@ -58,11 +64,7 @@ func (c *ConnectionFetcher) Fetch(fileName string) (*Connection, uint64, error) 
 	}
 
 	err = conn.FetchFile(fileId, fileName)
-	if err == nil {
-		return conn, fileId, nil
-	}
-
-	return nil, 0, fmt.Errorf(err.Error())
+	return c.checkBlacklist(conn, fileId, err)
 }
 
 func (c *ConnectionFetcher) Close() {
@@ -100,6 +102,28 @@ func (c *ConnectionFetcher) fetchConnection(URL string) *Connection {
 		}
 	}
 	return nil
+}
+
+func (c *ConnectionFetcher) checkBlacklist(conn *Connection, fileId uint64, err *ConnectionError) (*Connection, uint64, error) {
+	if err != nil {
+		return nil, 0, fmt.Errorf(err.Error())
+	}
+
+	if c.onBlacklist(conn) {
+		return nil, 0, BlacklistedErr
+	}
+
+	return conn, fileId, err
+}
+
+func (c *ConnectionFetcher) onBlacklist(conn *Connection) bool {
+	for _, URL := range c.blacklist {
+		if URL == conn.URL {
+			return true
+		}
+	}
+
+	return false
 }
 
 func verifyUrl(URL string, log logging.Logger) {

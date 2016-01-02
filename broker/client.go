@@ -24,7 +24,7 @@ func NewClient(URLs ...string) (*Client, error) {
 	log := logging.Log("Client")
 	log.Debug("Broker List: %v", URLs)
 
-	fetcher, err := NewConnectionFetcher(URLs...)
+	fetcher, err := NewConnectionFetcher(nil, URLs...)
 	if err != nil {
 		return nil, err
 	}

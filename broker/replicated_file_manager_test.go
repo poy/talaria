@@ -12,13 +12,12 @@ var _ = Describe("ReplicatedFileManager", func() {
 		mockReadConnectionFetcher *mockReadConnectionFetcher
 		mockReadConn              *mockReadConnection
 		mockIoProvider            *mockFileProvider
-		mockReaderFetcher         *mockReaderFetcher
-		manager                   *broker.ReplicatedFileManager
 		mockWriter                *mockWriter
-		reader                    *broker.Reader
 
 		expectedName   string
 		expectedFileId uint64
+
+		manager *broker.ReplicatedFileManager
 	)
 
 	BeforeEach(func() {
@@ -26,10 +25,8 @@ var _ = Describe("ReplicatedFileManager", func() {
 		mockReadConn = newMockReadConnection()
 		mockWriter = newMockWriter()
 		mockIoProvider = newMockFileProvider()
-		mockReaderFetcher = newMockReaderFetcher()
-		reader = broker.NewReader("some-name", mockReadConnectionFetcher)
 
-		manager = broker.NewReplicatedFileManager(mockIoProvider, mockReaderFetcher)
+		manager = broker.NewReplicatedFileManager(mockIoProvider, mockReadConnectionFetcher)
 
 		expectedName = "some-name"
 		expectedFileId = 99
@@ -63,8 +60,6 @@ var _ = Describe("ReplicatedFileManager", func() {
 		Context("not the leader", func() {
 			BeforeEach(func() {
 				mockIoProvider.writerCh <- mockWriter
-				mockReaderFetcher.readerCh <- reader
-				close(mockReaderFetcher.errCh)
 				expectedReplica = 7
 			})
 
@@ -87,7 +82,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 
 				It("fetches a new Reader on Add()", func() {
 					manager.Add(expectedName, expectedReplica)
-					Expect(mockReaderFetcher.nameCh).To(Receive(Equal(expectedName)))
+					Eventually(mockReadConnectionFetcher.fileNameCh).Should(Receive(Equal(expectedName)))
 				})
 
 				Context("multiple data points ready to read", func() {
@@ -170,7 +165,6 @@ var _ = Describe("ReplicatedFileManager", func() {
 					BeforeEach(func() {
 						expectedReplica = 1
 						mockIoProvider.writerCh <- mockWriter
-						mockReaderFetcher.readerCh <- reader
 
 						manager.Add(expectedName, expectedReplica+1)
 					})
@@ -187,7 +181,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 						defer close(done)
 						manager.Add(expectedName, expectedReplica)
 
-						Expect(mockReaderFetcher.readerCh).To(HaveLen(1))
+						Expect(mockIoProvider.writerNameCh).To(HaveLen(1))
 					})
 				})
 			})
@@ -199,8 +193,6 @@ var _ = Describe("ReplicatedFileManager", func() {
 	Describe("Participate()", func() {
 		BeforeEach(func() {
 			mockIoProvider.writerCh <- mockWriter
-			mockReaderFetcher.readerCh <- reader
-			close(mockReaderFetcher.errCh)
 		})
 
 		Context("not leader", func() {
