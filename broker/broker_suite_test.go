@@ -13,3 +13,7 @@ func TestBroker(t *testing.T) {
 	RegisterFailHandler(Fail)
 	RunSpecs(t, "Broker Suite")
 }
+
+func convertToWs(URL string) string {
+	return "ws" + URL[4:]
+}

@@ -12,11 +12,6 @@ import (
 )
 
 const (
-	FetchFile uint32 = iota
-	WriteToFile
-)
-
-const (
 	OuterEndpoint = "/"
 	InnerEndpoint = "/inner"
 )

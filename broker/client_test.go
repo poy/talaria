@@ -21,10 +21,6 @@ var _ = Describe("Client", func() {
 		extraServerURL  string
 	)
 
-	var convertToWs = func(URL string) string {
-		return "ws" + URL[4:]
-	}
-
 	var createKnownMockServers = func() []string {
 		var urls []string
 		for i := 0; i < 3; i++ {

@@ -10,17 +10,26 @@ import (
 var _ = Describe("Writer", func() {
 	var (
 		expectedFileId      uint64
+		expectedFileName    string
 		expectedData        []byte
 		mockWriteConnection *mockWriteConnection
+		mockFetcher         *mockWriteConnectionFetcher
 		writer              *broker.Writer
 	)
 
+	var populateFetcherMock = func() {
+		mockFetcher.fileIdCh <- expectedFileId
+		mockFetcher.writeConnectionCh <- mockWriteConnection
+	}
+
 	BeforeEach(func() {
+		expectedFileName = "some-name"
 		expectedFileId = 99
 		expectedData = []byte("some-data")
 		mockWriteConnection = newMockWriteConnection()
+		mockFetcher = newMockWriteConnectionFetcher()
 
-		writer = broker.NewWriter(expectedFileId, mockWriteConnection)
+		writer = broker.NewWriter(expectedFileName, mockFetcher)
 	})
 
 	Describe("WriteToFile()", func() {
@@ -30,10 +39,17 @@ var _ = Describe("Writer", func() {
 				expectedIndex int64
 			)
 
+			var populateWriteConnMock = func() {
+				mockWriteConnection.indexCh <- expectedIndex
+			}
+
 			BeforeEach(func() {
 				expectedIndex = 101
-				mockWriteConnection.indexCh <- expectedIndex
 				close(mockWriteConnection.errCh)
+				close(mockFetcher.errCh)
+
+				populateWriteConnMock()
+				populateFetcherMock()
 			})
 
 			It("uses the expected fileId", func() {
@@ -59,6 +75,28 @@ var _ = Describe("Writer", func() {
 
 				Expect(index).To(Equal(expectedIndex))
 			})
+
+			It("asks the fetcher for the expected file name", func() {
+				writer.WriteToFile(expectedData)
+
+				Expect(mockFetcher.fileNameCh).To(Receive(Equal(expectedFileName)))
+			})
+
+			Context("writes more than once", func() {
+				BeforeEach(func() {
+					populateFetcherMock()
+					populateWriteConnMock()
+
+					writer.WriteToFile(expectedData)
+				})
+
+				It("does not fetch a connection twice", func(done Done) {
+					defer close(done)
+					writer.WriteToFile(expectedData)
+
+					Expect(mockFetcher.writeConnectionCh).To(HaveLen(1))
+				})
+			})
 		})
 
 		Context("with errors", func() {
@@ -66,16 +104,48 @@ var _ = Describe("Writer", func() {
 				expectedError *broker.ConnectionError
 			)
 
-			BeforeEach(func() {
-				expectedError = new(broker.ConnectionError)
-				close(mockWriteConnection.indexCh)
-				mockWriteConnection.errCh <- expectedError
+			Context("non-websocket error", func() {
+
+				BeforeEach(func() {
+					expectedError = new(broker.ConnectionError)
+					close(mockWriteConnection.indexCh)
+					close(mockFetcher.errCh)
+					populateFetcherMock()
+					mockWriteConnection.errCh <- expectedError
+				})
+
+				It("returns the expected error", func() {
+					_, err := writer.WriteToFile(expectedData)
+
+					Expect(err).To(Equal(expectedError))
+				})
 			})
 
-			It("returns the expected error", func() {
-				_, err := writer.WriteToFile(expectedData)
+			Context("websocket connection error", func() {
 
-				Expect(err).To(Equal(expectedError))
+				BeforeEach(func(done Done) {
+					defer close(done)
+					expectedError = &broker.ConnectionError{
+						WebsocketError: true,
+					}
+
+					mockWriteConnection.errCh <- expectedError
+					populateFetcherMock()
+					populateFetcherMock()
+
+					close(mockWriteConnection.indexCh)
+					close(mockFetcher.errCh)
+					close(mockWriteConnection.errCh)
+
+					writer.WriteToFile(expectedData)
+				})
+
+				It("acquires a new connection", func(done Done) {
+					defer close(done)
+					writer.WriteToFile(expectedData)
+
+					Expect(mockFetcher.writeConnectionCh).To(HaveLen(0))
+				})
 			})
 
 		})

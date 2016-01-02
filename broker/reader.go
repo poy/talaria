@@ -5,22 +5,52 @@ type ReadConnection interface {
 	SeekIndex(fileId, index uint64) *ConnectionError
 }
 
-type Reader struct {
-	fileId uint64
-	conn   ReadConnection
+type ReadConnectionFetcher interface {
+	FetchReader(fileName string) (ReadConnection, uint64, error)
 }
 
-func NewReader(fileId uint64, conn ReadConnection) *Reader {
+type Reader struct {
+	fetcher  ReadConnectionFetcher
+	fileName string
+	fileId   uint64
+	conn     ReadConnection
+}
+
+func NewReader(fileName string, fetcher ReadConnectionFetcher) *Reader {
 	return &Reader{
-		fileId: fileId,
-		conn:   conn,
+		fileName: fileName,
+		fetcher:  fetcher,
 	}
 }
 
 func (r *Reader) ReadFromFile() ([]byte, int64, *ConnectionError) {
-	return r.conn.ReadFromFile(r.fileId)
+	fileId, conn := r.fetchConnection()
+	data, index, err := conn.ReadFromFile(fileId)
+
+	if err != nil && err.WebsocketError {
+		r.conn = nil
+		return r.ReadFromFile()
+	}
+
+	return data, index, err
 }
 
 func (r *Reader) SeekIndex(index uint64) *ConnectionError {
-	return r.conn.SeekIndex(r.fileId, index)
+	fileId, conn := r.fetchConnection()
+	err := conn.SeekIndex(fileId, index)
+
+	if err != nil && err.WebsocketError {
+		r.conn = nil
+		return r.SeekIndex(index)
+	}
+
+	return err
+}
+
+func (r *Reader) fetchConnection() (uint64, ReadConnection) {
+	if r.conn == nil {
+		r.conn, r.fileId, _ = r.fetcher.FetchReader(r.fileName)
+	}
+
+	return r.fileId, r.conn
 }

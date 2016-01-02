@@ -9,25 +9,34 @@ import (
 
 var _ = Describe("ReplicatedFileManager", func() {
 	var (
-		mockReadConn      *mockReadConnection
-		mockIoProvider    *mockFileProvider
-		mockReaderFetcher *mockReaderFetcher
-		manager           *broker.ReplicatedFileManager
-		mockWriter        *mockWriter
-		reader            *broker.Reader
-		expectedName      string
+		mockReadConnectionFetcher *mockReadConnectionFetcher
+		mockReadConn              *mockReadConnection
+		mockIoProvider            *mockFileProvider
+		mockReaderFetcher         *mockReaderFetcher
+		manager                   *broker.ReplicatedFileManager
+		mockWriter                *mockWriter
+		reader                    *broker.Reader
+
+		expectedName   string
+		expectedFileId uint64
 	)
 
 	BeforeEach(func() {
+		mockReadConnectionFetcher = newMockReadConnectionFetcher()
 		mockReadConn = newMockReadConnection()
 		mockWriter = newMockWriter()
 		mockIoProvider = newMockFileProvider()
 		mockReaderFetcher = newMockReaderFetcher()
-		reader = broker.NewReader(99, mockReadConn)
+		reader = broker.NewReader("some-name", mockReadConnectionFetcher)
 
 		manager = broker.NewReplicatedFileManager(mockIoProvider, mockReaderFetcher)
 
 		expectedName = "some-name"
+		expectedFileId = 99
+
+		mockReadConnectionFetcher.readConnectionCh <- mockReadConn
+		mockReadConnectionFetcher.fileIdCh <- expectedFileId
+		close(mockReadConnectionFetcher.errCh)
 	})
 
 	Describe("Add()", func() {
