@@ -13,60 +13,31 @@ import (
 var _ = Describe("Client", func() {
 
 	var (
-		mockServers []*mockServer
-		servers     []*httptest.Server
-		client      *broker.Client
+		mockServer *mockServer
+		server     *httptest.Server
 
-		extraMockServer *mockServer
-		extraServerURL  string
+		client *broker.Client
 	)
 
-	var createKnownMockServers = func() []string {
-		var urls []string
-		for i := 0; i < 3; i++ {
-			mockServer, server := startMockServer()
-			mockServers = append(mockServers, mockServer)
-			servers = append(servers, server)
-			urls = append(urls, convertToWs(server.URL))
-		}
-
-		return urls
-	}
-
-	var createExtraMockServer = func() {
-		mockServer, server := startMockServer()
-		extraMockServer = mockServer
-		servers = append(servers, server)
-		extraServerURL = convertToWs(server.URL)
+	var createMockServer = func() string {
+		mockServer, server = startMockServer()
+		return convertToWs(server.URL)
 	}
 
 	BeforeEach(func() {
-		mockServers = nil
-		servers = nil
-		URLs := createKnownMockServers()
-		createExtraMockServer()
+		URL := createMockServer()
 
 		var err error
-		client, err = broker.NewClient(URLs...)
+		client, err = broker.NewClient(URL)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
 		client.Close()
-		for _, server := range mockServers {
-			close(server.serverCh)
-		}
+		close(mockServer.serverCh)
 
-		for _, server := range servers {
-			server.CloseClientConnections()
-			server.Close()
-		}
-	})
-
-	It("connects to each broker", func() {
-		for _, server := range mockServers {
-			Eventually(server.connEstablishedCh).Should(BeClosed())
-		}
+		server.CloseClientConnections()
+		server.Close()
 	})
 
 	Describe("FetchWriter()", func() {
@@ -85,11 +56,10 @@ var _ = Describe("Client", func() {
 
 			BeforeEach(func() {
 
-				mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
-				mockServers[1].serverCh <- buildFileLocation(1)
+				mockServer.serverCh <- buildFileLocation(1)
 
 				for i := 0; i < 10; i++ {
-					mockServers[1].serverCh <- buildFileOffset(uint64(i+2), 101)
+					mockServer.serverCh <- buildFileOffset(uint64(i+2), 101)
 				}
 			})
 
@@ -103,10 +73,10 @@ var _ = Describe("Client", func() {
 				Expect(err).ToNot(HaveOccurred())
 
 				var msg *messages.Client
-				Eventually(mockServers[1].clientCh).Should(Receive(&msg))
+				Eventually(mockServer.clientCh).Should(Receive(&msg))
 				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 
-				Eventually(mockServers[1].clientCh).Should(Receive(&msg))
+				Eventually(mockServer.clientCh).Should(Receive(&msg))
 				Expect(msg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
 				Expect(msg.GetWriteToFile().GetData()).To(Equal(expectedData))
 			}, 5)
@@ -115,17 +85,17 @@ var _ = Describe("Client", func() {
 
 		Measure("Writes to a file 1000 times in under a second", func(b Benchmarker) {
 			runtime := b.Time("runtime", func() {
-				mockServers[0].serverCh <- buildFileLocation(1)
+				mockServer.serverCh <- buildFileLocation(1)
 				count := 1000
 
 				go func() {
 					for i := 0; i < count; i++ {
-						mockServers[0].serverCh <- buildFileOffset(uint64(i+2), 101)
+						mockServer.serverCh <- buildFileOffset(uint64(i+2), 101)
 					}
 				}()
 
 				go func() {
-					for _ = range mockServers[0].clientCh {
+					for _ = range mockServer.clientCh {
 						//NOP
 					}
 				}()
@@ -157,9 +127,8 @@ var _ = Describe("Client", func() {
 		Context("for known server", func() {
 
 			BeforeEach(func() {
-				mockServers[0].serverCh <- buildRemoteFileLocation(1, servers[1].URL)
-				mockServers[1].serverCh <- buildFileLocation(1)
-				mockServers[1].serverCh <- buildReadData(2, expectedData, 101)
+				mockServer.serverCh <- buildFileLocation(1)
+				mockServer.serverCh <- buildReadData(2, expectedData, 101)
 			})
 
 			It("reads from the correct broker", func(done Done) {
@@ -174,32 +143,7 @@ var _ = Describe("Client", func() {
 				Expect(index).To(BeEquivalentTo(101))
 
 				var msg *messages.Client
-				Eventually(mockServers[1].clientCh).Should(Receive(&msg))
-				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
-				Expect(msg.GetFetchFile().GetName()).To(Equal(expectedFileName))
-			})
-		})
-
-		Context("for unknown server", func() {
-			BeforeEach(func() {
-				mockServers[0].serverCh <- buildRemoteFileLocation(1, extraServerURL)
-				extraMockServer.serverCh <- buildFileLocation(1)
-				extraMockServer.serverCh <- buildReadData(2, expectedData, 101)
-			})
-
-			It("reads from the new broker", func(done Done) {
-				defer close(done)
-
-				reader, err := client.FetchReader(expectedFileName)
-				Expect(err).ToNot(HaveOccurred())
-
-				data, index, err := reader.ReadFromFile()
-				Expect(err).ToNot(HaveOccurred())
-				Expect(data).To(Equal(expectedData))
-				Expect(index).To(BeEquivalentTo(101))
-
-				var msg *messages.Client
-				Eventually(extraMockServer.clientCh).Should(Receive(&msg))
+				Eventually(mockServer.clientCh).Should(Receive(&msg))
 				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 				Expect(msg.GetFetchFile().GetName()).To(Equal(expectedFileName))
 			})
@@ -207,18 +151,18 @@ var _ = Describe("Client", func() {
 
 		Measure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
 			runtime := b.Time("runtime", func() {
-				mockServers[0].serverCh <- buildFileLocation(1)
+				mockServer.serverCh <- buildFileLocation(1)
 				count := 1000
 				data := []byte("some-data")
 
 				go func() {
 					for i := 0; i < count; i++ {
-						mockServers[0].serverCh <- buildReadData(uint64(i+2), data, 0)
+						mockServer.serverCh <- buildReadData(uint64(i+2), data, 0)
 					}
 				}()
 
 				go func() {
-					for _ = range mockServers[0].clientCh {
+					for _ = range mockServer.clientCh {
 						//NOP
 					}
 				}()
@@ -242,14 +186,14 @@ var _ = Describe("Client", func() {
 
 		BeforeEach(func(done Done) {
 			defer close(done)
-			mockServers[0].serverCh <- buildFileLocation(1)
+			mockServer.serverCh <- buildFileLocation(1)
 		})
 
 		It("returns the broker URI that is the leader of the given file", func(done Done) {
 			defer close(done)
 			uri, err := client.LeaderOf(id)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(uri).To(Equal(htmlToWs(servers[0].URL)))
+			Expect(uri).To(Equal(htmlToWs(server.URL)))
 		})
 
 		It("returns an error for an unknown file ID", func(done Done) {
