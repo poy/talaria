@@ -11,7 +11,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("InnerBroker", func() {
+var _ = XDescribe("InnerBroker", func() {
 	var (
 		innerBroker *broker.InnerBroker
 		server      *httptest.Server

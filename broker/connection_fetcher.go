@@ -43,10 +43,10 @@ func NewConnectionFetcher(blacklist []string, URLs ...string) (*ConnectionFetche
 
 func (c *ConnectionFetcher) Fetch(fileName string) (*Connection, uint64, error) {
 	c.syncConns.Lock()
-	c.syncConns.Unlock()
+	defer c.syncConns.Unlock()
 
 	fileId := c.getNextFetchIdx()
-	conn := c.roundRobinConns(fileId)
+	conn := c.verifyConn(c.roundRobinConns(fileId))
 
 	err := conn.FetchFile(fileId, fileName)
 	if err == nil {
@@ -57,7 +57,7 @@ func (c *ConnectionFetcher) Fetch(fileName string) (*Connection, uint64, error) 
 		return nil, 0, fmt.Errorf(err.errMessage)
 	}
 
-	conn = c.fetchConnection(err.Uri)
+	conn = c.verifyConn(c.fetchConnection(err.Uri))
 	if conn == nil {
 		conn = c.createConnection(err.Uri)
 		c.conns = append(c.conns, conn)
@@ -89,19 +89,38 @@ func (c *ConnectionFetcher) createConnection(URL string) *Connection {
 	return conn
 }
 
+func (c *ConnectionFetcher) verifyConn(conn *Connection) *Connection {
+	if !conn.Errored() {
+		return conn
+	}
+
+	index, _ := c.fetchConnectionIndex(conn.URL)
+	c.conns = append(c.conns[:index], c.conns[index+1:]...)
+
+	newConn := c.createConnection(conn.URL)
+	c.conns = append(c.conns, newConn)
+
+	return newConn
+}
+
 func (c *ConnectionFetcher) roundRobinConns(fileId uint64) *Connection {
 	return c.conns[int(fileId)%len(c.conns)]
 }
 
 func (c *ConnectionFetcher) fetchConnection(URL string) *Connection {
+	_, conn := c.fetchConnectionIndex(URL)
+	return conn
+}
+
+func (c *ConnectionFetcher) fetchConnectionIndex(URL string) (int, *Connection) {
 	c.log.Debug("Fetching connection for %s", URL)
-	for _, info := range c.conns {
-		if info.URL == URL {
+	for i, conn := range c.conns {
+		if conn.URL == URL {
 			c.log.Debug("Found connection for %s", URL)
-			return info
+			return i, conn
 		}
 	}
-	return nil
+	return 0, nil
 }
 
 func (c *ConnectionFetcher) checkBlacklist(conn *Connection, fileId uint64, err *ConnectionError) (*Connection, uint64, error) {

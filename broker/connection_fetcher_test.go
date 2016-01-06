@@ -11,6 +11,8 @@ import (
 var _ = Describe("ConnectionFetcher", func() {
 
 	var (
+		expectedFile string
+
 		mockServers []*mockServer
 		servers     []*httptest.Server
 		URLs        []string
@@ -20,6 +22,8 @@ var _ = Describe("ConnectionFetcher", func() {
 	)
 
 	var createMockServers = func() []string {
+		expectedFile = "some-file"
+
 		mockServers = nil
 		servers = nil
 
@@ -59,7 +63,7 @@ var _ = Describe("ConnectionFetcher", func() {
 
 		It("connects to each broker", func() {
 			for _, server := range mockServers {
-				Eventually(server.connEstablishedCh).Should(BeClosed())
+				Eventually(server.connEstablishedCh).Should(HaveLen(1))
 			}
 		})
 
@@ -75,7 +79,7 @@ var _ = Describe("ConnectionFetcher", func() {
 					})
 
 					It("it returns the correct connection", func() {
-						conn, _, err := fetcher.Fetch("some-file")
+						conn, _, err := fetcher.Fetch(expectedFile)
 
 						Expect(err).ToNot(HaveOccurred())
 						Expect(conn.URL).To(Equal(convertToWs(servers[0].URL)))
@@ -89,7 +93,7 @@ var _ = Describe("ConnectionFetcher", func() {
 					})
 
 					It("it returns the correct connection", func() {
-						conn, _, err := fetcher.Fetch("some-file")
+						conn, _, err := fetcher.Fetch(expectedFile)
 
 						Expect(err).ToNot(HaveOccurred())
 						Expect(conn.URL).To(Equal(convertToWs(servers[1].URL)))
@@ -105,9 +109,35 @@ var _ = Describe("ConnectionFetcher", func() {
 				})
 
 				It("returns a blacklisted error", func() {
-					_, _, err := fetcher.Fetch("some-file")
+					_, _, err := fetcher.Fetch(expectedFile)
 
 					Expect(err).To(MatchError(broker.BlacklistedErr))
+				})
+			})
+
+			Context("with errored connection", func() {
+
+				var (
+					expectedError string
+				)
+
+				BeforeEach(func() {
+					expectedError = "some-error"
+					mockServers[0].serverCh <- buildError(1, expectedError)
+					mockServers[1].serverCh <- buildRemoteFileLocation(1, servers[0].URL)
+					mockServers[0].serverCh <- buildFileLocation(1)
+				})
+
+				JustBeforeEach(func() {
+					fetcher.Fetch(expectedFile)
+				})
+
+				It("reconnects to broker", func() {
+					conn, _, err := fetcher.Fetch(expectedFile)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(conn.URL).To(Equal(convertToWs(servers[0].URL)))
+					Expect(mockServers[0].connEstablishedCh).To(HaveLen(2))
 				})
 			})
 		})
@@ -138,7 +168,7 @@ var _ = Describe("ConnectionFetcher", func() {
 				})
 
 				It("returns the connection for the new broker", func() {
-					conn, _, err := fetcher.Fetch("some-file")
+					conn, _, err := fetcher.Fetch(expectedFile)
 
 					Expect(err).ToNot(HaveOccurred())
 					Expect(conn.URL).To(Equal(extraServerURL))
@@ -152,7 +182,7 @@ var _ = Describe("ConnectionFetcher", func() {
 				})
 
 				It("returns a blacklisted error", func() {
-					_, _, err := fetcher.Fetch("some-file")
+					_, _, err := fetcher.Fetch(expectedFile)
 
 					Expect(err).To(MatchError(broker.BlacklistedErr))
 				})
