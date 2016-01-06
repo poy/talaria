@@ -138,7 +138,11 @@ func (k *KVStore) listenForLeader(name string, callback func(name, uri string)) 
 }
 
 func (k *KVStore) ListenForAnnouncements(callback func(name string)) {
-	go k.listenForAnnouncements(callback)
+	go k.listenForAnnouncements(AnnouncePrefix, callback, nil)
+
+	go k.listenForAnnouncements(Prefix, callback, func(pair *api.KVPair) bool {
+		return pair.Session == ""
+	})
 }
 
 func stripLeaderPrefix(key string) string {
@@ -155,27 +159,21 @@ func findMatch(pairs api.KVPairs, name string) *api.KVPair {
 	return nil
 }
 
-func (k *KVStore) listenForAnnouncements(callback func(name string)) {
-	pairs, meta, err := k.kv.List(AnnouncePrefix, nil)
-	if err != nil {
-		k.log.Panic("Unable to list keys", err)
-	}
-
-	for _, pair := range pairs {
-		callback(string(pair.Value))
-	}
-
+func (k *KVStore) listenForAnnouncements(prefix string, callback func(name string), filter func(pair *api.KVPair) bool) {
 	var options api.QueryOptions
+
 	for {
-		options.WaitIndex = meta.LastIndex
-		pairs, meta, err = k.kv.List(AnnouncePrefix, &options)
+		pairs, meta, err := k.kv.List(prefix, &options)
 		if err != nil {
 			k.log.Error("Unable to list keys", err)
 			return
 		}
+		options.WaitIndex = meta.LastIndex
 
 		for _, pair := range pairs {
-			callback(string(pair.Value))
+			if filter == nil || filter(pair) {
+				callback(string(pair.Value))
+			}
 		}
 	}
 }

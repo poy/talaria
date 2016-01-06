@@ -40,12 +40,15 @@ var _ = Describe("KVStore", func() {
 	})
 
 	Describe("Announce()/ListenForAnnouncments()", func() {
-		It("invokes callback when announcement is made", func() {
-			results1 := make(chan string, 10)
-			results2 := make(chan string, 10)
-			resultsOther := make(chan string, 10)
+		Context("multiple announcements", func() {
 
-			kv.ListenForAnnouncements(func(value string) {
+			var (
+				results1     chan string
+				results2     chan string
+				resultsOther chan string
+			)
+
+			var callback = func(value string) {
 				if value == "some-name-1" {
 					results1 <- value
 				} else if value == "some-name-2" {
@@ -53,27 +56,124 @@ var _ = Describe("KVStore", func() {
 				} else {
 					resultsOther <- value
 				}
+			}
+
+			BeforeEach(func() {
+				results1 = make(chan string, 10)
+				results2 = make(chan string, 10)
+				resultsOther = make(chan string, 10)
 			})
 
-			go kv.Announce("some-name-1")
-			go kv.Announce("some-name-1")
-			go kv.Announce("some-name-2")
+			It("invokes callback when announcement is made", func() {
+				kv.ListenForAnnouncements(callback)
 
-			Eventually(results1, 3).Should(Receive())
-			Eventually(results1, 3).Should(Receive())
-			Eventually(results2, 3).Should(Receive())
-			Consistently(resultsOther).ShouldNot(Receive())
+				go kv.Announce("some-name-1")
+				go kv.Announce("some-name-1")
+				go kv.Announce("some-name-2")
+
+				Eventually(results1, 3).Should(Receive())
+				Eventually(results1, 3).Should(Receive())
+				Eventually(results2, 3).Should(Receive())
+				Consistently(resultsOther).ShouldNot(Receive())
+			})
 		})
 
-		It("invokes callback when announcement is already made", func() {
-			results := make(chan string, 10)
+		Context("pre-exisiting announcement", func() {
+			var (
+				results chan string
+			)
 
-			kv.Announce("some-name-1")
-
-			kv.ListenForAnnouncements(func(value string) {
+			var callback = func(value string) {
 				results <- value
+			}
+
+			BeforeEach(func() {
+				results = make(chan string, 10)
+				kv.Announce("some-name-1")
 			})
-			Eventually(results).Should(Receive(Equal("some-name-1")))
+
+			It("invokes callback when announcement is already made", func() {
+				kv.ListenForAnnouncements(callback)
+
+				Eventually(results).Should(Receive(Equal("some-name-1")))
+			})
+		})
+
+		Describe("announcing for sessionless keys", func() {
+
+			var (
+				key              string
+				expectedFileName string
+				results          chan string
+				session          string
+			)
+
+			var callback = func(value string) {
+				results <- value
+			}
+
+			var addPair = func() {
+				pair := &api.KVPair{
+					Key:     fmt.Sprintf("%s-%s", kvstore.Prefix, key),
+					Value:   []byte(expectedFileName),
+					Session: session,
+				}
+
+				if session != "" {
+					_, _, err := consulClient.KV().Acquire(pair, nil)
+					Expect(err).ToNot(HaveOccurred())
+					return
+				}
+
+				_, err := consulClient.KV().Put(pair, nil)
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			BeforeEach(func() {
+				key = "some-key"
+				expectedFileName = "some-file-name"
+				results = make(chan string, 100)
+			})
+
+			Context("pair without session", func() {
+
+				BeforeEach(func() {
+					session = ""
+				})
+
+				Context("pair present before listening", func() {
+					BeforeEach(func() {
+						addPair()
+					})
+
+					It("alerts for the file", func() {
+						kv.ListenForAnnouncements(callback)
+
+						Eventually(results).Should(Receive(Equal(expectedFileName)))
+					})
+				})
+			})
+
+			Context("pair with session", func() {
+
+				BeforeEach(func() {
+					var err error
+					session, _, err = consulClient.Session().CreateNoChecks(nil, nil)
+					Expect(err).ToNot(HaveOccurred())
+				})
+
+				Context("pair present before listening", func() {
+					BeforeEach(func() {
+						addPair()
+					})
+
+					It("does not alert for the file", func() {
+						kv.ListenForAnnouncements(callback)
+
+						Consistently(results).ShouldNot(Receive())
+					})
+				})
+			})
 		})
 	})
 
