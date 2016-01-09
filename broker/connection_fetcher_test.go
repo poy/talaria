@@ -2,6 +2,7 @@ package broker_test
 
 import (
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/pb/messages"
 	"net/http/httptest"
 
 	. "github.com/onsi/ginkgo"
@@ -79,10 +80,28 @@ var _ = Describe("ConnectionFetcher", func() {
 					})
 
 					It("it returns the correct connection", func() {
-						conn, _, err := fetcher.Fetch(expectedFile)
+						conn, _, err := fetcher.Fetch(expectedFile, false)
 
 						Expect(err).ToNot(HaveOccurred())
 						Expect(conn.URL).To(Equal(convertToWs(servers[0].URL)))
+					})
+
+					It("does a create fetch", func() {
+						fetcher.Fetch(expectedFile, true)
+
+						var clientMsg *messages.Client
+						Eventually(mockServers[0].clientCh).Should(Receive(&clientMsg))
+						Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+						Expect(clientMsg.FetchFile.GetCreate()).To(BeTrue())
+					})
+
+					It("does not do a create fetch", func() {
+						fetcher.Fetch(expectedFile, false)
+
+						var clientMsg *messages.Client
+						Eventually(mockServers[0].clientCh).Should(Receive(&clientMsg))
+						Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+						Expect(clientMsg.FetchFile.GetCreate()).To(BeFalse())
 					})
 				})
 
@@ -93,10 +112,28 @@ var _ = Describe("ConnectionFetcher", func() {
 					})
 
 					It("it returns the correct connection", func() {
-						conn, _, err := fetcher.Fetch(expectedFile)
+						conn, _, err := fetcher.Fetch(expectedFile, false)
 
 						Expect(err).ToNot(HaveOccurred())
 						Expect(conn.URL).To(Equal(convertToWs(servers[1].URL)))
+					})
+
+					It("does a create fetch", func() {
+						fetcher.Fetch(expectedFile, true)
+
+						var clientMsg *messages.Client
+						Eventually(mockServers[0].clientCh).Should(Receive(&clientMsg))
+						Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+						Expect(clientMsg.FetchFile.GetCreate()).To(BeTrue())
+					})
+
+					It("does not do a create fetch", func() {
+						fetcher.Fetch(expectedFile, false)
+
+						var clientMsg *messages.Client
+						Eventually(mockServers[1].clientCh).Should(Receive(&clientMsg))
+						Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+						Expect(clientMsg.FetchFile.GetCreate()).To(BeFalse())
 					})
 				})
 			})
@@ -109,7 +146,7 @@ var _ = Describe("ConnectionFetcher", func() {
 				})
 
 				It("returns a blacklisted error", func() {
-					_, _, err := fetcher.Fetch(expectedFile)
+					_, _, err := fetcher.Fetch(expectedFile, false)
 
 					Expect(err).To(MatchError(broker.BlacklistedErr))
 				})
@@ -129,11 +166,11 @@ var _ = Describe("ConnectionFetcher", func() {
 				})
 
 				JustBeforeEach(func() {
-					fetcher.Fetch(expectedFile)
+					fetcher.Fetch(expectedFile, false)
 				})
 
 				It("reconnects to broker", func() {
-					conn, _, err := fetcher.Fetch(expectedFile)
+					conn, _, err := fetcher.Fetch(expectedFile, false)
 
 					Expect(err).ToNot(HaveOccurred())
 					Expect(conn.URL).To(Equal(convertToWs(servers[0].URL)))
@@ -168,7 +205,7 @@ var _ = Describe("ConnectionFetcher", func() {
 				})
 
 				It("returns the connection for the new broker", func() {
-					conn, _, err := fetcher.Fetch(expectedFile)
+					conn, _, err := fetcher.Fetch(expectedFile, false)
 
 					Expect(err).ToNot(HaveOccurred())
 					Expect(conn.URL).To(Equal(extraServerURL))
@@ -182,7 +219,7 @@ var _ = Describe("ConnectionFetcher", func() {
 				})
 
 				It("returns a blacklisted error", func() {
-					_, _, err := fetcher.Fetch(expectedFile)
+					_, _, err := fetcher.Fetch(expectedFile, false)
 
 					Expect(err).To(MatchError(broker.BlacklistedErr))
 				})

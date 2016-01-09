@@ -40,6 +40,7 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		defer close(done)
 		name := "some-file"
 
+		Expect(client.CreateFile(name)).To(Succeed())
 		writer, err := client.FetchWriter(name)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -65,6 +66,7 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 
 		name := "some-file"
 
+		Expect(client.CreateFile(name)).To(Succeed())
 		writer, err := client.FetchWriter(name)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -93,6 +95,8 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		name := "some-file"
 		clientW := startClient(URL)
 		clientR := startClient(URL)
+
+		Expect(client.CreateFile(name)).To(Succeed())
 
 		var wg sync.WaitGroup
 		defer wg.Wait()

@@ -24,7 +24,11 @@ func NewWriter(fileName string, fetcher WriteConnectionFetcher) *Writer {
 }
 
 func (w *Writer) WriteToFile(data []byte) (int64, *ConnectionError) {
-	fileId, conn := w.fetchConnection()
+	fileId, conn, fcErr := w.fetchConnection()
+	if fcErr != nil {
+		return 0, NewConnectionError(fcErr.Error(), "", false)
+	}
+
 	index, err := conn.WriteToFile(fileId, data)
 
 	if err != nil && err.WebsocketError {
@@ -35,10 +39,14 @@ func (w *Writer) WriteToFile(data []byte) (int64, *ConnectionError) {
 	return index, err
 }
 
-func (w *Writer) fetchConnection() (uint64, WriteConnection) {
+func (w *Writer) fetchConnection() (uint64, WriteConnection, error) {
 	if w.conn == nil {
-		w.conn, w.fileId, _ = w.fetcher.FetchWriter(w.fileName)
+		var err error
+		w.conn, w.fileId, err = w.fetcher.FetchWriter(w.fileName)
+		if err != nil {
+			return 0, nil, err
+		}
 	}
 
-	return w.fileId, w.conn
+	return w.fileId, w.conn, nil
 }

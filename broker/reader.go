@@ -24,7 +24,11 @@ func NewReader(fileName string, fetcher ReadConnectionFetcher) *Reader {
 }
 
 func (r *Reader) ReadFromFile() ([]byte, int64, *ConnectionError) {
-	fileId, conn := r.fetchConnection()
+	fileId, conn, fcErr := r.fetchConnection()
+	if fcErr != nil {
+		return nil, 0, NewConnectionError(fcErr.Error(), "", false)
+	}
+
 	data, index, err := conn.ReadFromFile(fileId)
 
 	if err != nil && err.WebsocketError {
@@ -36,7 +40,11 @@ func (r *Reader) ReadFromFile() ([]byte, int64, *ConnectionError) {
 }
 
 func (r *Reader) SeekIndex(index uint64) *ConnectionError {
-	fileId, conn := r.fetchConnection()
+	fileId, conn, fcErr := r.fetchConnection()
+	if fcErr != nil {
+		return NewConnectionError(fcErr.Error(), "", false)
+	}
+
 	err := conn.SeekIndex(fileId, index)
 
 	if err != nil && err.WebsocketError {
@@ -47,10 +55,15 @@ func (r *Reader) SeekIndex(index uint64) *ConnectionError {
 	return err
 }
 
-func (r *Reader) fetchConnection() (uint64, ReadConnection) {
+func (r *Reader) fetchConnection() (uint64, ReadConnection, error) {
 	if r.conn == nil {
-		r.conn, r.fileId, _ = r.fetcher.FetchReader(r.fileName)
+		var err error
+		r.conn, r.fileId, err = r.fetcher.FetchReader(r.fileName)
+
+		if err != nil {
+			return 0, nil, err
+		}
 	}
 
-	return r.fileId, r.conn
+	return r.fileId, r.conn, nil
 }

@@ -55,19 +55,19 @@ var _ = Describe("Connection", func() {
 				})
 
 				It("returns an error", func() {
-					err := connection.FetchFile(9, expectedName)
+					err := connection.FetchFile(9, expectedName, true)
 
 					Expect(err).To(MatchError(expectedError))
 				})
 
 				It("returns true for Errored()", func() {
-					connection.FetchFile(9, expectedName)
+					connection.FetchFile(9, expectedName, true)
 
 					Expect(connection.Errored()).To(BeTrue())
 				})
 
 				It("closes the connection", func() {
-					connection.FetchFile(9, expectedName)
+					connection.FetchFile(9, expectedName, true)
 
 					Eventually(mockServer.connDoneCh).Should(HaveLen(1))
 				})
@@ -81,14 +81,14 @@ var _ = Describe("Connection", func() {
 
 				It("returns a websocket error", func(done Done) {
 					defer close(done)
-					err := connection.FetchFile(9, expectedName)
+					err := connection.FetchFile(9, expectedName, true)
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.WebsocketError).To(BeTrue())
 				}, 3)
 
 				It("returns true for Errored()", func() {
-					connection.FetchFile(9, expectedName)
+					connection.FetchFile(9, expectedName, true)
 
 					Expect(connection.Errored()).To(BeTrue())
 				})
@@ -107,7 +107,7 @@ var _ = Describe("Connection", func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				err := connection.FetchFile(9, expectedName)
+				err := connection.FetchFile(9, expectedName, true)
 				Expect(err).To(BeNil())
 			}()
 
@@ -116,6 +116,7 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(clientMsg.FetchFile).ToNot(BeNil())
 			Expect(clientMsg.FetchFile.GetName()).To(Equal(expectedName))
+			Expect(clientMsg.FetchFile.GetCreate()).To(BeTrue())
 		})
 
 		It("returns a redirect error", func(done Done) {
@@ -129,7 +130,7 @@ var _ = Describe("Connection", func() {
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				err := connection.FetchFile(9, expectedName)
+				err := connection.FetchFile(9, expectedName, false)
 				Expect(err).ToNot(BeNil())
 				Expect(err.Uri).To(Equal("ws://some.uri"))
 			}()
@@ -139,6 +140,7 @@ var _ = Describe("Connection", func() {
 			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 			Expect(clientMsg.FetchFile).ToNot(BeNil())
 			Expect(clientMsg.FetchFile.GetName()).To(Equal(expectedName))
+			Expect(clientMsg.FetchFile.GetCreate()).To(BeFalse())
 			Expect(connection.Errored()).To(BeFalse())
 		})
 

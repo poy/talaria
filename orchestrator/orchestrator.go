@@ -40,24 +40,29 @@ func New(clientAddr string, numberOfReplicas uint, kvStore KvStore) *Orchestrato
 	return orch
 }
 
-func (o *Orchestrator) FetchLeader(name string) (string, bool) {
-	uri, ok := o.kvStore.FetchLeader(name)
+func (o *Orchestrator) FetchLeader(name string, create bool) (string, bool, error) {
+	encodedName := fmt.Sprintf("%s~0", name)
+
+	uri, ok := o.kvStore.FetchLeader(encodedName)
 	if ok {
-		return uri, o.clientAddr == uri
+		return uri, o.clientAddr == uri, nil
+	}
+
+	if !create {
+		return "", false, fmt.Errorf("File (%s) does not exist", name)
 	}
 
 	results := make(chan string, 1)
 
-	encodedName := fmt.Sprintf("%s~0", name)
-
 	o.kvStore.ListenForLeader(encodedName, func(name, uri string) {
+		println("FOUND LEADER", name, uri)
 		results <- uri
 	})
 
 	o.kvStore.Announce(encodedName)
 
 	result := <-results
-	return result, result == o.clientAddr
+	return result, result == o.clientAddr, nil
 }
 
 func (o *Orchestrator) ParticipateInElection(partManager PartitionManager) {

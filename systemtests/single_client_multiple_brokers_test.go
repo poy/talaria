@@ -52,6 +52,7 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 		defer close(done)
 		name := "some-file"
 
+		Expect(client.CreateFile(name)).To(Succeed())
 		writer, err := client.FetchWriter(name)
 		Expect(err).ToNot(HaveOccurred())
 
@@ -78,6 +79,8 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 
 		runTest := func(name string) {
 			By(fmt.Sprintf("Starting test for file %s", name))
+
+			Expect(client.CreateFile(name)).To(Succeed())
 
 			go func() {
 				defer GinkgoRecover()

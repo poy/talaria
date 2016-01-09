@@ -46,95 +46,221 @@ var _ = Describe("Broker", func() {
 
 	Describe("FetchFile()", func() {
 
-		It("reports an error", func(done Done) {
-			defer close(done)
-			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
-			Expect(err).ToNot(HaveOccurred())
+		var (
+			expectedMsgId      uint64
+			expectedCreateFile bool
 
-			mockController.fetchFileIdCh <- 0
-			mockController.fetchFileErrCh <- broker.NewConnectionError("some-error", "", false)
+			conn *websocket.Conn
+		)
 
-			fetchFile := buildFetchFile(99, "some-file")
+		var writeFetchFile = func() {
+			fetchFile := buildFetchFile(expectedMsgId, "some-file", expectedCreateFile)
 			data, err := proto.Marshal(fetchFile)
 			Expect(err).ToNot(HaveOccurred())
 
 			conn.WriteMessage(websocket.BinaryMessage, data)
+		}
 
-			Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
-
-			_, data, err = conn.ReadMessage()
+		var readMessage = func() *messages.Server {
+			_, data, err := conn.ReadMessage()
 			Expect(err).ToNot(HaveOccurred())
 
-			server := &messages.Server{}
+			server := new(messages.Server)
 			err = server.Unmarshal(data)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(server.GetMessageId()).To(BeEquivalentTo(99))
-			Expect(server.GetMessageType()).To(Equal(messages.Server_Error))
-			Expect(server.Error).ToNot(BeNil())
-			Expect(server.FileLocation).To(BeNil())
-			Expect(server.Error.GetMessage()).To(Equal("some-error"))
+			return server
+		}
+
+		BeforeEach(func() {
+			expectedMsgId = 99
+
+			var err error
+			conn, _, err = websocket.DefaultDialer.Dial(wsUrl, nil)
+			Expect(err).ToNot(HaveOccurred())
 		})
 
-		It("reports the file ID", func(done Done) {
-			defer close(done)
-			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
-			Expect(err).ToNot(HaveOccurred())
-
-			mockController.fetchFileIdCh <- 8
-			mockController.fetchFileErrCh <- nil
-
-			fetchFile := buildFetchFile(99, "some-file")
-			data, err := proto.Marshal(fetchFile)
-			Expect(err).ToNot(HaveOccurred())
-
-			conn.WriteMessage(websocket.BinaryMessage, data)
-
-			Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
-
-			_, data, err = conn.ReadMessage()
-			Expect(err).ToNot(HaveOccurred())
-
-			server := &messages.Server{}
-			err = server.Unmarshal(data)
-			Expect(err).ToNot(HaveOccurred())
-
-			Expect(server.GetMessageId()).To(BeEquivalentTo(99))
-			Expect(server.GetMessageType()).To(Equal(messages.Server_FileLocation))
-			Expect(server.Error).To(BeNil())
-			Expect(server.FileLocation).ToNot(BeNil())
-			Expect(server.FileLocation.GetLocal()).To(BeTrue())
+		JustBeforeEach(func() {
+			writeFetchFile()
 		})
 
-		It("reports the redirected URI", func(done Done) {
-			defer close(done)
-			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
-			Expect(err).ToNot(HaveOccurred())
+		Context("without error", func() {
 
-			expectedUri := "http://some.url"
-			mockController.fetchFileIdCh <- 8
-			mockController.fetchFileErrCh <- broker.NewConnectionError("some-error", expectedUri, false)
+			BeforeEach(func() {
+				mockController.fetchFileIdCh <- 8
+				mockController.fetchFileErrCh <- nil
+			})
 
-			fetchFile := buildFetchFile(99, "some-file")
-			data, err := proto.Marshal(fetchFile)
-			Expect(err).ToNot(HaveOccurred())
+			Context("creating file", func() {
 
-			conn.WriteMessage(websocket.BinaryMessage, data)
+				BeforeEach(func() {
+					expectedCreateFile = true
+				})
 
-			Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+				It("responds with the expected message ID", func(done Done) {
+					defer close(done)
 
-			_, data, err = conn.ReadMessage()
-			Expect(err).ToNot(HaveOccurred())
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
 
-			server := &messages.Server{}
-			err = server.Unmarshal(data)
-			Expect(err).ToNot(HaveOccurred())
+					Expect(server.GetMessageId()).To(Equal(expectedMsgId))
+				})
 
-			Expect(server.GetMessageId()).To(BeEquivalentTo(99))
-			Expect(server.GetMessageType()).To(Equal(messages.Server_FileLocation))
-			Expect(server.Error).To(BeNil())
-			Expect(server.FileLocation).ToNot(BeNil())
-			Expect(server.FileLocation.GetUri()).To(Equal(expectedUri))
-			Expect(server.FileLocation.GetLocal()).To(BeFalse())
+				It("responds with a FileLocation message", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.GetMessageType()).To(Equal(messages.Server_FileLocation))
+					Expect(server.FileLocation).ToNot(BeNil())
+				})
+
+				It("responds that the file is local", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.FileLocation.GetLocal()).To(BeTrue())
+				})
+
+				It("responds with a nil error", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.Error).To(BeNil())
+				})
+
+				It("tells the controller to create a file", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCreateCh).Should(Receive(Equal(true)))
+				})
+			})
+
+			Context("not creating file", func() {
+
+				BeforeEach(func() {
+					expectedCreateFile = false
+				})
+
+				It("tells the controller to not create a file", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCreateCh).Should(Receive(Equal(false)))
+				})
+			})
+		})
+
+		Context("with error", func() {
+
+			var (
+				expectedFileId        uint64
+				expectedConnectionErr *broker.ConnectionError
+			)
+
+			JustBeforeEach(func() {
+				mockController.fetchFileIdCh <- expectedFileId
+				mockController.fetchFileErrCh <- expectedConnectionErr
+			})
+
+			Context("internal error", func() {
+
+				BeforeEach(func() {
+					expectedFileId = 0
+					expectedConnectionErr = broker.NewConnectionError("some-error", "", false)
+				})
+
+				It("responds with the expected message ID", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.GetMessageId()).To(Equal(expectedMsgId))
+				})
+
+				It("responds with a error message", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.GetMessageType()).To(Equal(messages.Server_Error))
+					Expect(server.Error).ToNot(BeNil())
+				})
+
+				It("responds with the expected error message", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.Error.GetMessage()).To(Equal("some-error"))
+				})
+
+				It("responds with a nil FileLocation", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.FileLocation).To(BeNil())
+				})
+			})
+
+			Context("with redirect error", func() {
+
+				var (
+					expectedUri string
+				)
+
+				BeforeEach(func() {
+					expectedUri = "http://some.url"
+					expectedFileId = 8
+					expectedConnectionErr = broker.NewConnectionError("some-error", expectedUri, false)
+				})
+
+				It("responds with the expected message ID", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.GetMessageId()).To(Equal(expectedMsgId))
+				})
+
+				It("responds with a FileLocation message", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.GetMessageType()).To(Equal(messages.Server_FileLocation))
+					Expect(server.FileLocation).ToNot(BeNil())
+				})
+
+				It("responds that the file is remote", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.FileLocation.GetUri()).To(Equal(expectedUri))
+					Expect(server.FileLocation.GetLocal()).To(BeFalse())
+				})
+
+				It("responds with a nil error", func(done Done) {
+					defer close(done)
+
+					Eventually(mockController.fetchFileCh).Should(Receive(Equal("some-file")))
+					server := readMessage()
+
+					Expect(server.Error).To(BeNil())
+				})
+			})
 		})
 	})
 
@@ -438,13 +564,13 @@ var _ = Describe("Broker", func() {
 
 })
 
-func buildFetchFile(id uint64, name string) *messages.Client {
-	messageType := messages.Client_FetchFile
+func buildFetchFile(id uint64, name string, create bool) *messages.Client {
 	return &messages.Client{
-		MessageType: &messageType,
-		MessageId:   &id,
+		MessageType: messages.Client_FetchFile.Enum(),
+		MessageId:   proto.Uint64(id),
 		FetchFile: &messages.FetchFile{
-			Name: &name,
+			Name:   proto.String(name),
+			Create: proto.Bool(create),
 		},
 	}
 }

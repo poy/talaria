@@ -40,6 +40,37 @@ var _ = Describe("Client", func() {
 		server.Close()
 	})
 
+	Describe("CreateFile()", func() {
+
+		var (
+			expectedFileName string
+		)
+
+		BeforeEach(func() {
+			expectedFileName = "some-file-1"
+		})
+
+		Context("without errors", func() {
+			BeforeEach(func() {
+
+				mockServer.serverCh <- buildFileLocation(1)
+
+			})
+
+			It("writes to the correct broker", func(done Done) {
+				defer close(done)
+
+				Expect(client.CreateFile(expectedFileName)).To(Succeed())
+
+				var msg *messages.Client
+				Eventually(mockServer.clientCh).Should(Receive(&msg))
+				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
+				Expect(msg.FetchFile.GetCreate()).To(BeTrue())
+			}, 5)
+
+		})
+	})
+
 	Describe("FetchWriter()", func() {
 
 		var (

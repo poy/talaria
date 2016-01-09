@@ -1,10 +1,6 @@
 package broker
 
-import (
-	"sync"
-
-	"github.com/apoydence/talaria/logging"
-)
+import "github.com/apoydence/talaria/logging"
 
 type connInfo struct {
 	fileName string
@@ -12,12 +8,8 @@ type connInfo struct {
 }
 
 type Client struct {
-	log logging.Logger
-
-	syncFileIds sync.RWMutex
-	fileIds     map[uint64]*connInfo
-	fileNames   map[string]uint64
-	fetcher     *ConnectionFetcher
+	log     logging.Logger
+	fetcher *ConnectionFetcher
 }
 
 func NewClient(URLs ...string) (*Client, error) {
@@ -30,15 +22,18 @@ func NewClient(URLs ...string) (*Client, error) {
 	}
 
 	return &Client{
-		log:       log,
-		fetcher:   fetcher,
-		fileIds:   make(map[uint64]*connInfo),
-		fileNames: make(map[string]uint64),
+		log:     log,
+		fetcher: fetcher,
 	}, nil
 }
 
 func (c *Client) Close() {
 	c.fetcher.Close()
+}
+
+func (c *Client) CreateFile(fileName string) error {
+	_, _, err := c.fetcher.Fetch(fileName, true)
+	return err
 }
 
 func (c *Client) FetchWriter(fileName string) (*Writer, error) {

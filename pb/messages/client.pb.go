@@ -129,6 +129,7 @@ func (m *Client) GetSeekIndex() *SeekIndex {
 type FetchFile struct {
 	Name             *string `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
 	FileId           *uint64 `protobuf:"varint,2,req,name=fileId" json:"fileId,omitempty"`
+	Create           *bool   `protobuf:"varint,3,req,name=create" json:"create,omitempty"`
 	XXX_unrecognized []byte  `json:"-"`
 }
 
@@ -148,6 +149,13 @@ func (m *FetchFile) GetFileId() uint64 {
 		return *m.FileId
 	}
 	return 0
+}
+
+func (m *FetchFile) GetCreate() bool {
+	if m != nil && m.Create != nil {
+		return *m.Create
+	}
+	return false
 }
 
 type WriteToFile struct {
@@ -460,6 +468,24 @@ func (m *FetchFile) Unmarshal(data []byte) error {
 				}
 			}
 			m.FileId = &v
+		case 3:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Create", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			b := bool(v != 0)
+			m.Create = &b
 		default:
 			var sizeOfWire int
 			for {
@@ -740,6 +766,9 @@ func (m *FetchFile) Size() (n int) {
 	if m.FileId != nil {
 		n += 1 + sovClient(uint64(*m.FileId))
 	}
+	if m.Create != nil {
+		n += 2
+	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
 	}
@@ -898,6 +927,16 @@ func (m *FetchFile) MarshalTo(data []byte) (n int, err error) {
 		data[i] = 0x10
 		i++
 		i = encodeVarintClient(data, i, uint64(*m.FileId))
+	}
+	if m.Create != nil {
+		data[i] = 0x18
+		i++
+		if *m.Create {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

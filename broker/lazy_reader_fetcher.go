@@ -21,7 +21,7 @@ func NewLazyReaderFetcher(addr string) *LazyReaderFetcher {
 }
 
 func (l *LazyReaderFetcher) FetchReader(name string) (ReadConnection, uint64, error) {
-	return l.fetchFetcher().Fetch(name)
+	return l.fetchFetcher().Fetch(name, false)
 }
 
 func (l *LazyReaderFetcher) fetchFetcher() *ConnectionFetcher {

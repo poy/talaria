@@ -24,7 +24,7 @@ type IoProvider interface {
 }
 
 type Orchestrator interface {
-	FetchLeader(name string) (string, bool)
+	FetchLeader(name string, create bool) (string, bool, error)
 }
 
 type ioInfo struct {
@@ -38,45 +38,52 @@ type ioInfo struct {
 type FileController struct {
 	log          logging.Logger
 	fileIdMap    map[uint64]*ioInfo
-	skipOrch     bool
 	ioProvider   IoProvider
 	orchestrator Orchestrator
 }
 
-func NewFileController(skipOrch bool, ioProvider IoProvider, orchestrator Orchestrator) *FileController {
+func NewFileController(ioProvider IoProvider, orchestrator Orchestrator) *FileController {
 	return &FileController{
 		log:          logging.Log("FileController"),
 		fileIdMap:    make(map[uint64]*ioInfo),
-		skipOrch:     skipOrch,
 		ioProvider:   ioProvider,
 		orchestrator: orchestrator,
 	}
 }
 
-func (f *FileController) FetchFile(fileId uint64, name string) *ConnectionError {
+func (f *FileController) FetchFile(fileId uint64, name string, create bool) *ConnectionError {
 	info, ok := f.fileIdMap[fileId]
 	if ok && name != info.name {
 		return NewConnectionError(fmt.Sprintf("ID (%d) already used with %s", fileId, info.name), "", false)
 	}
 
-	if !ok {
-
-		f.log.Debug("New fileId (fileId=%d) (skipOrch=%v) %s", fileId, f.skipOrch, name)
-
-		if !f.skipOrch {
-			uri, local := f.orchestrator.FetchLeader(name)
-			if !local {
-				return NewConnectionError("Redirect to the correct broker", uri, false)
-			}
-		}
-
-		f.fileIdMap[fileId] = &ioInfo{
-			name:   name,
-			writer: f.ioProvider.ProvideWriter(name),
-			reader: f.ioProvider.ProvideReader(name),
-			buffer: make([]byte, 1024),
-		}
+	if ok {
+		return nil
 	}
+
+	f.log.Debug("New fileId (fileId=%d) (create=%v) %s", fileId, create, name)
+
+	uri, local, err := f.orchestrator.FetchLeader(name, create)
+
+	if err != nil {
+		return NewConnectionError(err.Error(), "", false)
+	}
+
+	if !local {
+		return NewConnectionError("Redirect to the correct broker", uri, false)
+	}
+
+	if !create && uri == "" {
+		return NewConnectionError(fmt.Sprintf("File (%s) has not been created", name), "", false)
+	}
+
+	f.fileIdMap[fileId] = &ioInfo{
+		name:   name,
+		writer: f.ioProvider.ProvideWriter(name),
+		reader: f.ioProvider.ProvideReader(name),
+		buffer: make([]byte, 1024),
+	}
+
 	return nil
 }
 

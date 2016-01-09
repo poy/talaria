@@ -57,8 +57,8 @@ func NewConnection(URL string) (*Connection, error) {
 	return c, nil
 }
 
-func (c *Connection) FetchFile(fileId uint64, name string) *ConnectionError {
-	respCh := c.writeFetchFile(c.nextMsgId(), fileId, name)
+func (c *Connection) FetchFile(fileId uint64, name string, create bool) *ConnectionError {
+	respCh := c.writeFetchFile(c.nextMsgId(), fileId, name, create)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
@@ -250,7 +250,7 @@ func (c *Connection) writeMessage(msg *messages.Client) {
 	}
 }
 
-func (c *Connection) writeFetchFile(msgId, fileId uint64, name string) <-chan *messages.Server {
+func (c *Connection) writeFetchFile(msgId, fileId uint64, name string, create bool) <-chan *messages.Server {
 	messageType := messages.Client_FetchFile
 	msg := &messages.Client{
 		MessageType: messageType.Enum(),
@@ -258,6 +258,7 @@ func (c *Connection) writeFetchFile(msgId, fileId uint64, name string) <-chan *m
 		FetchFile: &messages.FetchFile{
 			Name:   proto.String(name),
 			FileId: proto.Uint64(fileId),
+			Create: proto.Bool(create),
 		},
 	}
 

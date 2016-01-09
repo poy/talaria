@@ -42,6 +42,8 @@ var _ = Describe("Benchmarks", func() {
 		Measure("It should read and write to single file 1000 times in under 2 seconds", func(b Benchmarker) {
 			runtime := b.Time("runtime", func() {
 				fileName := "some-file"
+
+				Expect(client.CreateFile(fileName)).To(Succeed())
 				writer, err := client.FetchWriter(fileName)
 				Expect(err).ToNot(HaveOccurred())
 
@@ -114,6 +116,7 @@ var _ = Describe("Benchmarks", func() {
 						defer wg1.Done()
 						defer GinkgoRecover()
 
+						Expect(client.CreateFile(name)).To(Succeed())
 						writer, err := client.FetchWriter(name)
 						Expect(err).ToNot(HaveOccurred())
 

@@ -16,7 +16,7 @@ const (
 )
 
 type Controller interface {
-	FetchFile(id uint64, name string) *ConnectionError
+	FetchFile(id uint64, name string, create bool) *ConnectionError
 	WriteToFile(id uint64, data []byte) (int64, error)
 	ReadFromFile(id uint64, callback func([]byte, int64, error))
 	SeekIndex(id, index uint64, callback func(error))
@@ -28,7 +28,7 @@ type ControllerProvider interface {
 
 func StartBrokerServer(brokerPort int, orch Orchestrator, provider IoProvider) {
 	log := logging.Log("BrokerServer")
-	controllerProvider := newControllerProvider(false, provider, orch)
+	controllerProvider := newControllerProvider(provider, orch)
 	broker := NewBroker(controllerProvider)
 
 	http.Handle(OuterEndpoint, broker)
@@ -92,7 +92,7 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 
 func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn *concurrentWriter) {
 	fetchFile := message.GetFetchFile()
-	err := controller.FetchFile(fetchFile.GetFileId(), fetchFile.GetName())
+	err := controller.FetchFile(fetchFile.GetFileId(), fetchFile.GetName(), fetchFile.GetCreate())
 	if err != nil && err.Uri == "" {
 		b.writeError(err.Error(), message, conn)
 		return

@@ -2,9 +2,10 @@ package broker
 
 import (
 	"fmt"
-	"github.com/apoydence/talaria/logging"
 	"net/url"
 	"sync"
+
+	"github.com/apoydence/talaria/logging"
 )
 
 var (
@@ -41,14 +42,14 @@ func NewConnectionFetcher(blacklist []string, URLs ...string) (*ConnectionFetche
 	}, nil
 }
 
-func (c *ConnectionFetcher) Fetch(fileName string) (*Connection, uint64, error) {
+func (c *ConnectionFetcher) Fetch(fileName string, create bool) (*Connection, uint64, error) {
 	c.syncConns.Lock()
 	defer c.syncConns.Unlock()
 
 	fileId := c.getNextFetchIdx()
 	conn := c.verifyConn(c.roundRobinConns(fileId))
 
-	err := conn.FetchFile(fileId, fileName)
+	err := conn.FetchFile(fileId, fileName, create)
 	if err == nil {
 		return c.checkBlacklist(conn, fileId, nil)
 	}
@@ -63,7 +64,7 @@ func (c *ConnectionFetcher) Fetch(fileName string) (*Connection, uint64, error) 
 		c.conns = append(c.conns, conn)
 	}
 
-	err = conn.FetchFile(fileId, fileName)
+	err = conn.FetchFile(fileId, fileName, create)
 	return c.checkBlacklist(conn, fileId, err)
 }
 
@@ -132,7 +133,7 @@ func (c *ConnectionFetcher) checkBlacklist(conn *Connection, fileId uint64, err 
 		return nil, 0, BlacklistedErr
 	}
 
-	return conn, fileId, err
+	return conn, fileId, nil
 }
 
 func (c *ConnectionFetcher) onBlacklist(conn *Connection) bool {

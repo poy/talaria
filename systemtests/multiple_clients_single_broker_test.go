@@ -42,6 +42,8 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 			defer wg.Done()
 			client := startClient(URL)
 
+			Expect(client.CreateFile(name)).To(Succeed())
+
 			writer, err := client.FetchWriter(name)
 			Expect(err).ToNot(HaveOccurred())
 
@@ -84,6 +86,9 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 			name := "some-name"
 			clientW := startClient(URL)
 			clientR := startClient(URL)
+
+			Expect(clientW.CreateFile(name)).To(Succeed())
+
 			go func() {
 				defer GinkgoRecover()
 
@@ -121,5 +126,16 @@ var _ = Describe("MultipleClientsSingleBroker", func() {
 			}(byte(i))
 		}
 	}, 10)
+
+	It("fails if the file is not created before it is accessed", func() {
+		name := "some-name"
+		data := []byte("some-data")
+		client := startClient(URL)
+
+		writer, err := client.FetchWriter(name)
+		Expect(err).ToNot(HaveOccurred())
+		_, err = writer.WriteToFile(data)
+		Expect(err).To(HaveOccurred())
+	})
 
 })
