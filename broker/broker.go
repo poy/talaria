@@ -13,7 +13,6 @@ import (
 
 const (
 	OuterEndpoint = "/"
-	InnerEndpoint = "/inner"
 )
 
 type Controller interface {
@@ -32,11 +31,7 @@ func StartBrokerServer(brokerPort int, orch Orchestrator, provider IoProvider) {
 	controllerProvider := newControllerProvider(false, provider, orch)
 	broker := NewBroker(controllerProvider)
 
-	controllerProviderInner := newControllerProvider(true, provider, orch)
-	brokerInner := NewBroker(controllerProviderInner)
-
 	http.Handle(OuterEndpoint, broker)
-	http.Handle(InnerEndpoint, brokerInner)
 
 	log.Info("Starting broker on port %d", brokerPort)
 	uri := fmt.Sprintf(":%d", brokerPort)
