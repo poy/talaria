@@ -1,8 +1,9 @@
 package broker
 
 import (
-	"github.com/apoydence/talaria/logging"
 	"sync"
+
+	"github.com/apoydence/talaria/logging"
 )
 
 type LazyReaderFetcher struct {
