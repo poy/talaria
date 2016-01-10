@@ -6,6 +6,7 @@ message Server{
 		FileLocation = 2;
 		FileOffset = 3;
 		ReadData = 4;
+    FileMeta = 5;
 	}
 
 	required uint64 messageId = 1;
@@ -15,6 +16,7 @@ message Server{
 	optional FileLocation fileLocation = 4;
 	optional FileOffset fileOffset = 5;
 	optional ReadData readData = 6;
+  optional FileMeta fileMeta = 7;
 }
 
 message Error{
@@ -34,4 +36,8 @@ message FileOffset{
 message ReadData{
 	required bytes data = 1;
 	required int64 offset = 2;
+}
+
+message FileMeta{
+  repeated string replicaURIs = 1;
 }

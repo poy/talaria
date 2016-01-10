@@ -52,9 +52,7 @@ var _ = Describe("Client", func() {
 
 		Context("without errors", func() {
 			BeforeEach(func() {
-
 				mockServer.serverCh <- buildFileLocation(1)
-
 			})
 
 			It("writes to the correct broker", func(done Done) {
@@ -210,27 +208,50 @@ var _ = Describe("Client", func() {
 		}, 5)
 	})
 
-	XDescribe("LeaderOf()", func() {
+	Describe("FileMeta()", func() {
 		var (
-			id uint64
+			expectedFileName string
 		)
 
 		BeforeEach(func(done Done) {
 			defer close(done)
-			mockServer.serverCh <- buildFileLocation(1)
+			expectedFileName = "some-name"
 		})
 
-		It("returns the broker URI that is the leader of the given file", func(done Done) {
-			defer close(done)
-			uri, err := client.LeaderOf(id)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(uri).To(Equal(htmlToWs(server.URL)))
+		Context("created file", func() {
+
+			BeforeEach(func() {
+				mockServer.serverCh <- buildFileLocation(1)
+			})
+
+			It("returns the broker URI that is the leader of the given file", func(done Done) {
+				defer close(done)
+				meta, err := client.FileMeta(expectedFileName)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(meta.GetReplicaURIs()).To(HaveLen(1))
+				Expect(meta.GetReplicaURIs()[0]).To(Equal(htmlToWs(server.URL)))
+			})
 		})
 
-		It("returns an error for an unknown file ID", func(done Done) {
-			defer close(done)
-			_, err := client.LeaderOf(999)
-			Expect(err).To(HaveOccurred())
+		Context("file not created ", func() {
+
+			var (
+				expectedError string
+			)
+
+			BeforeEach(func() {
+				expectedError = "some-error"
+
+				mockServer.serverCh <- buildError(1, expectedError)
+			})
+
+			It("returns an error for an unknown file", func(done Done) {
+				defer close(done)
+				_, err := client.FileMeta(expectedFileName)
+
+				Expect(err).To(MatchError(expectedError))
+			})
 		})
 	})
 

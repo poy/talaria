@@ -1,6 +1,9 @@
 package broker
 
-import "github.com/apoydence/talaria/logging"
+import (
+	"github.com/apoydence/talaria/logging"
+	"github.com/apoydence/talaria/pb/messages"
+)
 
 type connInfo struct {
 	fileName string
@@ -44,6 +47,13 @@ func (c *Client) FetchReader(fileName string) (*Reader, error) {
 	return NewReader(fileName, NewConnectionFetcherWrapper(c.fetcher)), nil
 }
 
-func (c *Client) LeaderOf(fileId uint64) (string, error) {
-	panic("TODO")
+func (c *Client) FileMeta(fileName string) (*messages.FileMeta, error) {
+	conn, _, err := c.fetcher.Fetch(fileName, false)
+	if err != nil {
+		return nil, err
+	}
+
+	return &messages.FileMeta{
+		ReplicaURIs: []string{conn.URL},
+	}, nil
 }

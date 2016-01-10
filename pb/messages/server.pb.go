@@ -24,6 +24,7 @@ const (
 	Server_FileLocation Server_MessageType = 2
 	Server_FileOffset   Server_MessageType = 3
 	Server_ReadData     Server_MessageType = 4
+	Server_FileMeta     Server_MessageType = 5
 )
 
 var Server_MessageType_name = map[int32]string{
@@ -31,12 +32,14 @@ var Server_MessageType_name = map[int32]string{
 	2: "FileLocation",
 	3: "FileOffset",
 	4: "ReadData",
+	5: "FileMeta",
 }
 var Server_MessageType_value = map[string]int32{
 	"Error":        1,
 	"FileLocation": 2,
 	"FileOffset":   3,
 	"ReadData":     4,
+	"FileMeta":     5,
 }
 
 func (x Server_MessageType) Enum() *Server_MessageType {
@@ -63,6 +66,7 @@ type Server struct {
 	FileLocation     *FileLocation       `protobuf:"bytes,4,opt,name=fileLocation" json:"fileLocation,omitempty"`
 	FileOffset       *FileOffset         `protobuf:"bytes,5,opt,name=fileOffset" json:"fileOffset,omitempty"`
 	ReadData         *ReadData           `protobuf:"bytes,6,opt,name=readData" json:"readData,omitempty"`
+	FileMeta         *FileMeta           `protobuf:"bytes,7,opt,name=fileMeta" json:"fileMeta,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
 }
 
@@ -108,6 +112,13 @@ func (m *Server) GetFileOffset() *FileOffset {
 func (m *Server) GetReadData() *ReadData {
 	if m != nil {
 		return m.ReadData
+	}
+	return nil
+}
+
+func (m *Server) GetFileMeta() *FileMeta {
+	if m != nil {
+		return m.FileMeta
 	}
 	return nil
 }
@@ -198,6 +209,22 @@ func (m *ReadData) GetOffset() int64 {
 		return *m.Offset
 	}
 	return 0
+}
+
+type FileMeta struct {
+	ReplicaURIs      []string `protobuf:"bytes,1,rep,name=replicaURIs" json:"replicaURIs,omitempty"`
+	XXX_unrecognized []byte   `json:"-"`
+}
+
+func (m *FileMeta) Reset()         { *m = FileMeta{} }
+func (m *FileMeta) String() string { return proto.CompactTextString(m) }
+func (*FileMeta) ProtoMessage()    {}
+
+func (m *FileMeta) GetReplicaURIs() []string {
+	if m != nil {
+		return m.ReplicaURIs
+	}
+	return nil
 }
 
 func init() {
@@ -361,6 +388,33 @@ func (m *Server) Unmarshal(data []byte) error {
 				m.ReadData = &ReadData{}
 			}
 			if err := m.ReadData.Unmarshal(data[index:postIndex]); err != nil {
+				return err
+			}
+			index = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field FileMeta", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.FileMeta == nil {
+				m.FileMeta = &FileMeta{}
+			}
+			if err := m.FileMeta.Unmarshal(data[index:postIndex]); err != nil {
 				return err
 			}
 			index = postIndex
@@ -693,6 +747,70 @@ func (m *ReadData) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *FileMeta) Unmarshal(data []byte) error {
+	l := len(data)
+	index := 0
+	for index < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if index >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[index]
+			index++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ReplicaURIs", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + int(stringLen)
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.ReplicaURIs = append(m.ReplicaURIs, string(data[index:postIndex]))
+			index = postIndex
+		default:
+			var sizeOfWire int
+			for {
+				sizeOfWire++
+				wire >>= 7
+				if wire == 0 {
+					break
+				}
+			}
+			index -= sizeOfWire
+			skippy, err := github_com_gogo_protobuf_proto.Skip(data[index:])
+			if err != nil {
+				return err
+			}
+			if (index + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, data[index:index+skippy]...)
+			index += skippy
+		}
+	}
+	return nil
+}
 func (m *Server) Size() (n int) {
 	var l int
 	_ = l
@@ -716,6 +834,10 @@ func (m *Server) Size() (n int) {
 	}
 	if m.ReadData != nil {
 		l = m.ReadData.Size()
+		n += 1 + l + sovServer(uint64(l))
+	}
+	if m.FileMeta != nil {
+		l = m.FileMeta.Size()
 		n += 1 + l + sovServer(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -777,6 +899,21 @@ func (m *ReadData) Size() (n int) {
 	}
 	if m.Offset != nil {
 		n += 1 + sovServer(uint64(*m.Offset))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *FileMeta) Size() (n int) {
+	var l int
+	_ = l
+	if len(m.ReplicaURIs) > 0 {
+		for _, s := range m.ReplicaURIs {
+			l = len(s)
+			n += 1 + l + sovServer(uint64(l))
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -861,6 +998,16 @@ func (m *Server) MarshalTo(data []byte) (n int, err error) {
 			return 0, err
 		}
 		i += n4
+	}
+	if m.FileMeta != nil {
+		data[i] = 0x3a
+		i++
+		i = encodeVarintServer(data, i, uint64(m.FileMeta.Size()))
+		n5, err := m.FileMeta.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)
@@ -993,6 +1140,42 @@ func (m *ReadData) MarshalTo(data []byte) (n int, err error) {
 		data[i] = 0x10
 		i++
 		i = encodeVarintServer(data, i, uint64(*m.Offset))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(data[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *FileMeta) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *FileMeta) MarshalTo(data []byte) (n int, err error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if len(m.ReplicaURIs) > 0 {
+		for _, s := range m.ReplicaURIs {
+			data[i] = 0xa
+			i++
+			l = len(s)
+			for l >= 1<<7 {
+				data[i] = uint8(uint64(l)&0x7f | 0x80)
+				l >>= 7
+				i++
+			}
+			data[i] = uint8(l)
+			i++
+			i += copy(data[i:], s)
+		}
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

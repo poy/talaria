@@ -130,4 +130,18 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 		}
 	}, 5)
 
+	It("reports the leader via the FileMeta()", func(done Done) {
+		defer close(done)
+
+		name := "some-file"
+
+		client := startClient(URL)
+
+		Expect(client.CreateFile(name)).To(Succeed())
+		meta, err := client.FileMeta(name)
+		Expect(err).ToNot(HaveOccurred())
+		Expect(meta.GetReplicaURIs()).To(HaveLen(1))
+		Expect(meta.GetReplicaURIs()[0]).To(Equal(URL))
+	}, 5)
+
 })
