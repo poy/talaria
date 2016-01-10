@@ -55,7 +55,6 @@ func (o *Orchestrator) FetchLeader(name string, create bool) (string, bool, erro
 	results := make(chan string, 1)
 
 	o.kvStore.ListenForLeader(encodedName, func(name, uri string) {
-		println("FOUND LEADER", name, uri)
 		results <- uri
 	})
 
