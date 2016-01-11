@@ -138,10 +138,13 @@ func (k *KVStore) listenForLeader(name string, callback func(name, uri string)) 
 }
 
 func (k *KVStore) ListenForAnnouncements(callback func(name string)) {
-	go k.listenForAnnouncements(AnnouncePrefix, callback, nil)
+	go k.listenForAnnouncements(AnnouncePrefix, callback, func(pair *api.KVPair) (string, bool) {
+		return string(pair.Value), true
+	})
 
-	go k.listenForAnnouncements(Prefix, callback, func(pair *api.KVPair) bool {
-		return pair.Session == ""
+	go k.listenForAnnouncements(Prefix, callback, func(pair *api.KVPair) (string, bool) {
+		k.log.Debug("Change for (ret1=%s) (ret2=%v): %v", stripLeaderPrefix(pair.Key), pair.Session == "", pair)
+		return stripLeaderPrefix(pair.Key), pair.Session == ""
 	})
 }
 
@@ -159,7 +162,7 @@ func findMatch(pairs api.KVPairs, name string) *api.KVPair {
 	return nil
 }
 
-func (k *KVStore) listenForAnnouncements(prefix string, callback func(name string), filter func(pair *api.KVPair) bool) {
+func (k *KVStore) listenForAnnouncements(prefix string, callback func(name string), filter func(pair *api.KVPair) (string, bool)) {
 	var options api.QueryOptions
 
 	for {
@@ -171,8 +174,9 @@ func (k *KVStore) listenForAnnouncements(prefix string, callback func(name strin
 		options.WaitIndex = meta.LastIndex
 
 		for _, pair := range pairs {
-			if filter == nil || filter(pair) {
-				callback(string(pair.Value))
+			value, ok := filter(pair)
+			if ok {
+				callback(value)
 			}
 		}
 	}
@@ -194,7 +198,8 @@ func registerSession(healthPort int, healthCheckName string, client *api.Client,
 	waitForHealthy(healthCheckName, client.Health(), log)
 
 	sessionEntry := &api.SessionEntry{
-		Checks: []string{checkReg.Name},
+		LockDelay: 1,
+		Checks:    []string{checkReg.Name},
 	}
 
 	session, _, err := client.Session().Create(sessionEntry, nil)

@@ -95,7 +95,8 @@ var _ = Describe("Reader", func() {
 				expectedError *broker.ConnectionError
 			)
 
-			BeforeEach(func() {
+			BeforeEach(func(done Done) {
+				defer close(done)
 				expectedError = &broker.ConnectionError{
 					WebsocketError: true,
 				}

@@ -102,10 +102,10 @@ var _ = Describe("KVStore", func() {
 		Describe("announcing for sessionless keys", func() {
 
 			var (
-				key              string
-				expectedFileName string
-				results          chan string
-				session          string
+				expectedFileName  string
+				expectedBrokerUri string
+				results           chan string
+				session           string
 			)
 
 			var callback = func(value string) {
@@ -114,8 +114,8 @@ var _ = Describe("KVStore", func() {
 
 			var addPair = func() {
 				pair := &api.KVPair{
-					Key:     fmt.Sprintf("%s-%s", kvstore.Prefix, key),
-					Value:   []byte(expectedFileName),
+					Key:     fmt.Sprintf("%s-%s", kvstore.Prefix, expectedFileName),
+					Value:   []byte(expectedBrokerUri),
 					Session: session,
 				}
 
@@ -130,7 +130,7 @@ var _ = Describe("KVStore", func() {
 			}
 
 			BeforeEach(func() {
-				key = "some-key"
+				expectedBrokerUri = "some-uri"
 				expectedFileName = "some-file-name"
 				results = make(chan string, 100)
 			})

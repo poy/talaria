@@ -104,6 +104,7 @@ var _ = Describe("ConnectionFetcher", func() {
 						Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 						Expect(clientMsg.FetchFile.GetCreate()).To(BeFalse())
 					})
+
 				})
 
 				Context("redirects different broker", func() {
@@ -176,6 +177,39 @@ var _ = Describe("ConnectionFetcher", func() {
 					Expect(err).ToNot(HaveOccurred())
 					Expect(conn.URL).To(Equal(convertToWs(servers[0].URL)))
 					Expect(mockServers[0].connEstablishedCh).To(HaveLen(2))
+				})
+
+				Context("the broker is dead", func() {
+
+					BeforeEach(func() {
+						mockServers[1].serverCh <- buildFileLocation(2)
+					})
+
+					JustBeforeEach(func() {
+						servers[0].Close()
+					})
+
+					It("tries a different connection", func() {
+						conn, _, err := fetcher.Fetch(expectedFile, false)
+
+						Expect(err).ToNot(HaveOccurred())
+						Expect(conn.URL).To(Equal(convertToWs(servers[1].URL)))
+					})
+				})
+			})
+
+			Context("one of the connections gives a websocket error", func() {
+				JustBeforeEach(func() {
+					servers[0].CloseClientConnections()
+					mockServers[1].serverCh <- buildFileLocation(1)
+				})
+
+				It("should try to use the next connection to fetch", func(done Done) {
+					defer close(done)
+					conn, _, err := fetcher.Fetch(expectedFile, false)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(conn.URL).To(Equal(convertToWs(servers[1].URL)))
 				})
 			})
 		})

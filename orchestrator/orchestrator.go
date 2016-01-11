@@ -71,6 +71,8 @@ func (o *Orchestrator) ParticipateInElection(partManager PartitionManager) {
 }
 
 func (o *Orchestrator) participateInElection(fullName string, partManager PartitionManager) {
+	o.log.Debug("(%s) Participate in election for %s", o.clientAddr, fullName)
+
 	name, replica := o.decodeIndex(fullName)
 	if !partManager.Participate(name, replica) {
 		return
@@ -78,9 +80,11 @@ func (o *Orchestrator) participateInElection(fullName string, partManager Partit
 
 	acquired := o.kvStore.Acquire(fullName)
 	if !acquired {
+		o.log.Debug("(%s) Lost election for %s", o.clientAddr, fullName)
 		return
 	}
 
+	o.log.Debug("(%s) Won election for %s", o.clientAddr, fullName)
 	o.kvStore.DeleteAnnouncement(fullName)
 
 	prevReplica, prevReplicaNeeded := partManager.Add(name, replica)

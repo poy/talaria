@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/apoydence/talaria/logging"
 )
@@ -46,6 +47,10 @@ func (c *ConnectionFetcher) Fetch(fileName string, create bool) (*Connection, ui
 	c.syncConns.Lock()
 	defer c.syncConns.Unlock()
 
+	return c.subFetch(fileName, create)
+}
+
+func (c *ConnectionFetcher) subFetch(fileName string, create bool) (*Connection, uint64, error) {
 	fileId := c.getNextFetchIdx()
 	conn := c.verifyConn(c.roundRobinConns(fileId))
 
@@ -54,24 +59,43 @@ func (c *ConnectionFetcher) Fetch(fileName string, create bool) (*Connection, ui
 		return c.checkBlacklist(conn, fileId, nil)
 	}
 
+	if err.WebsocketError {
+		return c.subFetch(fileName, create)
+	}
+
 	if err.Uri == "" {
 		return nil, 0, fmt.Errorf(err.errMessage)
 	}
 
-	conn = c.verifyConn(c.fetchConnection(err.Uri))
-	if conn == nil {
-		conn = c.createConnection(err.Uri)
-		c.conns = append(c.conns, conn)
+	conn, fileId, remErr := c.fetchConnectionRemote(fileName, err.Uri, fileId, create)
+	if conn == nil && remErr == nil {
+		c.log.Errorf("Unable to connect to unavailable connection %s", err.Uri)
+		time.Sleep(time.Second)
+		return c.subFetch(fileName, create)
 	}
 
-	err = conn.FetchFile(fileId, fileName, create)
-	return c.checkBlacklist(conn, fileId, err)
+	return conn, fileId, remErr
 }
 
 func (c *ConnectionFetcher) Close() {
 	for _, conn := range c.conns {
 		conn.Close()
 	}
+}
+
+func (c *ConnectionFetcher) fetchConnectionRemote(fileName, remoteURI string, fileId uint64, create bool) (*Connection, uint64, error) {
+	conn := c.verifyConn(c.fetchConnection(remoteURI))
+	if conn == nil {
+		conn = c.createConnection(remoteURI)
+		if conn == nil {
+			return nil, 0, nil
+		}
+
+		c.conns = append(c.conns, conn)
+	}
+
+	err := conn.FetchFile(fileId, fileName, create)
+	return c.checkBlacklist(conn, fileId, err)
 }
 
 func (c *ConnectionFetcher) getNextFetchIdx() uint64 {
@@ -84,7 +108,8 @@ func (c *ConnectionFetcher) getNextFetchIdx() uint64 {
 func (c *ConnectionFetcher) createConnection(URL string) *Connection {
 	conn, err := NewConnection(URL)
 	if err != nil {
-		c.log.Panicf("Unable to create connection to %s: %v", URL, err)
+		c.log.Errorf("Unable to create connection to %s: %v", URL, err)
+		return nil
 	}
 
 	return conn
@@ -95,10 +120,19 @@ func (c *ConnectionFetcher) verifyConn(conn *Connection) *Connection {
 		return conn
 	}
 
+	c.log.Debug("Removing connection (URL=%s) from known connection list.", conn.URL)
 	index, _ := c.fetchConnectionIndex(conn.URL)
 	c.conns = append(c.conns[:index], c.conns[index+1:]...)
 
 	newConn := c.createConnection(conn.URL)
+	if newConn == nil {
+		if len(c.conns) == 0 {
+			c.log.Panicf("Unable to find vialbe connection")
+		}
+
+		return c.verifyConn(c.conns[0])
+	}
+
 	c.conns = append(c.conns, newConn)
 
 	return newConn
