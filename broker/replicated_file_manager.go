@@ -40,6 +40,10 @@ func (r *ReplicatedFileManager) Add(name string, replica uint) (uint, bool) {
 
 	currentReplica, isUpgrade := r.currentReplica(name)
 
+	r.writers[name] = &writerInfo{
+		replica: replica,
+	}
+
 	if r.setupAsLeader(name, replica) {
 		return currentReplica, isUpgrade
 	}

@@ -60,7 +60,25 @@ func (k *KVStore) Acquire(key string) bool {
 	return k.tryAcquire(key)
 }
 
+func (k *KVStore) Release(name string) {
+	k.log.Debug("(%s) Releasing %s", k.clientAddr, name)
+	pair := &api.KVPair{
+		Key:     fmt.Sprintf("%s-%s", Prefix, name),
+		Session: k.sessionName,
+	}
+
+	ok, _, err := k.kv.Release(pair, nil)
+	if !ok {
+		k.log.Panicf("(%s) Failed to release key %s: expected return value 'true'", k.clientAddr, name)
+	}
+
+	if err != nil {
+		k.log.Panicf("(%s) Failed to release key %s: %v", k.clientAddr, name, err.Error())
+	}
+}
+
 func (k *KVStore) Announce(name string) {
+	k.log.Debug("Announcing %s", name)
 	pair := &api.KVPair{
 		Key:   fmt.Sprintf("%s-%d", AnnouncePrefix, rand.Int63()),
 		Value: []byte(name),
@@ -73,6 +91,7 @@ func (k *KVStore) Announce(name string) {
 }
 
 func (k *KVStore) DeleteAnnouncement(name string) {
+	k.log.Debug("Delete announcement %s", name)
 	pairs, _, err := k.kv.List(AnnouncePrefix, nil)
 	pair := findMatch(pairs, name)
 	if pair == nil {
@@ -143,7 +162,6 @@ func (k *KVStore) ListenForAnnouncements(callback func(name string)) {
 	})
 
 	go k.listenForAnnouncements(Prefix, callback, func(pair *api.KVPair) (string, bool) {
-		k.log.Debug("Change for (ret1=%s) (ret2=%v): %v", stripLeaderPrefix(pair.Key), pair.Session == "", pair)
 		return stripLeaderPrefix(pair.Key), pair.Session == ""
 	})
 }

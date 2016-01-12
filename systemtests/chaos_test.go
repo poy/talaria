@@ -46,10 +46,10 @@ var _ = FDescribe("Chaos", func() {
 		tmpDirs = append(tmpDirs, tmpDir)
 	}
 
-	Context("2 brokers", func() {
+	Context("4 brokers", func() {
 
 		BeforeEach(func() {
-			for i := 0; i < 2; i++ {
+			for i := 0; i < 4; i++ {
 				startBroker()
 			}
 		})
@@ -94,6 +94,13 @@ var _ = FDescribe("Chaos", func() {
 			killLeader(fileName)
 
 			for i := byte(50); i < 100; i++ {
+				_, err := writer.WriteToFile([]byte{i})
+				Expect(err).ToNot(HaveOccurred())
+			}
+
+			killLeader(fileName)
+
+			for i := byte(100); i < 150; i++ {
 				_, err := writer.WriteToFile([]byte{i})
 				Expect(err).ToNot(HaveOccurred())
 			}

@@ -168,6 +168,12 @@ var _ = Describe("Orchestrator", func() {
 
 						Eventually(mockKvStore.announceCh).Should(Receive(Equal(expectedKey + "~99")))
 					})
+
+					It("releases the lock for the replica", func() {
+						orch.ParticipateInElection(mockPartManager)
+
+						Eventually(mockKvStore.releaseCh).Should(Receive(Equal(expectedKey + "~99")))
+					})
 				})
 			})
 

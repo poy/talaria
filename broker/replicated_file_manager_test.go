@@ -226,16 +226,32 @@ var _ = Describe("ReplicatedFileManager", func() {
 
 					Expect(manager.Participate("some-name-1", currentIndex+1)).To(BeFalse())
 				})
+
+				It("updates the current replica", func(done Done) {
+					defer close(done)
+					manager.Add("some-name-1", 2)
+					manager.Add("some-name-1", 1)
+
+					Expect(manager.Participate("some-name-1", 1)).To(BeFalse())
+				})
 			})
 		})
 
 		Context("is the leader", func() {
-			It("returns false", func(done Done) {
+			It("returns false for a lower replica", func(done Done) {
 				defer close(done)
 
 				manager.Add("some-name-1", 0)
 
 				Expect(manager.Participate("some-name-1", 1)).To(BeFalse())
+			})
+
+			It("returns false for the same replica", func(done Done) {
+				defer close(done)
+
+				manager.Add("some-name-1", 0)
+
+				Expect(manager.Participate("some-name-1", 0)).To(BeFalse())
 			})
 		})
 	})

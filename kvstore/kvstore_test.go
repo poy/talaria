@@ -335,4 +335,26 @@ var _ = Describe("KVStore", func() {
 		}, 5)
 	})
 
+	Describe("Release()", func() {
+		var fetchSession = func() string {
+			pair, _, err := consulClient.KV().Get(keyWithPrefix, nil)
+
+			Expect(err).ToNot(HaveOccurred())
+			Expect(pair).ToNot(BeNil())
+			return pair.Session
+		}
+
+		Context("key is acquired", func() {
+			BeforeEach(func() {
+				Expect(kv.Acquire(key)).To(BeTrue())
+			})
+
+			It("releases the key", func() {
+				kv.Release(key)
+
+				Eventually(fetchSession, 3).Should(BeEmpty())
+			})
+		})
+	})
+
 })

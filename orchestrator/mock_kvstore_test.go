@@ -5,6 +5,7 @@ type mockKvStore struct {
 	deleteAnnounceCh       chan string
 	acquireRx              chan string
 	acquireTx              chan bool
+	releaseCh              chan string
 	fetchLeaderRx          chan string
 	fetchLeaderTx          chan string
 	announceLeaderTx       chan string
@@ -20,6 +21,7 @@ func newMockKvStore() *mockKvStore {
 		deleteAnnounceCh:       make(chan string, 100),
 		acquireRx:              make(chan string, 100),
 		acquireTx:              make(chan bool, 100),
+		releaseCh:              make(chan string, 100),
 		fetchLeaderRx:          make(chan string, 100),
 		fetchLeaderTx:          make(chan string, 100),
 		announceLeaderTx:       make(chan string, 100),
@@ -42,6 +44,10 @@ func (m *mockKvStore) FetchLeader(name string) (string, bool) {
 func (m *mockKvStore) Acquire(name string) bool {
 	m.acquireRx <- name
 	return <-m.acquireTx
+}
+
+func (m *mockKvStore) Release(name string) {
+	m.releaseCh <- name
 }
 
 func (m *mockKvStore) ListenForLeader(name string, callback func(name, uri string)) {
