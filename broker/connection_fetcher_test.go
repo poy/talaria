@@ -162,16 +162,19 @@ var _ = Describe("ConnectionFetcher", func() {
 
 				BeforeEach(func() {
 					expectedError = "some-error"
+
 					mockServers[0].serverCh <- buildError(1, expectedError)
 					mockServers[1].serverCh <- buildRemoteFileLocation(1, servers[0].URL)
 					mockServers[0].serverCh <- buildFileLocation(1)
+					mockServers[0].serverCh <- buildFileLocation(2)
 				})
 
 				JustBeforeEach(func() {
 					fetcher.Fetch(expectedFile, false)
 				})
 
-				It("reconnects to broker", func() {
+				It("reconnects to broker", func(done Done) {
+					defer close(done)
 					conn, _, err := fetcher.Fetch(expectedFile, false)
 
 					Expect(err).ToNot(HaveOccurred())
@@ -189,7 +192,8 @@ var _ = Describe("ConnectionFetcher", func() {
 						servers[0].Close()
 					})
 
-					It("tries a different connection", func() {
+					It("tries a different connection", func(done Done) {
+						defer close(done)
 						conn, _, err := fetcher.Fetch(expectedFile, false)
 
 						Expect(err).ToNot(HaveOccurred())

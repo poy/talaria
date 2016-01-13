@@ -127,7 +127,7 @@ func (c *ConnectionFetcher) verifyConn(conn *Connection) *Connection {
 	newConn := c.createConnection(conn.URL)
 	if newConn == nil {
 		if len(c.conns) == 0 {
-			c.log.Panicf("Unable to find vialbe connection")
+			c.log.Panicf("Unable to find viable connection")
 		}
 
 		return c.verifyConn(c.conns[0])

@@ -26,7 +26,7 @@ func NewWriter(fileName string, fetcher WriteConnectionFetcher) *Writer {
 func (w *Writer) WriteToFile(data []byte) (int64, *ConnectionError) {
 	fileId, conn, fcErr := w.fetchConnection()
 	if fcErr != nil {
-		return 0, NewConnectionError(fcErr.Error(), "", false)
+		return 0, NewConnectionError(fcErr.Error(), "", "", false)
 	}
 
 	index, err := conn.WriteToFile(fileId, data)

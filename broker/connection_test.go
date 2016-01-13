@@ -71,6 +71,13 @@ var _ = Describe("Connection", func() {
 
 					Eventually(mockServer.connDoneCh).Should(HaveLen(1))
 				})
+
+				It("populates the error with the connection URI", func() {
+					err := connection.FetchFile(9, expectedName, true)
+
+					Expect(err).To(HaveOccurred())
+					Expect(err.ConnURL).To(Equal(connection.URL))
+				})
 			})
 
 			Context("dead connection", func() {
@@ -91,6 +98,13 @@ var _ = Describe("Connection", func() {
 					connection.FetchFile(9, expectedName, true)
 
 					Expect(connection.Errored()).To(BeTrue())
+				})
+
+				It("populates the error with the connection URI", func() {
+					err := connection.FetchFile(9, expectedName, true)
+
+					Expect(err).To(HaveOccurred())
+					Expect(err.ConnURL).To(Equal(connection.URL))
 				})
 			})
 
@@ -186,6 +200,13 @@ var _ = Describe("Connection", func() {
 
 					Expect(connection.Errored()).To(BeTrue())
 				})
+
+				It("populates the error with the connection URI", func() {
+					_, err := connection.WriteToFile(8, expectedData)
+
+					Expect(err).To(HaveOccurred())
+					Expect(err.ConnURL).To(Equal(connection.URL))
+				})
 			})
 
 			Context("dead connection", func() {
@@ -218,6 +239,13 @@ var _ = Describe("Connection", func() {
 					Expect(err).To(HaveOccurred())
 					Expect(err.WebsocketError).To(BeTrue())
 				}, 3)
+
+				It("populates the error with the connection URI", func() {
+					_, err := connection.WriteToFile(8, expectedData)
+
+					Expect(err).To(HaveOccurred())
+					Expect(err.ConnURL).To(Equal(connection.URL))
+				})
 			})
 		})
 
@@ -281,6 +309,13 @@ var _ = Describe("Connection", func() {
 
 					Expect(connection.Errored()).To(BeTrue())
 				})
+
+				It("populates the error with the connection URI", func() {
+					_, _, err := connection.ReadFromFile(8)
+
+					Expect(err).To(HaveOccurred())
+					Expect(err.ConnURL).To(Equal(connection.URL))
+				})
 			})
 
 			Context("dead connection", func() {
@@ -300,6 +335,13 @@ var _ = Describe("Connection", func() {
 					connection.ReadFromFile(8)
 
 					Expect(connection.Errored()).To(BeTrue())
+				})
+
+				It("populates the error with the connection URI", func() {
+					_, _, err := connection.ReadFromFile(8)
+
+					Expect(err).To(HaveOccurred())
+					Expect(err.ConnURL).To(Equal(connection.URL))
 				})
 			})
 		})
@@ -358,15 +400,25 @@ var _ = Describe("Connection", func() {
 				Expect(clientMsg.SeekIndex.GetIndex()).To(Equal(expectedIndex))
 			})
 
-			It("returns an error if the returned index does not match", func(done Done) {
-				defer close(done)
+			Context("non-matching returned index", func() {
+				BeforeEach(func() {
+					mockServer.serverCh <- buildFileOffset(1, int64(expectedIndex+1))
+				})
 
-				mockServer.serverCh <- buildFileOffset(1, int64(expectedIndex+1))
+				It("returns an error if the returned index does not match", func(done Done) {
+					defer close(done)
 
-				err := connection.SeekIndex(8, expectedIndex)
-				Expect(err).To(HaveOccurred())
+					err := connection.SeekIndex(8, expectedIndex)
+					Expect(err).To(HaveOccurred())
+				})
+
+				It("populates the error with the connection URI", func() {
+					err := connection.SeekIndex(8, expectedIndex)
+
+					Expect(err).To(HaveOccurred())
+					Expect(err.ConnURL).To(Equal(connection.URL))
+				})
 			})
-
 		})
 
 		Context("dead connection", func() {
@@ -382,6 +434,13 @@ var _ = Describe("Connection", func() {
 				Expect(err).To(HaveOccurred())
 				Expect(err.WebsocketError).To(BeTrue())
 			}, 3)
+
+			It("populates the error with the connection URI", func() {
+				err := connection.SeekIndex(8, expectedIndex)
+
+				Expect(err).To(HaveOccurred())
+				Expect(err.ConnURL).To(Equal(connection.URL))
+			})
 		})
 
 	})

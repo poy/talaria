@@ -170,7 +170,7 @@ var _ = Describe("Broker", func() {
 
 				BeforeEach(func() {
 					expectedFileId = 0
-					expectedConnectionErr = broker.NewConnectionError("some-error", "", false)
+					expectedConnectionErr = broker.NewConnectionError("some-error", "", "", false)
 				})
 
 				It("responds with the expected message ID", func(done Done) {
@@ -220,7 +220,7 @@ var _ = Describe("Broker", func() {
 				BeforeEach(func() {
 					expectedUri = "http://some.url"
 					expectedFileId = 8
-					expectedConnectionErr = broker.NewConnectionError("some-error", expectedUri, false)
+					expectedConnectionErr = broker.NewConnectionError("some-error", expectedUri, "", false)
 				})
 
 				It("responds with the expected message ID", func(done Done) {

@@ -63,16 +63,16 @@ func (c *Connection) FetchFile(fileId uint64, name string, create bool) *Connect
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		c.setErrored()
-		return NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
+		return NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileLocation {
 		c.setErrored()
-		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileLocation, serverMsg.GetMessageType()), "", false)
+		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileLocation, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
 	if !serverMsg.FileLocation.GetLocal() {
-		return NewConnectionError("Redirect", serverMsg.FileLocation.GetUri(), false)
+		return NewConnectionError("Redirect", serverMsg.FileLocation.GetUri(), c.URL, false)
 	}
 
 	return nil
@@ -84,12 +84,12 @@ func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, *Connection
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		c.setErrored()
-		return 0, NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
+		return 0, NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileOffset {
 		c.setErrored()
-		return 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileOffset, serverMsg.GetMessageType()), "", false)
+		return 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileOffset, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
 	return serverMsg.FileOffset.GetOffset(), nil
@@ -101,12 +101,12 @@ func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionErro
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		c.setErrored()
-		return nil, 0, NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
+		return nil, 0, NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_ReadData {
 		c.setErrored()
-		return nil, 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_ReadData, serverMsg.GetMessageType()), "", false)
+		return nil, 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_ReadData, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
 	data := serverMsg.ReadData.GetData()
@@ -119,15 +119,15 @@ func (c *Connection) SeekIndex(fileId uint64, index uint64) *ConnectionError {
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return NewConnectionError(serverMsg.Error.GetMessage(), "", serverMsg.Error.GetConnection())
+		return NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileOffset {
-		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileOffset, serverMsg.GetMessageType()), "", false)
+		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileOffset, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
 	if index != uint64(serverMsg.FileOffset.GetOffset()) {
-		return NewConnectionError(fmt.Sprintf("Expected index: %d. Received %d", index, serverMsg.FileOffset.GetOffset()), "", false)
+		return NewConnectionError(fmt.Sprintf("Expected index: %d. Received %d", index, serverMsg.FileOffset.GetOffset()), "", c.URL, false)
 	}
 
 	return nil

@@ -26,7 +26,7 @@ func NewReader(fileName string, fetcher ReadConnectionFetcher) *Reader {
 func (r *Reader) ReadFromFile() ([]byte, int64, *ConnectionError) {
 	fileId, conn, fcErr := r.fetchConnection()
 	if fcErr != nil {
-		return nil, 0, NewConnectionError(fcErr.Error(), "", false)
+		return nil, 0, NewConnectionError(fcErr.Error(), "", "", false)
 	}
 
 	data, index, err := conn.ReadFromFile(fileId)
@@ -42,7 +42,7 @@ func (r *Reader) ReadFromFile() ([]byte, int64, *ConnectionError) {
 func (r *Reader) SeekIndex(index uint64) *ConnectionError {
 	fileId, conn, fcErr := r.fetchConnection()
 	if fcErr != nil {
-		return NewConnectionError(fcErr.Error(), "", false)
+		return NewConnectionError(fcErr.Error(), "", "", false)
 	}
 
 	err := conn.SeekIndex(fileId, index)

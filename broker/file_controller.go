@@ -54,7 +54,7 @@ func NewFileController(ioProvider IoProvider, orchestrator Orchestrator) *FileCo
 func (f *FileController) FetchFile(fileId uint64, name string, create bool) *ConnectionError {
 	info, ok := f.fileIdMap[fileId]
 	if ok && name != info.name {
-		return NewConnectionError(fmt.Sprintf("ID (%d) already used with %s", fileId, info.name), "", false)
+		return NewConnectionError(fmt.Sprintf("ID (%d) already used with %s", fileId, info.name), "", "", false)
 	}
 
 	if ok {
@@ -66,15 +66,15 @@ func (f *FileController) FetchFile(fileId uint64, name string, create bool) *Con
 	uri, local, err := f.orchestrator.FetchLeader(name, create)
 
 	if err != nil {
-		return NewConnectionError(err.Error(), "", false)
+		return NewConnectionError(err.Error(), "", "", false)
 	}
 
 	if !local {
-		return NewConnectionError("Redirect to the correct broker", uri, false)
+		return NewConnectionError("Redirect to the correct broker", uri, "", false)
 	}
 
 	if !create && uri == "" {
-		return NewConnectionError(fmt.Sprintf("File (%s) has not been created", name), "", false)
+		return NewConnectionError(fmt.Sprintf("File (%s) has not been created", name), "", "", false)
 	}
 
 	f.fileIdMap[fileId] = &ioInfo{

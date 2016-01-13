@@ -71,7 +71,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 
 			AfterEach(func() {
 				By("closing the read loop with an error")
-				writeToReadConn(nil, 0, broker.NewConnectionError("asdf", "", false))
+				writeToReadConn(nil, 0, broker.NewConnectionError("asdf", "", "", false))
 			})
 
 			Context("reading from the start of the file", func() {
