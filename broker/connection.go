@@ -87,12 +87,12 @@ func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, *Connection
 		return 0, NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
-	if serverMsg.GetMessageType() != messages.Server_FileOffset {
+	if serverMsg.GetMessageType() != messages.Server_FileIndex {
 		c.setErrored()
-		return 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileOffset, serverMsg.GetMessageType()), "", c.URL, false)
+		return 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileIndex, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
-	return serverMsg.FileOffset.GetOffset(), nil
+	return serverMsg.FileIndex.GetIndex(), nil
 }
 
 func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionError) {
@@ -110,7 +110,7 @@ func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionErro
 	}
 
 	data := serverMsg.ReadData.GetData()
-	index := serverMsg.ReadData.GetOffset()
+	index := serverMsg.ReadData.GetIndex()
 	return data, index, nil
 }
 
@@ -122,12 +122,12 @@ func (c *Connection) SeekIndex(fileId uint64, index uint64) *ConnectionError {
 		return NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
-	if serverMsg.GetMessageType() != messages.Server_FileOffset {
-		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileOffset, serverMsg.GetMessageType()), "", c.URL, false)
+	if serverMsg.GetMessageType() != messages.Server_FileIndex {
+		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileIndex, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
-	if index != uint64(serverMsg.FileOffset.GetOffset()) {
-		return NewConnectionError(fmt.Sprintf("Expected index: %d. Received %d", index, serverMsg.FileOffset.GetOffset()), "", c.URL, false)
+	if index != uint64(serverMsg.FileIndex.GetIndex()) {
+		return NewConnectionError(fmt.Sprintf("Expected index: %d. Received %d", index, serverMsg.FileIndex.GetIndex()), "", c.URL, false)
 	}
 
 	return nil

@@ -22,7 +22,7 @@ type Server_MessageType int32
 const (
 	Server_Error        Server_MessageType = 1
 	Server_FileLocation Server_MessageType = 2
-	Server_FileOffset   Server_MessageType = 3
+	Server_FileIndex    Server_MessageType = 3
 	Server_ReadData     Server_MessageType = 4
 	Server_FileMeta     Server_MessageType = 5
 )
@@ -30,14 +30,14 @@ const (
 var Server_MessageType_name = map[int32]string{
 	1: "Error",
 	2: "FileLocation",
-	3: "FileOffset",
+	3: "FileIndex",
 	4: "ReadData",
 	5: "FileMeta",
 }
 var Server_MessageType_value = map[string]int32{
 	"Error":        1,
 	"FileLocation": 2,
-	"FileOffset":   3,
+	"FileIndex":    3,
 	"ReadData":     4,
 	"FileMeta":     5,
 }
@@ -64,7 +64,7 @@ type Server struct {
 	MessageType      *Server_MessageType `protobuf:"varint,2,req,name=messageType,enum=messages.Server_MessageType" json:"messageType,omitempty"`
 	Error            *Error              `protobuf:"bytes,3,opt,name=error" json:"error,omitempty"`
 	FileLocation     *FileLocation       `protobuf:"bytes,4,opt,name=fileLocation" json:"fileLocation,omitempty"`
-	FileOffset       *FileOffset         `protobuf:"bytes,5,opt,name=fileOffset" json:"fileOffset,omitempty"`
+	FileIndex        *FileIndex          `protobuf:"bytes,5,opt,name=fileIndex" json:"fileIndex,omitempty"`
 	ReadData         *ReadData           `protobuf:"bytes,6,opt,name=readData" json:"readData,omitempty"`
 	FileMeta         *FileMeta           `protobuf:"bytes,7,opt,name=fileMeta" json:"fileMeta,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
@@ -102,9 +102,9 @@ func (m *Server) GetFileLocation() *FileLocation {
 	return nil
 }
 
-func (m *Server) GetFileOffset() *FileOffset {
+func (m *Server) GetFileIndex() *FileIndex {
 	if m != nil {
-		return m.FileOffset
+		return m.FileIndex
 	}
 	return nil
 }
@@ -171,25 +171,25 @@ func (m *FileLocation) GetUri() string {
 	return ""
 }
 
-type FileOffset struct {
-	Offset           *int64 `protobuf:"varint,1,req,name=offset" json:"offset,omitempty"`
+type FileIndex struct {
+	Index            *int64 `protobuf:"varint,1,req,name=index" json:"index,omitempty"`
 	XXX_unrecognized []byte `json:"-"`
 }
 
-func (m *FileOffset) Reset()         { *m = FileOffset{} }
-func (m *FileOffset) String() string { return proto.CompactTextString(m) }
-func (*FileOffset) ProtoMessage()    {}
+func (m *FileIndex) Reset()         { *m = FileIndex{} }
+func (m *FileIndex) String() string { return proto.CompactTextString(m) }
+func (*FileIndex) ProtoMessage()    {}
 
-func (m *FileOffset) GetOffset() int64 {
-	if m != nil && m.Offset != nil {
-		return *m.Offset
+func (m *FileIndex) GetIndex() int64 {
+	if m != nil && m.Index != nil {
+		return *m.Index
 	}
 	return 0
 }
 
 type ReadData struct {
 	Data             []byte `protobuf:"bytes,1,req,name=data" json:"data,omitempty"`
-	Offset           *int64 `protobuf:"varint,2,req,name=offset" json:"offset,omitempty"`
+	Index            *int64 `protobuf:"varint,2,req,name=index" json:"index,omitempty"`
 	XXX_unrecognized []byte `json:"-"`
 }
 
@@ -204,9 +204,9 @@ func (m *ReadData) GetData() []byte {
 	return nil
 }
 
-func (m *ReadData) GetOffset() int64 {
-	if m != nil && m.Offset != nil {
-		return *m.Offset
+func (m *ReadData) GetIndex() int64 {
+	if m != nil && m.Index != nil {
+		return *m.Index
 	}
 	return 0
 }
@@ -339,7 +339,7 @@ func (m *Server) Unmarshal(data []byte) error {
 			index = postIndex
 		case 5:
 			if wireType != 2 {
-				return fmt.Errorf("proto: wrong wireType = %d for field FileOffset", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field FileIndex", wireType)
 			}
 			var msglen int
 			for shift := uint(0); ; shift += 7 {
@@ -357,10 +357,10 @@ func (m *Server) Unmarshal(data []byte) error {
 			if postIndex > l {
 				return io.ErrUnexpectedEOF
 			}
-			if m.FileOffset == nil {
-				m.FileOffset = &FileOffset{}
+			if m.FileIndex == nil {
+				m.FileIndex = &FileIndex{}
 			}
-			if err := m.FileOffset.Unmarshal(data[index:postIndex]); err != nil {
+			if err := m.FileIndex.Unmarshal(data[index:postIndex]); err != nil {
 				return err
 			}
 			index = postIndex
@@ -607,7 +607,7 @@ func (m *FileLocation) Unmarshal(data []byte) error {
 	}
 	return nil
 }
-func (m *FileOffset) Unmarshal(data []byte) error {
+func (m *FileIndex) Unmarshal(data []byte) error {
 	l := len(data)
 	index := 0
 	for index < l {
@@ -628,7 +628,7 @@ func (m *FileOffset) Unmarshal(data []byte) error {
 		switch fieldNum {
 		case 1:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Offset", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
 			}
 			var v int64
 			for shift := uint(0); ; shift += 7 {
@@ -642,7 +642,7 @@ func (m *FileOffset) Unmarshal(data []byte) error {
 					break
 				}
 			}
-			m.Offset = &v
+			m.Index = &v
 		default:
 			var sizeOfWire int
 			for {
@@ -709,7 +709,7 @@ func (m *ReadData) Unmarshal(data []byte) error {
 			index = postIndex
 		case 2:
 			if wireType != 0 {
-				return fmt.Errorf("proto: wrong wireType = %d for field Offset", wireType)
+				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
 			}
 			var v int64
 			for shift := uint(0); ; shift += 7 {
@@ -723,7 +723,7 @@ func (m *ReadData) Unmarshal(data []byte) error {
 					break
 				}
 			}
-			m.Offset = &v
+			m.Index = &v
 		default:
 			var sizeOfWire int
 			for {
@@ -828,8 +828,8 @@ func (m *Server) Size() (n int) {
 		l = m.FileLocation.Size()
 		n += 1 + l + sovServer(uint64(l))
 	}
-	if m.FileOffset != nil {
-		l = m.FileOffset.Size()
+	if m.FileIndex != nil {
+		l = m.FileIndex.Size()
 		n += 1 + l + sovServer(uint64(l))
 	}
 	if m.ReadData != nil {
@@ -878,11 +878,11 @@ func (m *FileLocation) Size() (n int) {
 	return n
 }
 
-func (m *FileOffset) Size() (n int) {
+func (m *FileIndex) Size() (n int) {
 	var l int
 	_ = l
-	if m.Offset != nil {
-		n += 1 + sovServer(uint64(*m.Offset))
+	if m.Index != nil {
+		n += 1 + sovServer(uint64(*m.Index))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -897,8 +897,8 @@ func (m *ReadData) Size() (n int) {
 		l = len(m.Data)
 		n += 1 + l + sovServer(uint64(l))
 	}
-	if m.Offset != nil {
-		n += 1 + sovServer(uint64(*m.Offset))
+	if m.Index != nil {
+		n += 1 + sovServer(uint64(*m.Index))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -979,11 +979,11 @@ func (m *Server) MarshalTo(data []byte) (n int, err error) {
 		}
 		i += n2
 	}
-	if m.FileOffset != nil {
+	if m.FileIndex != nil {
 		data[i] = 0x2a
 		i++
-		i = encodeVarintServer(data, i, uint64(m.FileOffset.Size()))
-		n3, err := m.FileOffset.MarshalTo(data[i:])
+		i = encodeVarintServer(data, i, uint64(m.FileIndex.Size()))
+		n3, err := m.FileIndex.MarshalTo(data[i:])
 		if err != nil {
 			return 0, err
 		}
@@ -1089,7 +1089,7 @@ func (m *FileLocation) MarshalTo(data []byte) (n int, err error) {
 	return i, nil
 }
 
-func (m *FileOffset) Marshal() (data []byte, err error) {
+func (m *FileIndex) Marshal() (data []byte, err error) {
 	size := m.Size()
 	data = make([]byte, size)
 	n, err := m.MarshalTo(data)
@@ -1099,15 +1099,15 @@ func (m *FileOffset) Marshal() (data []byte, err error) {
 	return data[:n], nil
 }
 
-func (m *FileOffset) MarshalTo(data []byte) (n int, err error) {
+func (m *FileIndex) MarshalTo(data []byte) (n int, err error) {
 	var i int
 	_ = i
 	var l int
 	_ = l
-	if m.Offset != nil {
+	if m.Index != nil {
 		data[i] = 0x8
 		i++
-		i = encodeVarintServer(data, i, uint64(*m.Offset))
+		i = encodeVarintServer(data, i, uint64(*m.Index))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)
@@ -1136,10 +1136,10 @@ func (m *ReadData) MarshalTo(data []byte) (n int, err error) {
 		i = encodeVarintServer(data, i, uint64(len(m.Data)))
 		i += copy(data[i:], m.Data)
 	}
-	if m.Offset != nil {
+	if m.Index != nil {
 		data[i] = 0x10
 		i++
-		i = encodeVarintServer(data, i, uint64(*m.Offset))
+		i = encodeVarintServer(data, i, uint64(*m.Index))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

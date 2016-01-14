@@ -7,7 +7,7 @@ import (
 	"github.com/apoydence/talaria/logging"
 )
 
-type OffsetReader interface {
+type IndexReader interface {
 	io.Reader
 	NextIndex() int64
 	SeekIndex(index uint64) error
@@ -20,7 +20,7 @@ type InitableWriter interface {
 
 type IoProvider interface {
 	ProvideWriter(name string) InitableWriter
-	ProvideReader(name string) OffsetReader
+	ProvideReader(name string) IndexReader
 }
 
 type Orchestrator interface {
@@ -28,11 +28,11 @@ type Orchestrator interface {
 }
 
 type ioInfo struct {
-	name         string
-	writer       io.Writer
-	reader       OffsetReader
-	writerOffset int64
-	buffer       []byte
+	name        string
+	writer      io.Writer
+	reader      IndexReader
+	writerIndex int64
+	buffer      []byte
 }
 
 type FileController struct {
@@ -94,8 +94,8 @@ func (f *FileController) WriteToFile(fileId uint64, data []byte) (int64, error) 
 	}
 
 	n, err := ioInfo.writer.Write(data)
-	ioInfo.writerOffset += int64(n)
-	return ioInfo.writerOffset, err
+	ioInfo.writerIndex += int64(n)
+	return ioInfo.writerIndex, err
 }
 
 func (f *FileController) ReadFromFile(fileId uint64, callback func([]byte, int64, error)) {
@@ -112,8 +112,8 @@ func (f *FileController) ReadFromFile(fileId uint64, callback func([]byte, int64
 			return
 		}
 
-		offset := ioInfo.reader.NextIndex() - 1
-		callback(ioInfo.buffer[:n], offset, nil)
+		index := ioInfo.reader.NextIndex() - 1
+		callback(ioInfo.buffer[:n], index, nil)
 	}()
 }
 

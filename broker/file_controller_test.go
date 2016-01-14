@@ -206,20 +206,20 @@ var _ = Describe("FileController", func() {
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-2")))
 
 			By("writing to the same file twice")
-			offset, err := fileController.WriteToFile(fileId1, expectedData)
+			index, err := fileController.WriteToFile(fileId1, expectedData)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(offset).To(BeEquivalentTo(len(expectedData)))
+			Expect(index).To(BeEquivalentTo(len(expectedData)))
 			Expect(readEntireFile(tmpDir, "some-name-1")).To(Equal(expectedData))
 
-			offset, err = fileController.WriteToFile(fileId1, expectedData)
+			index, err = fileController.WriteToFile(fileId1, expectedData)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(offset).To(BeEquivalentTo(2 * len(expectedData)))
+			Expect(index).To(BeEquivalentTo(2 * len(expectedData)))
 			Expect(readEntireFile(tmpDir, "some-name-1")).To(Equal(append(expectedData, expectedData...)))
 
 			By("writing to a different file")
-			offset, err = fileController.WriteToFile(fileId2, expectedData)
+			index, err = fileController.WriteToFile(fileId2, expectedData)
 			Expect(err).ToNot(HaveOccurred())
-			Expect(offset).To(BeEquivalentTo(len(expectedData)))
+			Expect(index).To(BeEquivalentTo(len(expectedData)))
 			Expect(readEntireFile(tmpDir, "some-name-2")).To(Equal(expectedData))
 		})
 	})
@@ -232,14 +232,14 @@ var _ = Describe("FileController", func() {
 			callback   func([]byte, int64, error)
 			dataCh     chan []byte
 			sendCh     chan []byte
-			offsetCh   chan int64
+			indexCh    chan int64
 			errCh      chan error
 		)
 
-		var createCallback = func(dataCh chan []byte, offsetCh chan int64, errCh chan error) func([]byte, int64, error) {
-			return func(data []byte, offset int64, err error) {
+		var createCallback = func(dataCh chan []byte, indexCh chan int64, errCh chan error) func([]byte, int64, error) {
+			return func(data []byte, index int64, err error) {
 				dataCh <- data
-				offsetCh <- offset
+				indexCh <- index
 				errCh <- err
 			}
 		}
@@ -264,9 +264,9 @@ var _ = Describe("FileController", func() {
 			populateLocalOrch()
 
 			dataCh = make(chan []byte, 100)
-			offsetCh = make(chan int64, 100)
+			indexCh = make(chan int64, 100)
 			errCh = make(chan error, 100)
-			callback = createCallback(dataCh, offsetCh, errCh)
+			callback = createCallback(dataCh, indexCh, errCh)
 			setupMockReader()
 		})
 
@@ -295,19 +295,19 @@ var _ = Describe("FileController", func() {
 			Expect(ffErr).To(BeNil())
 			Expect(mockFileProvider.writerNameCh).To(Receive(Equal("some-name-1")))
 
-			By("reading from the first offset")
+			By("reading from the first index")
 			fileController.ReadFromFile(fileId1, callback)
 			Consistently(errCh).ShouldNot(Receive(HaveOccurred()))
 			Eventually(dataCh).Should(Receive(Equal(expectedData)))
-			Eventually(offsetCh).Should(Receive(BeEquivalentTo(100)))
+			Eventually(indexCh).Should(Receive(BeEquivalentTo(100)))
 
-			By("reading from the next offset")
+			By("reading from the next index")
 			sendCh <- expectedData
 
 			fileController.ReadFromFile(fileId1, callback)
 			Eventually(errCh).ShouldNot(Receive(HaveOccurred()))
 			Eventually(dataCh).Should(Receive(Equal(expectedData)))
-			Eventually(offsetCh).Should(Receive(BeEquivalentTo(101)))
+			Eventually(indexCh).Should(Receive(BeEquivalentTo(101)))
 		})
 
 		It("returns an error if the reader returns an error and negative n", func(done Done) {
@@ -391,11 +391,11 @@ func readEntireFile(dir, name string) []byte {
 	return data
 }
 
-func writeToFile(file *os.File, data []byte, offset int64, whence int) {
+func writeToFile(file *os.File, data []byte, index int64, whence int) {
 	_, err := file.Write(data)
 	Expect(err).ToNot(HaveOccurred())
 	err = file.Sync()
 	Expect(err).ToNot(HaveOccurred())
-	_, err = file.Seek(offset, whence)
+	_, err = file.Seek(index, whence)
 	Expect(err).ToNot(HaveOccurred())
 }

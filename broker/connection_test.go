@@ -249,20 +249,20 @@ var _ = Describe("Connection", func() {
 			})
 		})
 
-		It("returns the new file offset", func(done Done) {
+		It("returns the new file index", func(done Done) {
 			defer close(done)
 			var wg sync.WaitGroup
 			defer wg.Wait()
 
-			mockServer.serverCh <- buildFileOffset(1, 101)
+			mockServer.serverCh <- buildFileIndex(1, 101)
 
 			wg.Add(1)
 			go func() {
 				defer GinkgoRecover()
 				defer wg.Done()
-				fileOffset, err := connection.WriteToFile(8, expectedData)
+				fileIndex, err := connection.WriteToFile(8, expectedData)
 				Expect(err).ToNot(HaveOccurred())
-				Expect(fileOffset).To(BeEquivalentTo(101))
+				Expect(fileIndex).To(BeEquivalentTo(101))
 			}()
 
 			var clientMsg *messages.Client
@@ -346,7 +346,7 @@ var _ = Describe("Connection", func() {
 			})
 		})
 
-		It("returns the data and offset", func(done Done) {
+		It("returns the data and index", func(done Done) {
 			defer close(done)
 			wg := new(sync.WaitGroup)
 			defer wg.Wait()
@@ -384,10 +384,10 @@ var _ = Describe("Connection", func() {
 		})
 
 		Context("live connection", func() {
-			It("returns the new file offset", func(done Done) {
+			It("returns the new file index", func(done Done) {
 				defer close(done)
 
-				mockServer.serverCh <- buildFileOffset(1, int64(expectedIndex))
+				mockServer.serverCh <- buildFileIndex(1, int64(expectedIndex))
 
 				err := connection.SeekIndex(8, expectedIndex)
 				Expect(err).ToNot(HaveOccurred())
@@ -402,7 +402,7 @@ var _ = Describe("Connection", func() {
 
 			Context("non-matching returned index", func() {
 				BeforeEach(func() {
-					mockServer.serverCh <- buildFileOffset(1, int64(expectedIndex+1))
+					mockServer.serverCh <- buildFileIndex(1, int64(expectedIndex+1))
 				})
 
 				It("returns an error if the returned index does not match", func(done Done) {
@@ -540,13 +540,13 @@ func switchProtocol(uri string) string {
 	return "ws" + uri[4:]
 }
 
-func buildFileOffset(messageId uint64, offset int64) []byte {
-	msgType := messages.Server_FileOffset
+func buildFileIndex(messageId uint64, index int64) []byte {
+	msgType := messages.Server_FileIndex
 	server := &messages.Server{
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(messageId),
-		FileOffset: &messages.FileOffset{
-			Offset: proto.Int64(offset),
+		FileIndex: &messages.FileIndex{
+			Index: proto.Int64(index),
 		},
 	}
 
@@ -561,8 +561,8 @@ func buildReadData(messageId uint64, data []byte, index int64) []byte {
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(messageId),
 		ReadData: &messages.ReadData{
-			Data:   data,
-			Offset: proto.Int64(index),
+			Data:  data,
+			Index: proto.Int64(index),
 		},
 	}
 

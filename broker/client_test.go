@@ -88,7 +88,7 @@ var _ = Describe("Client", func() {
 				mockServer.serverCh <- buildFileLocation(1)
 
 				for i := 0; i < 10; i++ {
-					mockServer.serverCh <- buildFileOffset(uint64(i+2), 101)
+					mockServer.serverCh <- buildFileIndex(uint64(i+2), 101)
 				}
 			})
 
@@ -119,7 +119,7 @@ var _ = Describe("Client", func() {
 
 				go func() {
 					for i := 0; i < count; i++ {
-						mockServer.serverCh <- buildFileOffset(uint64(i+2), 101)
+						mockServer.serverCh <- buildFileIndex(uint64(i+2), 101)
 					}
 				}()
 

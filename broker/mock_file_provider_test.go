@@ -21,7 +21,7 @@ type subWrapper struct {
 	initIndexResultCh chan int64
 }
 
-type offsetWrapper struct {
+type indexWrapper struct {
 	reader  io.Reader
 	indexCh chan int64
 }
@@ -42,7 +42,7 @@ func (m *mockFileProvider) ProvideWriter(name string) broker.InitableWriter {
 	return newSubWrapper(<-m.writerCh, m.indexCh, m.initIndexResultCh)
 }
 
-func (m *mockFileProvider) ProvideReader(name string) broker.OffsetReader {
+func (m *mockFileProvider) ProvideReader(name string) broker.IndexReader {
 	m.readerNameCh <- name
 	return <-m.readerCh
 }

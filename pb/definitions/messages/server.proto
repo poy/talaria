@@ -4,7 +4,7 @@ message Server{
 	enum MessageType{
 		Error = 1;
 		FileLocation = 2;
-		FileOffset = 3;
+		FileIndex = 3;
 		ReadData = 4;
     FileMeta = 5;
 	}
@@ -14,7 +14,7 @@ message Server{
 
 	optional Error error = 3;
 	optional FileLocation fileLocation = 4;
-	optional FileOffset fileOffset = 5;
+	optional FileIndex fileIndex = 5;
 	optional ReadData readData = 6;
   optional FileMeta fileMeta = 7;
 }
@@ -29,13 +29,13 @@ message FileLocation{
 	optional string uri = 2;
 }
 
-message FileOffset{
-	required int64 offset = 1;
+message FileIndex{
+	required int64 index = 1;
 }
 
 message ReadData{
 	required bytes data = 1;
-	required int64 offset = 2;
+	required int64 index = 2;
 }
 
 message FileMeta{

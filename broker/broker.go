@@ -104,24 +104,24 @@ func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn
 }
 
 func (b *Broker) writeToFile(controller Controller, message *messages.Client, conn *concurrentWriter) {
-	offset, err := controller.WriteToFile(message.WriteToFile.GetFileId(), message.WriteToFile.GetData())
+	index, err := controller.WriteToFile(message.WriteToFile.GetFileId(), message.WriteToFile.GetData())
 
 	if err != nil {
 		b.writeError(err.Error(), message, conn)
 		return
 	}
 
-	b.writeFileOffset(offset, message, conn)
+	b.writeFileIndex(index, message, conn)
 }
 
 func (b *Broker) readFromFile(controller Controller, message *messages.Client, conn *concurrentWriter) {
-	callback := func(data []byte, offset int64, err error) {
+	callback := func(data []byte, index int64, err error) {
 		if err != nil {
 			b.writeError(err.Error(), message, conn)
 			return
 		}
 
-		b.writeReadData(data, offset, message, conn)
+		b.writeReadData(data, index, message, conn)
 	}
 	controller.ReadFromFile(message.ReadFromFile.GetFileId(), callback)
 }
@@ -134,7 +134,7 @@ func (b *Broker) seekIndex(controller Controller, message *messages.Client, conn
 			return
 		}
 
-		b.writeFileOffset(int64(message.SeekIndex.GetIndex()), message, conn)
+		b.writeFileIndex(int64(message.SeekIndex.GetIndex()), message, conn)
 	}
 
 	controller.SeekIndex(message.SeekIndex.GetFileId(), message.SeekIndex.GetIndex(), callback)
@@ -186,26 +186,26 @@ func (b *Broker) writeFileLocation(connectionErr *ConnectionError, message *mess
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeFileOffset(offset int64, message *messages.Client, conn *concurrentWriter) {
-	msgType := messages.Server_FileOffset
+func (b *Broker) writeFileIndex(index int64, message *messages.Client, conn *concurrentWriter) {
+	msgType := messages.Server_FileIndex
 	server := &messages.Server{
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(message.GetMessageId()),
-		FileOffset: &messages.FileOffset{
-			Offset: proto.Int64(offset),
+		FileIndex: &messages.FileIndex{
+			Index: proto.Int64(index),
 		},
 	}
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeReadData(data []byte, offset int64, message *messages.Client, conn *concurrentWriter) {
+func (b *Broker) writeReadData(data []byte, index int64, message *messages.Client, conn *concurrentWriter) {
 	msgType := messages.Server_ReadData
 	server := &messages.Server{
 		MessageType: &msgType,
 		MessageId:   proto.Uint64(message.GetMessageId()),
 		ReadData: &messages.ReadData{
-			Data:   data,
-			Offset: proto.Int64(offset),
+			Data:  data,
+			Index: proto.Int64(index),
 		},
 	}
 	b.writeMessage(server, conn)

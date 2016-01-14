@@ -46,7 +46,7 @@ func (f *FileProvider) ProvideWriter(name string) InitableWriter {
 	return writer
 }
 
-func (f *FileProvider) ProvideReader(name string) OffsetReader {
+func (f *FileProvider) ProvideReader(name string) IndexReader {
 	return f.provideReader(name, f.polling)
 }
 

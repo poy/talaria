@@ -271,7 +271,7 @@ var _ = Describe("Broker", func() {
 			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			mockController.writeFileOffsetCh <- 0
+			mockController.writeFileIndexCh <- 0
 			mockController.writeFileErrCh <- fmt.Errorf("some-error")
 
 			expectedData := []byte("some-data")
@@ -296,12 +296,12 @@ var _ = Describe("Broker", func() {
 			Expect(server.Error.GetMessage()).To(Equal("some-error"))
 		})
 
-		It("returns the new offset", func(done Done) {
+		It("returns the new index", func(done Done) {
 			defer close(done)
 			conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 			Expect(err).ToNot(HaveOccurred())
 
-			mockController.writeFileOffsetCh <- 77
+			mockController.writeFileIndexCh <- 77
 			mockController.writeFileErrCh <- nil
 
 			expectedData := []byte("some-data")
@@ -321,9 +321,9 @@ var _ = Describe("Broker", func() {
 			err = server.Unmarshal(data)
 			Expect(err).ToNot(HaveOccurred())
 			Expect(server.GetMessageId()).To(BeEquivalentTo(99))
-			Expect(server.GetMessageType()).To(Equal(messages.Server_FileOffset))
-			Expect(server.FileOffset).ToNot(BeNil())
-			Expect(server.FileOffset.GetOffset()).To(BeEquivalentTo(77))
+			Expect(server.GetMessageType()).To(Equal(messages.Server_FileIndex))
+			Expect(server.FileIndex).ToNot(BeNil())
+			Expect(server.FileIndex.GetIndex()).To(BeEquivalentTo(77))
 		})
 
 		Measure("Writes to a file 1000 times in under a second", func(b Benchmarker) {
@@ -331,7 +331,7 @@ var _ = Describe("Broker", func() {
 				count := 1000
 				go func() {
 					for i := 0; i < count; i++ {
-						mockController.writeFileOffsetCh <- 77
+						mockController.writeFileIndexCh <- 77
 						mockController.writeFileErrCh <- nil
 					}
 				}()
@@ -386,7 +386,7 @@ var _ = Describe("Broker", func() {
 			defer close(done)
 
 			mockController.readFileDataCh <- nil
-			mockController.readOffsetCh <- 0
+			mockController.readIndexCh <- 0
 			mockController.readFileErrCh <- fmt.Errorf("some-error")
 
 			Expect(conn.WriteMessage(websocket.BinaryMessage, buildReadFromFile(99, 8))).To(Succeed())
@@ -409,7 +409,7 @@ var _ = Describe("Broker", func() {
 			defer close(done)
 
 			mockController.readFileDataCh <- expectedData
-			mockController.readOffsetCh <- 1010
+			mockController.readIndexCh <- 1010
 			mockController.readFileErrCh <- nil
 
 			Expect(conn.WriteMessage(websocket.BinaryMessage, buildReadFromFile(99, 8))).To(Succeed())
@@ -426,7 +426,7 @@ var _ = Describe("Broker", func() {
 			Expect(server.GetMessageType()).To(Equal(messages.Server_ReadData))
 			Expect(server.ReadData).ToNot(BeNil())
 			Expect(server.ReadData.GetData()).To(Equal(expectedData))
-			Expect(server.ReadData.GetOffset()).To(BeEquivalentTo(1010))
+			Expect(server.ReadData.GetIndex()).To(BeEquivalentTo(1010))
 		})
 
 		Measure("Reads from a file 1000 times in under a second", func(b Benchmarker) {
@@ -439,7 +439,7 @@ var _ = Describe("Broker", func() {
 				go func() {
 					for i := 0; i < count; i++ {
 						mockController.readFileDataCh <- expectedData
-						mockController.readOffsetCh <- int64(i)
+						mockController.readIndexCh <- int64(i)
 						mockController.readFileErrCh <- nil
 					}
 				}()
@@ -554,9 +554,9 @@ var _ = Describe("Broker", func() {
 				err = server.Unmarshal(data)
 				Expect(err).ToNot(HaveOccurred())
 				Expect(server.GetMessageId()).To(BeEquivalentTo(99))
-				Expect(server.GetMessageType()).To(Equal(messages.Server_FileOffset))
+				Expect(server.GetMessageType()).To(Equal(messages.Server_FileIndex))
 				Expect(server.Error).To(BeNil())
-				Expect(server.FileOffset.GetOffset()).To(Equal(int64(expectedIndex)))
+				Expect(server.FileIndex.GetIndex()).To(Equal(int64(expectedIndex)))
 			})
 		})
 

@@ -8,21 +8,21 @@ type mockController struct {
 	fetchFileErrCh    chan *broker.ConnectionError
 	fetchFileCreateCh chan bool
 
-	writeFileIdCh     chan uint64
-	writeFileDataCh   chan []byte
-	writeFileOffsetCh chan int64
-	writeFileErrCh    chan error
+	writeFileIdCh    chan uint64
+	writeFileDataCh  chan []byte
+	writeFileIndexCh chan int64
+	writeFileErrCh   chan error
 
 	readFileIdCh   chan uint64
 	readFileDataCh chan []byte
-	readOffsetCh   chan int64
+	readIndexCh    chan int64
 	readFileErrCh  chan error
 
-	initIdCh     chan uint64
-	initDataCh   chan []byte
-	initIndexCh  chan int64
-	initOffsetCh chan int64
-	initErrCh    chan error
+	initIdCh       chan uint64
+	initDataCh     chan []byte
+	initIndexCh    chan int64
+	initIndexRetCh chan int64
+	initErrCh      chan error
 
 	seekIdCh       chan uint64
 	seekIndexCh    chan uint64
@@ -36,21 +36,21 @@ func newMockController() *mockController {
 		fetchFileErrCh:    make(chan *broker.ConnectionError, 100),
 		fetchFileCreateCh: make(chan bool, 100),
 
-		writeFileIdCh:     make(chan uint64, 100),
-		writeFileDataCh:   make(chan []byte, 100),
-		writeFileOffsetCh: make(chan int64, 100),
-		writeFileErrCh:    make(chan error, 100),
+		writeFileIdCh:    make(chan uint64, 100),
+		writeFileDataCh:  make(chan []byte, 100),
+		writeFileIndexCh: make(chan int64, 100),
+		writeFileErrCh:   make(chan error, 100),
 
 		readFileIdCh:   make(chan uint64, 100),
 		readFileDataCh: make(chan []byte, 100),
-		readOffsetCh:   make(chan int64, 100),
+		readIndexCh:    make(chan int64, 100),
 		readFileErrCh:  make(chan error, 100),
 
-		initIdCh:     make(chan uint64, 100),
-		initDataCh:   make(chan []byte, 100),
-		initIndexCh:  make(chan int64, 100),
-		initOffsetCh: make(chan int64, 100),
-		initErrCh:    make(chan error, 100),
+		initIdCh:       make(chan uint64, 100),
+		initDataCh:     make(chan []byte, 100),
+		initIndexCh:    make(chan int64, 100),
+		initIndexRetCh: make(chan int64, 100),
+		initErrCh:      make(chan error, 100),
 
 		seekIdCh:       make(chan uint64, 100),
 		seekIndexCh:    make(chan uint64, 100),
@@ -68,12 +68,12 @@ func (m *mockController) FetchFile(fileId uint64, name string, create bool) *bro
 func (m *mockController) WriteToFile(id uint64, data []byte) (int64, error) {
 	m.writeFileIdCh <- id
 	m.writeFileDataCh <- data
-	return <-m.writeFileOffsetCh, <-m.writeFileErrCh
+	return <-m.writeFileIndexCh, <-m.writeFileErrCh
 }
 
 func (m *mockController) ReadFromFile(id uint64, callback func([]byte, int64, error)) {
 	m.readFileIdCh <- id
-	go callback(<-m.readFileDataCh, <-m.readOffsetCh, <-m.readFileErrCh)
+	go callback(<-m.readFileDataCh, <-m.readIndexCh, <-m.readFileErrCh)
 }
 
 func (m *mockController) SeekIndex(id, index uint64, callback func(error)) {
@@ -86,7 +86,7 @@ func (m *mockController) InitWriteIndex(id uint64, index int64, data []byte) (in
 	m.initIdCh <- id
 	m.initDataCh <- data
 	m.initIndexCh <- index
-	return <-m.initOffsetCh, <-m.initErrCh
+	return <-m.initIndexRetCh, <-m.initErrCh
 }
 
 func (m *mockController) closeChannels() {
@@ -96,7 +96,7 @@ func (m *mockController) closeChannels() {
 
 	close(m.writeFileIdCh)
 	close(m.writeFileDataCh)
-	close(m.writeFileOffsetCh)
+	close(m.writeFileIndexCh)
 	close(m.writeFileErrCh)
 
 	close(m.readFileIdCh)
