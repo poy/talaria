@@ -7,8 +7,13 @@ import (
 	"github.com/apoydence/talaria/logging"
 )
 
-type ReaderFetcher interface {
-	FetchReader(name string) (*Reader, error)
+type ImpeacherFetcher interface {
+	ReadConnectionFetcher
+	FetchImpeacher(URL string) Impeacher
+}
+
+type Impeacher interface {
+	Impeach(name string)
 }
 
 type writerInfo struct {
@@ -19,13 +24,13 @@ type writerInfo struct {
 type ReplicatedFileManager struct {
 	log           logging.Logger
 	ioProvider    IoProvider
-	readerFetcher ReadConnectionFetcher
+	readerFetcher ImpeacherFetcher
 
 	lockWriters sync.RWMutex
 	writers     map[string]*writerInfo
 }
 
-func NewReplicatedFileManager(ioProvider IoProvider, readerFetcher ReadConnectionFetcher) *ReplicatedFileManager {
+func NewReplicatedFileManager(ioProvider IoProvider, readerFetcher ImpeacherFetcher) *ReplicatedFileManager {
 	return &ReplicatedFileManager{
 		log:           logging.Log("ReplicatedFileManager"),
 		ioProvider:    ioProvider,
@@ -141,7 +146,8 @@ func (r *ReplicatedFileManager) initWriter(currentIndex, index int64, data []byt
 	}
 
 	if err := reader.SeekIndex(uint64(writerIndex)); err != nil {
-		r.log.Panicf("Unable to seek to index %d: %v", writerIndex, err)
+		r.log.Errorf("Unable to seek to index %d: %v", writerIndex, err)
+		r.readerFetcher.FetchImpeacher(err.ConnURL).Impeach(reader.fileName)
 	}
 
 	return true

@@ -146,15 +146,50 @@ var _ = Describe("ReplicatedFileManager", func() {
 					)
 
 					BeforeEach(func() {
-						close(mockReadConn.seekErrCh)
 						expectedSeekIndex = 202
 						mockIoProvider.initIndexResultCh <- expectedSeekIndex
 					})
 
-					It("seeks the reader to the correct index", func() {
-						manager.Add(expectedName, expectedReplica)
+					Context("seek succeeds", func() {
 
-						Eventually(mockReadConn.seekIndexCh).Should(Receive(BeEquivalentTo(expectedSeekIndex)))
+						BeforeEach(func() {
+							close(mockReadConn.seekErrCh)
+						})
+
+						It("seeks the reader to the correct index", func() {
+							manager.Add(expectedName, expectedReplica)
+
+							Eventually(mockReadConn.seekIndexCh).Should(Receive(BeEquivalentTo(expectedSeekIndex)))
+						})
+					})
+
+					Context("seek fails", func() {
+
+						var (
+							expectedSeekError *broker.ConnectionError
+							expectedConnURL   string
+
+							mockImpeacher *mockImpeacher
+						)
+
+						BeforeEach(func() {
+							expectedConnURL = "ws://some.url"
+							expectedSeekError = &broker.ConnectionError{
+								ConnURL: expectedConnURL,
+							}
+
+							mockReadConn.seekErrCh <- expectedSeekError
+
+							mockImpeacher = newMockImpeacher()
+							mockReadConnectionFetcher.impeacherCh <- mockImpeacher
+						})
+
+						It("impeaches the leader", func() {
+							manager.Add(expectedName, expectedReplica)
+
+							Eventually(mockReadConnectionFetcher.impeachUrlCh).Should(Receive(Equal(expectedConnURL)))
+							Expect(mockImpeacher.impeach).Should(Receive(Equal(expectedName)))
+						})
 					})
 				})
 			})

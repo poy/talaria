@@ -463,6 +463,26 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
+	Describe("Impeach()", func() {
+		var (
+			expectedName string
+		)
+
+		BeforeEach(func() {
+			expectedName = "some-name"
+		})
+
+		It("sends a impeach message to the broker", func() {
+			connection.Impeach(expectedName)
+
+			var clientMsg *messages.Client
+			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
+			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_Impeach))
+			Expect(clientMsg.Impeach).ToNot(BeNil())
+			Expect(clientMsg.Impeach.GetName()).To(Equal(expectedName))
+		})
+	})
+
 })
 
 func buildError(messageId uint64, errStr string) []byte {

@@ -133,6 +133,10 @@ func (c *Connection) SeekIndex(fileId uint64, index uint64) *ConnectionError {
 	return nil
 }
 
+func (c *Connection) Impeach(name string) {
+	c.writeImpeach(c.nextMsgId(), name)
+}
+
 func (c *Connection) Close() {
 	c.closeOnce.Do(func() {
 		c.conn.Close()
@@ -328,4 +332,21 @@ func (c *Connection) writeSeekIndex(msgId, fileId, index uint64) <-chan *message
 	}
 
 	return respCh
+}
+
+func (c *Connection) writeImpeach(msgId uint64, name string) {
+	messageType := messages.Client_Impeach
+	msg := &messages.Client{
+		MessageType: messageType.Enum(),
+		MessageId:   proto.Uint64(msgId),
+		Impeach: &messages.Impeach{
+			Name: proto.String(name),
+		},
+	}
+
+	respCh := make(chan *messages.Server, 1)
+	c.writeCh <- clientMsgInfo{
+		respCh: respCh,
+		msg:    msg,
+	}
 }

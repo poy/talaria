@@ -15,6 +15,7 @@
 		WriteToFile
 		ReadFromFile
 		SeekIndex
+		Impeach
 */
 package messages
 
@@ -38,6 +39,7 @@ const (
 	Client_WriteToFile  Client_MessageType = 2
 	Client_ReadFromFile Client_MessageType = 3
 	Client_SeekIndex    Client_MessageType = 4
+	Client_Impeach      Client_MessageType = 5
 )
 
 var Client_MessageType_name = map[int32]string{
@@ -45,12 +47,14 @@ var Client_MessageType_name = map[int32]string{
 	2: "WriteToFile",
 	3: "ReadFromFile",
 	4: "SeekIndex",
+	5: "Impeach",
 }
 var Client_MessageType_value = map[string]int32{
 	"FetchFile":    1,
 	"WriteToFile":  2,
 	"ReadFromFile": 3,
 	"SeekIndex":    4,
+	"Impeach":      5,
 }
 
 func (x Client_MessageType) Enum() *Client_MessageType {
@@ -77,6 +81,7 @@ type Client struct {
 	WriteToFile      *WriteToFile        `protobuf:"bytes,4,opt,name=writeToFile" json:"writeToFile,omitempty"`
 	ReadFromFile     *ReadFromFile       `protobuf:"bytes,5,opt,name=readFromFile" json:"readFromFile,omitempty"`
 	SeekIndex        *SeekIndex          `protobuf:"bytes,6,opt,name=seekIndex" json:"seekIndex,omitempty"`
+	Impeach          *Impeach            `protobuf:"bytes,7,opt,name=impeach" json:"impeach,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
 }
 
@@ -122,6 +127,13 @@ func (m *Client) GetReadFromFile() *ReadFromFile {
 func (m *Client) GetSeekIndex() *SeekIndex {
 	if m != nil {
 		return m.SeekIndex
+	}
+	return nil
+}
+
+func (m *Client) GetImpeach() *Impeach {
+	if m != nil {
+		return m.Impeach
 	}
 	return nil
 }
@@ -220,6 +232,22 @@ func (m *SeekIndex) GetIndex() uint64 {
 		return *m.Index
 	}
 	return 0
+}
+
+type Impeach struct {
+	Name             *string `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *Impeach) Reset()         { *m = Impeach{} }
+func (m *Impeach) String() string { return proto.CompactTextString(m) }
+func (*Impeach) ProtoMessage()    {}
+
+func (m *Impeach) GetName() string {
+	if m != nil && m.Name != nil {
+		return *m.Name
+	}
+	return ""
 }
 
 func init() {
@@ -383,6 +411,33 @@ func (m *Client) Unmarshal(data []byte) error {
 				m.SeekIndex = &SeekIndex{}
 			}
 			if err := m.SeekIndex.Unmarshal(data[index:postIndex]); err != nil {
+				return err
+			}
+			index = postIndex
+		case 7:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Impeach", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.Impeach == nil {
+				m.Impeach = &Impeach{}
+			}
+			if err := m.Impeach.Unmarshal(data[index:postIndex]); err != nil {
 				return err
 			}
 			index = postIndex
@@ -725,6 +780,71 @@ func (m *SeekIndex) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *Impeach) Unmarshal(data []byte) error {
+	l := len(data)
+	index := 0
+	for index < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if index >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[index]
+			index++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + int(stringLen)
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			s := string(data[index:postIndex])
+			m.Name = &s
+			index = postIndex
+		default:
+			var sizeOfWire int
+			for {
+				sizeOfWire++
+				wire >>= 7
+				if wire == 0 {
+					break
+				}
+			}
+			index -= sizeOfWire
+			skippy, err := github_com_gogo_protobuf_proto.Skip(data[index:])
+			if err != nil {
+				return err
+			}
+			if (index + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, data[index:index+skippy]...)
+			index += skippy
+		}
+	}
+	return nil
+}
 func (m *Client) Size() (n int) {
 	var l int
 	_ = l
@@ -748,6 +868,10 @@ func (m *Client) Size() (n int) {
 	}
 	if m.SeekIndex != nil {
 		l = m.SeekIndex.Size()
+		n += 1 + l + sovClient(uint64(l))
+	}
+	if m.Impeach != nil {
+		l = m.Impeach.Size()
 		n += 1 + l + sovClient(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -811,6 +935,19 @@ func (m *SeekIndex) Size() (n int) {
 	}
 	if m.Index != nil {
 		n += 1 + sovClient(uint64(*m.Index))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *Impeach) Size() (n int) {
+	var l int
+	_ = l
+	if m.Name != nil {
+		l = len(*m.Name)
+		n += 1 + l + sovClient(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -895,6 +1032,16 @@ func (m *Client) MarshalTo(data []byte) (n int, err error) {
 			return 0, err
 		}
 		i += n4
+	}
+	if m.Impeach != nil {
+		data[i] = 0x3a
+		i++
+		i = encodeVarintClient(data, i, uint64(m.Impeach.Size()))
+		n5, err := m.Impeach.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n5
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)
@@ -1026,6 +1173,33 @@ func (m *SeekIndex) MarshalTo(data []byte) (n int, err error) {
 		data[i] = 0x10
 		i++
 		i = encodeVarintClient(data, i, uint64(*m.Index))
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(data[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *Impeach) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *Impeach) MarshalTo(data []byte) (n int, err error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Name != nil {
+		data[i] = 0xa
+		i++
+		i = encodeVarintClient(data, i, uint64(len(*m.Name)))
+		i += copy(data[i:], *m.Name)
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

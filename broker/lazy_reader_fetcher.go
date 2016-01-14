@@ -25,6 +25,11 @@ func (l *LazyReaderFetcher) FetchReader(name string) (ReadConnection, uint64, er
 	return l.fetchFetcher().Fetch(name, false)
 }
 
+func (l *LazyReaderFetcher) FetchImpeacher(URL string) Impeacher {
+	impeacher, _ := l.fetchFetcher().FetchConnection(URL)
+	return impeacher
+}
+
 func (l *LazyReaderFetcher) fetchFetcher() *ConnectionFetcher {
 	l.lock.Lock()
 	defer l.lock.Unlock()

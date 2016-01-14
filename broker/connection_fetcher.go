@@ -43,6 +43,15 @@ func NewConnectionFetcher(blacklist []string, URLs ...string) (*ConnectionFetche
 	}, nil
 }
 
+func (c *ConnectionFetcher) FetchConnection(URL string) (*Connection, error) {
+	_, conn := c.fetchConnectionIndex(URL)
+	if conn == nil {
+		return nil, fmt.Errorf("Unknown URL %s", URL)
+	}
+
+	return conn, nil
+}
+
 func (c *ConnectionFetcher) Fetch(fileName string, create bool) (*Connection, uint64, error) {
 	c.syncConns.Lock()
 	defer c.syncConns.Unlock()
@@ -84,7 +93,8 @@ func (c *ConnectionFetcher) Close() {
 }
 
 func (c *ConnectionFetcher) fetchConnectionRemote(fileName, remoteURI string, fileId uint64, create bool) (*Connection, uint64, error) {
-	conn := c.verifyConn(c.fetchConnection(remoteURI))
+	_, conn := c.fetchConnectionIndex(remoteURI)
+	conn = c.verifyConn(conn)
 	if conn == nil {
 		conn = c.createConnection(remoteURI)
 		if conn == nil {
@@ -140,11 +150,6 @@ func (c *ConnectionFetcher) verifyConn(conn *Connection) *Connection {
 
 func (c *ConnectionFetcher) roundRobinConns(fileId uint64) *Connection {
 	return c.conns[int(fileId)%len(c.conns)]
-}
-
-func (c *ConnectionFetcher) fetchConnection(URL string) *Connection {
-	_, conn := c.fetchConnectionIndex(URL)
-	return conn
 }
 
 func (c *ConnectionFetcher) fetchConnectionIndex(URL string) (int, *Connection) {

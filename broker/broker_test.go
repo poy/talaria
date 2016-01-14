@@ -576,9 +576,8 @@ func buildFetchFile(id uint64, name string, create bool) *messages.Client {
 }
 
 func buildWriteToFile(msgId, fileId uint64, data []byte) *messages.Client {
-	messageType := messages.Client_WriteToFile
 	return &messages.Client{
-		MessageType: &messageType,
+		MessageType: messages.Client_WriteToFile.Enum(),
 		MessageId:   &msgId,
 		WriteToFile: &messages.WriteToFile{
 			FileId: &fileId,
@@ -588,9 +587,8 @@ func buildWriteToFile(msgId, fileId uint64, data []byte) *messages.Client {
 }
 
 func buildSeekIndex(msgId, fileId, index uint64) *messages.Client {
-	messageType := messages.Client_SeekIndex
 	return &messages.Client{
-		MessageType: &messageType,
+		MessageType: messages.Client_SeekIndex.Enum(),
 		MessageId:   &msgId,
 		SeekIndex: &messages.SeekIndex{
 			FileId: &fileId,
@@ -600,9 +598,8 @@ func buildSeekIndex(msgId, fileId, index uint64) *messages.Client {
 }
 
 func buildReadFromFile(msgId, fileId uint64) []byte {
-	messageType := messages.Client_ReadFromFile
 	msg := &messages.Client{
-		MessageType: &messageType,
+		MessageType: messages.Client_ReadFromFile.Enum(),
 		MessageId:   &msgId,
 		ReadFromFile: &messages.ReadFromFile{
 			FileId: &fileId,

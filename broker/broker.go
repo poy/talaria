@@ -86,6 +86,8 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 			b.readFromFile(controller, message, conWriter)
 		case messages.Client_SeekIndex:
 			b.seekIndex(controller, message, conWriter)
+		case messages.Client_Impeach:
+			b.impeach(message)
 		}
 	}
 }
@@ -136,6 +138,10 @@ func (b *Broker) seekIndex(controller Controller, message *messages.Client, conn
 	}
 
 	controller.SeekIndex(message.SeekIndex.GetFileId(), message.SeekIndex.GetIndex(), callback)
+}
+
+func (b *Broker) impeach(message *messages.Client) {
+	b.log.Panicf("Impeached for %s", message.Impeach.GetName())
 }
 
 func (b *Broker) writeMessage(message *messages.Server, writer io.Writer) {

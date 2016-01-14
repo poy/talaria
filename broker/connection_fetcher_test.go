@@ -61,6 +61,34 @@ var _ = Describe("ConnectionFetcher", func() {
 		}
 	})
 
+	Describe("FetchConnection()", func() {
+		Context("connection available", func() {
+
+			var (
+				expectedURL string
+			)
+
+			BeforeEach(func() {
+				expectedURL = convertToWs(servers[0].URL)
+			})
+
+			It("returns the correct connection", func() {
+				conn, err := fetcher.FetchConnection(expectedURL)
+
+				Expect(err).ToNot(HaveOccurred())
+				Expect(conn.URL).To(Equal(expectedURL))
+			})
+		})
+
+		Context("connection not available", func() {
+			It("returns an error", func() {
+				_, err := fetcher.FetchConnection("ws://some.url")
+
+				Expect(err).To(HaveOccurred())
+			})
+		})
+	})
+
 	Describe("Fetch()", func() {
 
 		It("connects to each broker", func() {

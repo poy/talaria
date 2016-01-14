@@ -13,7 +13,7 @@ import (
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = FDescribe("Chaos", func() {
+var _ = Describe("Chaos", func() {
 	var (
 		client   *broker.Client
 		brokers  []string
