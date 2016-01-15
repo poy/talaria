@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
-	"sync"
 
 	"github.com/apoydence/talaria/logging"
 )
@@ -21,7 +20,6 @@ type KvStore interface {
 	ListenForAnnouncements(callback func(name string))
 	ListenForLeader(name string, callback func(name, uri string))
 	FetchLeader(name string) (string, bool)
-	DeleteAnnouncement(name string)
 }
 
 type Orchestrator struct {
@@ -29,7 +27,6 @@ type Orchestrator struct {
 	kvStore          KvStore
 	clientAddr       string
 	numberOfReplicas uint
-	lock             sync.Mutex
 }
 
 func New(clientAddr string, numberOfReplicas uint, kvStore KvStore) *Orchestrator {
@@ -55,6 +52,8 @@ func (o *Orchestrator) FetchLeader(name string, create bool) (string, bool, erro
 		return "", false, fmt.Errorf("File (%s) does not exist", name)
 	}
 
+	o.log.Debug("Create %s", name)
+
 	results := make(chan string, 1)
 
 	o.kvStore.ListenForLeader(encodedName, func(name, uri string) {
@@ -74,10 +73,8 @@ func (o *Orchestrator) ParticipateInElection(partManager PartitionManager) {
 }
 
 func (o *Orchestrator) participateInElection(fullName string, partManager PartitionManager) {
-	o.lock.Lock()
 	name, replica := o.decodeIndex(fullName)
 	if !partManager.Participate(name, replica) {
-		o.lock.Unlock()
 		return
 	}
 
@@ -86,15 +83,12 @@ func (o *Orchestrator) participateInElection(fullName string, partManager Partit
 	acquired := o.kvStore.Acquire(fullName)
 	if !acquired {
 		o.log.Debug("(%s) Lost election for %s", o.clientAddr, fullName)
-		o.lock.Unlock()
 		return
 	}
 
 	o.log.Debug("(%s) Won election for %s", o.clientAddr, fullName)
-	o.kvStore.DeleteAnnouncement(fullName)
 
 	prevReplica, prevReplicaNeeded := partManager.Add(name, replica)
-	o.lock.Unlock()
 
 	if prevReplicaNeeded {
 		prevFullName := o.encodeIndex(name, prevReplica)

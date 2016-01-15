@@ -95,6 +95,7 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 func (b *Broker) fetchFile(controller Controller, message *messages.Client, conn *concurrentWriter) {
 	fetchFile := message.GetFetchFile()
 	err := controller.FetchFile(fetchFile.GetFileId(), fetchFile.GetName(), fetchFile.GetCreate())
+
 	if err != nil && err.Uri == "" {
 		b.writeError(err.Error(), message, conn)
 		return

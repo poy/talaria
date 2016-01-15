@@ -2,7 +2,6 @@ package orchestrator_test
 
 type mockKvStore struct {
 	announceCh             chan string
-	deleteAnnounceCh       chan string
 	acquireRx              chan string
 	acquireTx              chan bool
 	releaseCh              chan string
@@ -18,7 +17,6 @@ type mockKvStore struct {
 func newMockKvStore() *mockKvStore {
 	return &mockKvStore{
 		announceCh:             make(chan string, 100),
-		deleteAnnounceCh:       make(chan string, 100),
 		acquireRx:              make(chan string, 100),
 		acquireTx:              make(chan bool, 100),
 		releaseCh:              make(chan string, 100),
@@ -65,8 +63,4 @@ func (m *mockKvStore) ListenForAnnouncements(callback func(name string)) {
 			callback(<-m.announceLeaderTx)
 		}
 	}()
-}
-
-func (m *mockKvStore) DeleteAnnouncement(name string) {
-	m.deleteAnnounceCh <- name
 }

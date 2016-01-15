@@ -29,9 +29,6 @@ var _ = Describe("KVStore", func() {
 		_, err := consulClient.KV().DeleteTree(kvstore.Prefix, nil)
 		Expect(err).ToNot(HaveOccurred())
 
-		_, err = consulClient.KV().DeleteTree(kvstore.AnnouncePrefix, nil)
-		Expect(err).ToNot(HaveOccurred())
-
 		sessions, _, err := consulClient.Session().List(nil)
 		for _, session := range sessions {
 			_, err = consulClient.Session().Destroy(session.ID, nil)
@@ -68,10 +65,8 @@ var _ = Describe("KVStore", func() {
 				kv.ListenForAnnouncements(callback)
 
 				go kv.Announce("some-name-1")
-				go kv.Announce("some-name-1")
 				go kv.Announce("some-name-2")
 
-				Eventually(results1, 3).Should(Receive())
 				Eventually(results1, 3).Should(Receive())
 				Eventually(results2, 3).Should(Receive())
 				Consistently(resultsOther).ShouldNot(Receive())
@@ -174,20 +169,6 @@ var _ = Describe("KVStore", func() {
 					})
 				})
 			})
-		})
-	})
-
-	Describe("DeleteAnnouncement()", func() {
-		BeforeEach(func() {
-			kv.Announce(key)
-		})
-
-		It("deletes the announcement", func() {
-			kv.DeleteAnnouncement(key)
-
-			pairs, _, err := consulClient.KV().List(kvstore.AnnouncePrefix, nil)
-			Expect(err).ToNot(HaveOccurred())
-			Expect(pairs).To(BeEmpty())
 		})
 	})
 
@@ -306,6 +287,26 @@ var _ = Describe("KVStore", func() {
 
 			Eventually(nameCh).Should(Receive(Equal(key)))
 			Eventually(uriCh).Should(Receive(Equal(expectedLeader)))
+		}, 5)
+
+		It("doesn't invoke callback when key doesn't have a session", func(done Done) {
+			defer close(done)
+
+			nameCh := make(chan string, 100)
+			uriCh := make(chan string, 100)
+			kv.ListenForLeader(key, func(name, uri string) {
+				nameCh <- name
+				uriCh <- uri
+			})
+
+			pair := &api.KVPair{
+				Key: keyWithPrefix,
+			}
+
+			_, err := consulClient.KV().Put(pair, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			Consistently(nameCh).ShouldNot(Receive())
 		}, 5)
 
 		It("invokes callback if a leader is already elected", func(done Done) {

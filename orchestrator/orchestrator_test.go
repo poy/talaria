@@ -137,12 +137,6 @@ var _ = Describe("Orchestrator", func() {
 					Eventually(mockKvStore.acquireRx).Should(Receive(Equal(fmt.Sprintf("%s~%d", expectedKey, expectedReplica))))
 				})
 
-				It("deletes the announcement", func() {
-					orch.ParticipateInElection(mockPartManager)
-
-					Eventually(mockKvStore.deleteAnnounceCh).Should(Receive(Equal(expectedKey + "~1")))
-				})
-
 				It("adds to the partition manager", func() {
 					orch.ParticipateInElection(mockPartManager)
 
