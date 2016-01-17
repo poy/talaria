@@ -6,6 +6,7 @@ import (
 	"sync"
 
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/common"
 	"github.com/apoydence/talaria/pb/messages"
 	"github.com/gogo/protobuf/proto"
 	"github.com/gorilla/websocket"
@@ -158,7 +159,7 @@ var _ = Describe("Broker", func() {
 
 			var (
 				expectedFileId        uint64
-				expectedConnectionErr *broker.ConnectionError
+				expectedConnectionErr *common.ConnectionError
 			)
 
 			JustBeforeEach(func() {
@@ -170,7 +171,7 @@ var _ = Describe("Broker", func() {
 
 				BeforeEach(func() {
 					expectedFileId = 0
-					expectedConnectionErr = broker.NewConnectionError("some-error", "", "", false)
+					expectedConnectionErr = common.NewConnectionError("some-error", "", "", false)
 				})
 
 				It("responds with the expected message ID", func(done Done) {
@@ -220,7 +221,7 @@ var _ = Describe("Broker", func() {
 				BeforeEach(func() {
 					expectedUri = "http://some.url"
 					expectedFileId = 8
-					expectedConnectionErr = broker.NewConnectionError("some-error", expectedUri, "", false)
+					expectedConnectionErr = common.NewConnectionError("some-error", expectedUri, "", false)
 				})
 
 				It("responds with the expected message ID", func(done Done) {

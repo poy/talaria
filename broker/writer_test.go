@@ -2,6 +2,7 @@ package broker_test
 
 import (
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/common"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -101,13 +102,13 @@ var _ = Describe("Writer", func() {
 
 		Context("with errors", func() {
 			var (
-				expectedError *broker.ConnectionError
+				expectedError *common.ConnectionError
 			)
 
 			Context("non-websocket error", func() {
 
 				BeforeEach(func() {
-					expectedError = new(broker.ConnectionError)
+					expectedError = new(common.ConnectionError)
 					close(mockWriteConnection.indexCh)
 					close(mockFetcher.errCh)
 					populateFetcherMock()
@@ -125,7 +126,7 @@ var _ = Describe("Writer", func() {
 
 				BeforeEach(func(done Done) {
 					defer close(done)
-					expectedError = &broker.ConnectionError{
+					expectedError = &common.ConnectionError{
 						WebsocketError: true,
 					}
 

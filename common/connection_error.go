@@ -1,4 +1,4 @@
-package broker
+package common
 
 type ConnectionError struct {
 	errMessage     string

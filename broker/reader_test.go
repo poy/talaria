@@ -2,6 +2,7 @@ package broker_test
 
 import (
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/common"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -92,12 +93,12 @@ var _ = Describe("Reader", func() {
 		Context("with websocket connection error", func() {
 
 			var (
-				expectedError *broker.ConnectionError
+				expectedError *common.ConnectionError
 			)
 
 			BeforeEach(func(done Done) {
 				defer close(done)
-				expectedError = &broker.ConnectionError{
+				expectedError = &common.ConnectionError{
 					WebsocketError: true,
 				}
 
@@ -151,12 +152,12 @@ var _ = Describe("Reader", func() {
 		Context("with websocket connection error", func() {
 
 			var (
-				expectedError *broker.ConnectionError
+				expectedError *common.ConnectionError
 			)
 
 			BeforeEach(func(done Done) {
 				defer close(done)
-				expectedError = &broker.ConnectionError{
+				expectedError = &common.ConnectionError{
 					WebsocketError: true,
 				}
 

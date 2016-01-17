@@ -1,7 +1,9 @@
 package broker
 
+import "github.com/apoydence/talaria/common"
+
 type WriteConnection interface {
-	WriteToFile(fileId uint64, data []byte) (int64, *ConnectionError)
+	WriteToFile(fileId uint64, data []byte) (int64, *common.ConnectionError)
 }
 
 type WriteConnectionFetcher interface {
@@ -23,10 +25,10 @@ func NewWriter(fileName string, fetcher WriteConnectionFetcher) *Writer {
 	}
 }
 
-func (w *Writer) WriteToFile(data []byte) (int64, *ConnectionError) {
+func (w *Writer) WriteToFile(data []byte) (int64, *common.ConnectionError) {
 	fileId, conn, fcErr := w.fetchConnection()
 	if fcErr != nil {
-		return 0, NewConnectionError(fcErr.Error(), "", "", false)
+		return 0, common.NewConnectionError(fcErr.Error(), "", "", false)
 	}
 
 	index, err := conn.WriteToFile(fileId, data)

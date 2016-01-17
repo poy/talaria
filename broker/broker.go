@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/apoydence/talaria/common"
 	"github.com/apoydence/talaria/logging"
 	"github.com/apoydence/talaria/pb/messages"
 	"github.com/gogo/protobuf/proto"
@@ -16,7 +17,7 @@ const (
 )
 
 type Controller interface {
-	FetchFile(id uint64, name string, create bool) *ConnectionError
+	FetchFile(id uint64, name string, create bool) *common.ConnectionError
 	WriteToFile(id uint64, data []byte) (int64, error)
 	ReadFromFile(id uint64, callback func([]byte, int64, error))
 	SeekIndex(id, index uint64, callback func(error))
@@ -172,7 +173,7 @@ func (b *Broker) writeError(errStr string, message *messages.Client, conn *concu
 	b.writeMessage(server, conn)
 }
 
-func (b *Broker) writeFileLocation(connectionErr *ConnectionError, message *messages.Client, conn *concurrentWriter) {
+func (b *Broker) writeFileLocation(connectionErr *common.ConnectionError, message *messages.Client, conn *concurrentWriter) {
 	var uri string
 	if connectionErr != nil {
 		uri = connectionErr.Uri

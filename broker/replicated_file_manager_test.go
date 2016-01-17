@@ -2,6 +2,7 @@ package broker_test
 
 import (
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/common"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -63,7 +64,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 				expectedReplica = 7
 			})
 
-			var writeToReadConn = func(data []byte, index int64, err *broker.ConnectionError) {
+			var writeToReadConn = func(data []byte, index int64, err *common.ConnectionError) {
 				mockReadConn.resultCh <- data
 				mockReadConn.indexCh <- index
 				mockReadConn.errCh <- err
@@ -71,7 +72,7 @@ var _ = Describe("ReplicatedFileManager", func() {
 
 			AfterEach(func() {
 				By("closing the read loop with an error")
-				writeToReadConn(nil, 0, broker.NewConnectionError("asdf", "", "", false))
+				writeToReadConn(nil, 0, common.NewConnectionError("asdf", "", "", false))
 			})
 
 			Context("reading from the start of the file", func() {

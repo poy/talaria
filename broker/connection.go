@@ -5,6 +5,7 @@ import (
 	"sync"
 	"sync/atomic"
 
+	"github.com/apoydence/talaria/common"
 	"github.com/apoydence/talaria/logging"
 	"github.com/apoydence/talaria/pb/messages"
 	"github.com/gogo/protobuf/proto"
@@ -57,56 +58,56 @@ func NewConnection(URL string) (*Connection, error) {
 	return c, nil
 }
 
-func (c *Connection) FetchFile(fileId uint64, name string, create bool) *ConnectionError {
+func (c *Connection) FetchFile(fileId uint64, name string, create bool) *common.ConnectionError {
 	respCh := c.writeFetchFile(c.nextMsgId(), fileId, name, create)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		c.setErrored()
-		return NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
+		return common.NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileLocation {
 		c.setErrored()
-		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileLocation, serverMsg.GetMessageType()), "", c.URL, false)
+		return common.NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileLocation, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
 	if !serverMsg.FileLocation.GetLocal() {
-		return NewConnectionError("Redirect", serverMsg.FileLocation.GetUri(), c.URL, false)
+		return common.NewConnectionError("Redirect", serverMsg.FileLocation.GetUri(), c.URL, false)
 	}
 
 	return nil
 }
 
-func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, *ConnectionError) {
+func (c *Connection) WriteToFile(fileId uint64, data []byte) (int64, *common.ConnectionError) {
 	respCh := c.writeWriteToFile(c.nextMsgId(), fileId, data)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		c.setErrored()
-		return 0, NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
+		return 0, common.NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileIndex {
 		c.setErrored()
-		return 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileIndex, serverMsg.GetMessageType()), "", c.URL, false)
+		return 0, common.NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileIndex, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
 	return serverMsg.FileIndex.GetIndex(), nil
 }
 
-func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionError) {
+func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *common.ConnectionError) {
 	respCh := c.writeReadFromFile(c.nextMsgId(), fileId)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
 		c.setErrored()
-		return nil, 0, NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
+		return nil, 0, common.NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_ReadData {
 		c.setErrored()
-		return nil, 0, NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_ReadData, serverMsg.GetMessageType()), "", c.URL, false)
+		return nil, 0, common.NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_ReadData, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
 	data := serverMsg.ReadData.GetData()
@@ -114,20 +115,20 @@ func (c *Connection) ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionErro
 	return data, index, nil
 }
 
-func (c *Connection) SeekIndex(fileId uint64, index uint64) *ConnectionError {
+func (c *Connection) SeekIndex(fileId uint64, index uint64) *common.ConnectionError {
 	respCh := c.writeSeekIndex(c.nextMsgId(), fileId, index)
 	serverMsg := <-respCh
 
 	if serverMsg.GetMessageType() == messages.Server_Error {
-		return NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
+		return common.NewConnectionError(serverMsg.Error.GetMessage(), "", c.URL, serverMsg.Error.GetConnection())
 	}
 
 	if serverMsg.GetMessageType() != messages.Server_FileIndex {
-		return NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileIndex, serverMsg.GetMessageType()), "", c.URL, false)
+		return common.NewConnectionError(fmt.Sprintf("Expected MessageType: %v. Received %v", messages.Server_FileIndex, serverMsg.GetMessageType()), "", c.URL, false)
 	}
 
 	if index != uint64(serverMsg.FileIndex.GetIndex()) {
-		return NewConnectionError(fmt.Sprintf("Expected index: %d. Received %d", index, serverMsg.FileIndex.GetIndex()), "", c.URL, false)
+		return common.NewConnectionError(fmt.Sprintf("Expected index: %d. Received %d", index, serverMsg.FileIndex.GetIndex()), "", c.URL, false)
 	}
 
 	return nil

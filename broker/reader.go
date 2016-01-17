@@ -1,8 +1,10 @@
 package broker
 
+import "github.com/apoydence/talaria/common"
+
 type ReadConnection interface {
-	ReadFromFile(fileId uint64) ([]byte, int64, *ConnectionError)
-	SeekIndex(fileId, index uint64) *ConnectionError
+	ReadFromFile(fileId uint64) ([]byte, int64, *common.ConnectionError)
+	SeekIndex(fileId, index uint64) *common.ConnectionError
 }
 
 type ReadConnectionFetcher interface {
@@ -23,10 +25,10 @@ func NewReader(fileName string, fetcher ReadConnectionFetcher) *Reader {
 	}
 }
 
-func (r *Reader) ReadFromFile() ([]byte, int64, *ConnectionError) {
+func (r *Reader) ReadFromFile() ([]byte, int64, *common.ConnectionError) {
 	fileId, conn, fcErr := r.fetchConnection()
 	if fcErr != nil {
-		return nil, 0, NewConnectionError(fcErr.Error(), "", "", false)
+		return nil, 0, common.NewConnectionError(fcErr.Error(), "", "", false)
 	}
 
 	data, index, err := conn.ReadFromFile(fileId)
@@ -39,10 +41,10 @@ func (r *Reader) ReadFromFile() ([]byte, int64, *ConnectionError) {
 	return data, index, err
 }
 
-func (r *Reader) SeekIndex(index uint64) *ConnectionError {
+func (r *Reader) SeekIndex(index uint64) *common.ConnectionError {
 	fileId, conn, fcErr := r.fetchConnection()
 	if fcErr != nil {
-		return NewConnectionError(fcErr.Error(), "", "", false)
+		return common.NewConnectionError(fcErr.Error(), "", "", false)
 	}
 
 	err := conn.SeekIndex(fileId, index)
