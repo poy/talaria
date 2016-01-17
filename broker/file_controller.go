@@ -16,6 +16,7 @@ type IndexReader interface {
 type InitableWriter interface {
 	io.Writer
 	InitWriteIndex(index int64, data []byte) (int64, error)
+	LastIndex() uint64
 }
 
 type IoProvider interface {
@@ -127,4 +128,9 @@ func (f *FileController) SeekIndex(fileId, index uint64, callback func(error)) {
 	go func() {
 		callback(ioInfo.reader.SeekIndex(index))
 	}()
+}
+
+func (f *FileController) ValidateLeader(fileName string, index uint64) bool {
+	writer := f.ioProvider.ProvideWriter(fileName)
+	return writer.LastIndex() <= index
 }

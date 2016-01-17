@@ -38,7 +38,7 @@ var _ = Describe("SegmentedFileWriter", func() {
 	})
 
 	Describe("Write()", func() {
-		Context("Splits Files", func() {
+		Describe("Splits Files", func() {
 			It("writes data to a file named 0", func(done Done) {
 				defer close(done)
 				expectedData := []byte("some-data")
@@ -128,6 +128,14 @@ var _ = Describe("SegmentedFileWriter", func() {
 					verifyData(expectedData[i*5:i*5+5], file)
 				}
 			})
+
+			It("reports the updated LastIndex()", func() {
+				for i := 0; i < 15; i += 5 {
+					segmentedFile.Write(expectedData[i : i+5])
+				}
+
+				Expect(segmentedFile.LastIndex()).To(BeEquivalentTo(3))
+			})
 		})
 
 		Context("Deletes files", func() {
@@ -184,8 +192,14 @@ var _ = Describe("SegmentedFileWriter", func() {
 		})
 
 		Context("InitWriteIndex() used", func() {
+
+			var (
+				expectedIndex uint64
+			)
+
 			BeforeEach(func() {
-				segmentedFile.InitWriteIndex(1000, expectedData[5:10])
+				expectedIndex = 1000
+				segmentedFile.InitWriteIndex(int64(expectedIndex), expectedData[5:10])
 			})
 
 			It("writes the init data", func(done Done) {
@@ -210,7 +224,7 @@ var _ = Describe("SegmentedFileWriter", func() {
 
 				data, err := readFromFile(path.Join(tmpDir, "0"))
 				Expect(err).ToNot(HaveOccurred())
-				validateMeta(data, 1000, 0, 8)
+				validateMeta(data, expectedIndex, 0, 8)
 			})
 
 			It("writes the expected data to the second file", func(done Done) {
@@ -218,7 +232,7 @@ var _ = Describe("SegmentedFileWriter", func() {
 
 				data, err := readFromFile(path.Join(tmpDir, "1"))
 				Expect(err).ToNot(HaveOccurred())
-				validateMeta(data, 1000, 1, 21)
+				validateMeta(data, expectedIndex, 1, 21)
 			})
 
 			It("writes the expected data to the third file", func(done Done) {
@@ -226,7 +240,11 @@ var _ = Describe("SegmentedFileWriter", func() {
 
 				data, err := readFromFile(path.Join(tmpDir, "2"))
 				Expect(err).ToNot(HaveOccurred())
-				validateMeta(data, 1001, 1, 21)
+				validateMeta(data, expectedIndex+1, 1, 21)
+			})
+
+			It("reports LastIndex() as adjusted", func() {
+				Expect(segmentedFile.LastIndex()).To(Equal(expectedIndex + 4))
 			})
 		})
 	})

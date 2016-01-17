@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/broker/leadervalidator"
 	"github.com/apoydence/talaria/kvstore"
 	"github.com/apoydence/talaria/logging"
 	"github.com/apoydence/talaria/orchestrator"
@@ -79,11 +80,14 @@ func run(c *cli.Context) {
 	clientAddr := fmt.Sprintf("ws://localhost:%d", c.Int(port))
 	kvStore := kvstore.New(clientAddr, c.Int(healthPort))
 	ioProvider := broker.NewFileProvider(c.String(dataDir), uint64(c.Int(segmentLength)), uint64(c.Int(numSegments)), time.Second)
-	orch := orchestrator.New(clientAddr, uint(c.Int(numReplicas)), kvStore)
-	readerFetcher := broker.NewLazyReaderFetcher(clientAddr)
 
+	readerFetcher := broker.NewLazyReaderFetcher(clientAddr)
 	replicaManager := broker.NewReplicatedFileManager(ioProvider, readerFetcher)
-	orch.ParticipateInElection(replicaManager)
+
+	leaderValidator := leadervalidator.New(kvStore, readerFetcher)
+
+	orch := orchestrator.New(clientAddr, uint(c.Int(numReplicas)), kvStore, replicaManager, leaderValidator, ioProvider)
+	orch.ParticipateInElections()
 
 	broker.StartBrokerServer(c.Int(port), orch, ioProvider)
 }

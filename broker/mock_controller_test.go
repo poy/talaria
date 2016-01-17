@@ -27,6 +27,10 @@ type mockController struct {
 	seekIdCh       chan uint64
 	seekIndexCh    chan uint64
 	seekCallbackCh chan func(error)
+
+	validLeaderNameCh   chan string
+	validLeaderIndexCh  chan uint64
+	validLeaderResultCh chan bool
 }
 
 func newMockController() *mockController {
@@ -55,6 +59,10 @@ func newMockController() *mockController {
 		seekIdCh:       make(chan uint64, 100),
 		seekIndexCh:    make(chan uint64, 100),
 		seekCallbackCh: make(chan func(error), 100),
+
+		validLeaderNameCh:   make(chan string, 100),
+		validLeaderIndexCh:  make(chan uint64, 100),
+		validLeaderResultCh: make(chan bool, 100),
 	}
 }
 
@@ -87,6 +95,12 @@ func (m *mockController) InitWriteIndex(id uint64, index int64, data []byte) (in
 	m.initDataCh <- data
 	m.initIndexCh <- index
 	return <-m.initIndexRetCh, <-m.initErrCh
+}
+
+func (m *mockController) ValidateLeader(name string, index uint64) bool {
+	m.validLeaderNameCh <- name
+	m.validLeaderIndexCh <- index
+	return <-m.validLeaderResultCh
 }
 
 func (m *mockController) closeChannels() {

@@ -163,34 +163,6 @@ var _ = Describe("ReplicatedFileManager", func() {
 						})
 					})
 
-					Context("seek fails", func() {
-
-						var (
-							expectedSeekError *broker.ConnectionError
-							expectedConnURL   string
-
-							mockImpeacher *mockImpeacher
-						)
-
-						BeforeEach(func() {
-							expectedConnURL = "ws://some.url"
-							expectedSeekError = &broker.ConnectionError{
-								ConnURL: expectedConnURL,
-							}
-
-							mockReadConn.seekErrCh <- expectedSeekError
-
-							mockImpeacher = newMockImpeacher()
-							mockReadConnectionFetcher.impeacherCh <- mockImpeacher
-						})
-
-						It("impeaches the leader", func() {
-							manager.Add(expectedName, expectedReplica)
-
-							Eventually(mockReadConnectionFetcher.impeachUrlCh).Should(Receive(Equal(expectedConnURL)))
-							Expect(mockImpeacher.impeach).Should(Receive(Equal(expectedName)))
-						})
-					})
 				})
 			})
 

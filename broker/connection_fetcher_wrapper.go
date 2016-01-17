@@ -1,11 +1,15 @@
 package broker
 
+import "github.com/apoydence/talaria/logging"
+
 type ConnectionFetcherWrapper struct {
+	log     logging.Logger
 	fetcher *ConnectionFetcher
 }
 
 func NewConnectionFetcherWrapper(fetcher *ConnectionFetcher) *ConnectionFetcherWrapper {
 	return &ConnectionFetcherWrapper{
+		log:     logging.Log("ConnectionFetcherWrapper"),
 		fetcher: fetcher,
 	}
 }

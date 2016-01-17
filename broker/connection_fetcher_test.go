@@ -78,6 +78,48 @@ var _ = Describe("ConnectionFetcher", func() {
 				Expect(err).ToNot(HaveOccurred())
 				Expect(conn.URL).To(Equal(expectedURL))
 			})
+
+			Context("populated blacklist", func() {
+				BeforeEach(func() {
+					blacklist = []string{expectedURL}
+				})
+
+				It("does not return a connection on the blacklist", func() {
+					_, err := fetcher.FetchConnection(expectedURL)
+
+					Expect(err).To(HaveOccurred())
+				})
+			})
+
+			Context("for unknown server", func() {
+				var (
+					extraMockServer *mockServer
+					extraServerURL  string
+				)
+
+				var createExtraMockServer = func() {
+					mockServer, server := startMockServer()
+					extraMockServer = mockServer
+					servers = append(servers, server)
+					extraServerURL = convertToWs(server.URL)
+				}
+
+				BeforeEach(func() {
+					createExtraMockServer()
+
+					mockServers[0].serverCh <- buildRemoteFileLocation(1, extraServerURL)
+					extraMockServer.serverCh <- buildFileLocation(1)
+				})
+
+				It("returns the connection", func() {
+					conn, err := fetcher.FetchConnection(extraServerURL)
+
+					Expect(err).ToNot(HaveOccurred())
+					Expect(conn.URL).To(Equal(extraServerURL))
+				})
+
+			})
+
 		})
 
 		Context("connection not available", func() {

@@ -1,6 +1,7 @@
 package broker
 
 import (
+	"os"
 	"path"
 	"sync"
 	"time"
@@ -50,6 +51,29 @@ func (f *FileProvider) ProvideReader(name string) IndexReader {
 	return f.provideReader(name, f.polling)
 }
 
+func (f *FileProvider) ProvideLastIndex(name string) (uint64, bool) {
+	dir := path.Join(f.dir, name)
+	if !exists(dir) {
+		return 0, false
+	}
+
+	segWriter := files.NewSegmentedFileWriter(dir, f.desiredLength, f.maxSegments)
+	return segWriter.LastIndex(), true
+}
+
 func (f *FileProvider) provideReader(name string, polling time.Duration) *files.SegmentedFileReader {
 	return files.NewSegmentedFileReader(path.Join(f.dir, name), polling)
+}
+
+func exists(path string) bool {
+	_, err := os.Stat(path)
+	if err == nil {
+		return true
+	}
+
+	if os.IsNotExist(err) {
+		return false
+	}
+
+	return true
 }

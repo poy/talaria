@@ -562,6 +562,62 @@ var _ = Describe("Broker", func() {
 
 	})
 
+	Describe("ValidateLeader()", func() {
+
+		var (
+			expectedMsgIndex    uint64
+			expectedName        string
+			expectedIndex       uint64
+			expectedValidLeader bool
+			conn                *websocket.Conn
+		)
+
+		var writeMsg = func() {
+			viableLeader := buildViableLeader(expectedMsgIndex, expectedName, expectedIndex)
+			data, err := proto.Marshal(viableLeader)
+			Expect(err).ToNot(HaveOccurred())
+			conn.WriteMessage(websocket.BinaryMessage, data)
+		}
+
+		var readServerMsg = func() *messages.ImpeachLeader {
+			_, data, err := conn.ReadMessage()
+			Expect(err).ToNot(HaveOccurred())
+
+			server := new(messages.Server)
+			err = server.Unmarshal(data)
+			Expect(err).ToNot(HaveOccurred())
+			Expect(server.GetMessageId()).To(BeEquivalentTo(expectedMsgIndex))
+			Expect(server.GetMessageType()).To(Equal(messages.Server_ImpeachLeader))
+			Expect(server.ImpeachLeader).ToNot(BeNil())
+
+			return server.ImpeachLeader
+		}
+
+		JustBeforeEach(func() {
+			expectedMsgIndex = 99
+			expectedName = "some-name"
+			expectedIndex = 101
+			expectedValidLeader = true
+
+			var err error
+			conn, _, err = websocket.DefaultDialer.Dial(wsUrl, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			mockController.validLeaderResultCh <- expectedValidLeader
+
+			writeMsg()
+		})
+
+		It("passes the correct name and index to the controller", func() {
+			Eventually(mockController.validLeaderNameCh).Should(Receive(Equal(expectedName)))
+			Eventually(mockController.validLeaderIndexCh).Should(Receive(Equal(expectedIndex)))
+		})
+
+		It("returns the file controllers response", func() {
+			Expect(readServerMsg().GetImpeach()).To(Equal(!expectedValidLeader))
+		})
+	})
+
 })
 
 func buildFetchFile(id uint64, name string, create bool) *messages.Client {
@@ -609,4 +665,15 @@ func buildReadFromFile(msgId, fileId uint64) []byte {
 	data, err := proto.Marshal(msg)
 	Expect(err).ToNot(HaveOccurred())
 	return data
+}
+
+func buildViableLeader(msgId uint64, name string, index uint64) *messages.Client {
+	return &messages.Client{
+		MessageType: messages.Client_ViableLeader.Enum(),
+		MessageId:   &msgId,
+		ViableLeader: &messages.ViableLeader{
+			Name:  proto.String(name),
+			Index: proto.Uint64(index),
+		},
+	}
 }

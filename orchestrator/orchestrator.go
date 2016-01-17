@@ -4,9 +4,18 @@ import (
 	"fmt"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/apoydence/talaria/logging"
 )
+
+type LeaderValidator interface {
+	Validate(name string, index uint64, callback func(string, bool))
+}
+
+type IndexProvider interface {
+	ProvideLastIndex(name string) (uint64, bool)
+}
 
 type PartitionManager interface {
 	Participate(name string, index uint) bool
@@ -23,25 +32,32 @@ type KvStore interface {
 }
 
 type Orchestrator struct {
-	log              logging.Logger
-	kvStore          KvStore
+	log             logging.Logger
+	kvStore         KvStore
+	partManager     PartitionManager
+	leaderValidator LeaderValidator
+	indexProvider   IndexProvider
+
 	clientAddr       string
 	numberOfReplicas uint
 }
 
-func New(clientAddr string, numberOfReplicas uint, kvStore KvStore) *Orchestrator {
+func New(clientAddr string, numberOfReplicas uint, kvStore KvStore, partitionManager PartitionManager, leaderValidator LeaderValidator, indexProvider IndexProvider) *Orchestrator {
 	orch := &Orchestrator{
 		log:              logging.Log("Orchestrator"),
 		kvStore:          kvStore,
 		clientAddr:       clientAddr,
 		numberOfReplicas: numberOfReplicas,
+		partManager:      partitionManager,
+		leaderValidator:  leaderValidator,
+		indexProvider:    indexProvider,
 	}
 
 	return orch
 }
 
 func (o *Orchestrator) FetchLeader(name string, create bool) (string, bool, error) {
-	encodedName := fmt.Sprintf("%s~0", name)
+	encodedName := o.encodeIndex(name, 0)
 
 	uri, ok := o.kvStore.FetchLeader(encodedName)
 	if ok {
@@ -63,12 +79,21 @@ func (o *Orchestrator) FetchLeader(name string, create bool) (string, bool, erro
 	o.kvStore.Announce(encodedName)
 
 	result := <-results
-	return result, result == o.clientAddr, nil
+	if result != o.clientAddr {
+		return result, false, nil
+	}
+
+	for o.partManager.Participate(name, 0) {
+		time.Sleep(time.Second)
+		//return "", false, fmt.Errorf("leader not yet validated")
+	}
+
+	return result, true, nil
 }
 
-func (o *Orchestrator) ParticipateInElection(partManager PartitionManager) {
+func (o *Orchestrator) ParticipateInElections() {
 	o.kvStore.ListenForAnnouncements(func(fullName string) {
-		o.participateInElection(fullName, partManager)
+		o.participateInElection(fullName, o.partManager)
 	})
 }
 
@@ -88,21 +113,34 @@ func (o *Orchestrator) participateInElection(fullName string, partManager Partit
 
 	o.log.Debug("(%s) Won election for %s", o.clientAddr, fullName)
 
-	prevReplica, prevReplicaNeeded := partManager.Add(name, replica)
-
-	if prevReplicaNeeded {
-		prevFullName := o.encodeIndex(name, prevReplica)
-		o.kvStore.Announce(prevFullName)
-		o.kvStore.Release(prevFullName)
-	}
-
 	if replica != 0 {
 		return
 	}
 
-	for i := uint(1); i <= o.numberOfReplicas; i++ {
-		o.kvStore.Announce(o.encodeIndex(name, i))
-	}
+	index, _ := o.indexProvider.ProvideLastIndex(name)
+
+	o.leaderValidator.Validate(name, index, func(name string, validated bool) {
+		if !validated {
+			o.kvStore.Release(o.encodeIndex(name, 0))
+			return
+		}
+
+		prevReplica, prevReplicaNeeded := partManager.Add(name, replica)
+
+		if prevReplicaNeeded {
+			prevFullName := o.encodeIndex(name, prevReplica)
+			o.kvStore.Announce(prevFullName)
+			o.kvStore.Release(prevFullName)
+		}
+
+		if replica != 0 {
+			return
+		}
+
+		for i := uint(1); i <= o.numberOfReplicas; i++ {
+			o.kvStore.Announce(o.encodeIndex(name, i))
+		}
+	})
 }
 
 func (o *Orchestrator) listenForReplicas(name string, callback func(name string, replica uint, addr string)) {

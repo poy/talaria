@@ -10,6 +10,7 @@ import (
 	"github.com/apoydence/talaria/broker"
 
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
 )
 
@@ -374,6 +375,33 @@ var _ = Describe("FileController", func() {
 				Expect(mockReader.seekIndexes).To(Receive(Equal(expectedIndex)))
 			})
 		})
+	})
+
+	Describe("ValidateLeader()", func() {
+
+		var (
+			expectedName  string
+			expectedIndex uint64
+		)
+
+		JustBeforeEach(func() {
+			expectedName = "some-name"
+			expectedIndex = 101
+
+			close(mockFileProvider.writerCh)
+		})
+
+		DescribeTable("ValidateLeader() gives correct results", func(delta int, expectedResult bool) {
+			mockFileProvider.lastIndexCh <- expectedIndex + uint64(delta)
+
+			Expect(fileController.ValidateLeader(expectedName, expectedIndex)).To(Equal(expectedResult))
+			Expect(mockFileProvider.writerNameCh).To(Receive(Equal(expectedName)))
+		},
+			Entry("file index is less than new leader", -1, true),
+			Entry("file index is equal to new leader", 0, true),
+			Entry("file index is greater than new leader", 1, false),
+		)
+
 	})
 })
 

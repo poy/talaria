@@ -20,6 +20,7 @@ type Controller interface {
 	WriteToFile(id uint64, data []byte) (int64, error)
 	ReadFromFile(id uint64, callback func([]byte, int64, error))
 	SeekIndex(id, index uint64, callback func(error))
+	ValidateLeader(fileName string, index uint64) bool
 }
 
 type ControllerProvider interface {
@@ -86,8 +87,8 @@ func (b *Broker) ServeHTTP(writer http.ResponseWriter, req *http.Request) {
 			b.readFromFile(controller, message, conWriter)
 		case messages.Client_SeekIndex:
 			b.seekIndex(controller, message, conWriter)
-		case messages.Client_Impeach:
-			b.impeach(message)
+		case messages.Client_ViableLeader:
+			b.viableLeader(controller, message, conWriter)
 		}
 	}
 }
@@ -141,8 +142,10 @@ func (b *Broker) seekIndex(controller Controller, message *messages.Client, conn
 	controller.SeekIndex(message.SeekIndex.GetFileId(), message.SeekIndex.GetIndex(), callback)
 }
 
-func (b *Broker) impeach(message *messages.Client) {
-	b.log.Panicf("Impeached for %s", message.Impeach.GetName())
+func (b *Broker) viableLeader(controller Controller, message *messages.Client, conn *concurrentWriter) {
+	viableLeader := controller.ValidateLeader(message.ViableLeader.GetName(), message.ViableLeader.GetIndex())
+
+	b.writeImpeachLeader(!viableLeader, message, conn)
 }
 
 func (b *Broker) writeMessage(message *messages.Server, writer io.Writer) {
@@ -207,6 +210,17 @@ func (b *Broker) writeReadData(data []byte, index int64, message *messages.Clien
 		ReadData: &messages.ReadData{
 			Data:  data,
 			Index: proto.Int64(index),
+		},
+	}
+	b.writeMessage(server, conn)
+}
+
+func (b *Broker) writeImpeachLeader(impeach bool, message *messages.Client, conn *concurrentWriter) {
+	server := &messages.Server{
+		MessageType: messages.Server_ImpeachLeader.Enum(),
+		MessageId:   proto.Uint64(message.GetMessageId()),
+		ImpeachLeader: &messages.ImpeachLeader{
+			Impeach: proto.Bool(impeach),
 		},
 	}
 	b.writeMessage(server, conn)

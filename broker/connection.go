@@ -133,8 +133,19 @@ func (c *Connection) SeekIndex(fileId uint64, index uint64) *ConnectionError {
 	return nil
 }
 
-func (c *Connection) Impeach(name string) {
-	c.writeImpeach(c.nextMsgId(), name)
+func (c *Connection) ValidateLeader(name string, index uint64) bool {
+	respCh := c.writeViableLeader(c.nextMsgId(), name, index)
+	serverMsg := <-respCh
+
+	if serverMsg.GetMessageType() == messages.Server_Error {
+		c.log.Panicf("Failed to submit (to %s)) ValidateLeader: %s", c.URL, serverMsg.Error.GetMessage())
+	}
+
+	if serverMsg.GetMessageType() != messages.Server_ImpeachLeader {
+		c.log.Panicf("Expected MessageType: %v. Received %v", messages.Server_ImpeachLeader, serverMsg.GetMessageType())
+	}
+
+	return serverMsg.ImpeachLeader.GetImpeach()
 }
 
 func (c *Connection) Close() {
@@ -322,6 +333,26 @@ func (c *Connection) writeSeekIndex(msgId, fileId, index uint64) <-chan *message
 		SeekIndex: &messages.SeekIndex{
 			FileId: proto.Uint64(fileId),
 			Index:  proto.Uint64(index),
+		},
+	}
+
+	respCh := make(chan *messages.Server, 1)
+	c.writeCh <- clientMsgInfo{
+		respCh: respCh,
+		msg:    msg,
+	}
+
+	return respCh
+}
+
+func (c *Connection) writeViableLeader(msgId uint64, fileName string, index uint64) <-chan *messages.Server {
+	messageType := messages.Client_ViableLeader
+	msg := &messages.Client{
+		MessageType: messageType.Enum(),
+		MessageId:   proto.Uint64(msgId),
+		ViableLeader: &messages.ViableLeader{
+			Name:  proto.String(fileName),
+			Index: proto.Uint64(index),
 		},
 	}
 

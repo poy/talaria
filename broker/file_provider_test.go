@@ -3,6 +3,7 @@ package broker_test
 import (
 	"io/ioutil"
 	"os"
+	"path"
 	"time"
 
 	"github.com/apoydence/talaria/broker"
@@ -13,11 +14,17 @@ import (
 
 var _ = Describe("FileProvider", func() {
 	var (
+		expectedName1 string
+		expectedName2 string
+
 		tmpDir       string
 		fileProvider *broker.FileProvider
 	)
 
 	BeforeEach(func() {
+		expectedName1 = "some-name-1"
+		expectedName2 = "some-name-2"
+
 		var err error
 		tmpDir, err = ioutil.TempDir("/tmp", "seg")
 		Expect(err).ToNot(HaveOccurred())
@@ -29,13 +36,13 @@ var _ = Describe("FileProvider", func() {
 		Expect(os.RemoveAll(tmpDir)).To(Succeed())
 	})
 
-	Describe("ProvideWriter", func() {
+	Describe("ProvideWriter()", func() {
 		It("provides the same writer for each unique name", func() {
-			writer1 := fileProvider.ProvideWriter("some-name-1")
+			writer1 := fileProvider.ProvideWriter(expectedName1)
 			Expect(writer1).ToNot(BeNil())
-			writer2 := fileProvider.ProvideWriter("some-name-1")
+			writer2 := fileProvider.ProvideWriter(expectedName1)
 			Expect(writer2).ToNot(BeNil())
-			writer3 := fileProvider.ProvideWriter("some-name-2")
+			writer3 := fileProvider.ProvideWriter(expectedName2)
 			Expect(writer3).ToNot(BeNil())
 
 			By("writing to the file to ensure they differ")
@@ -46,17 +53,40 @@ var _ = Describe("FileProvider", func() {
 		})
 	})
 
-	Describe("ProvideReader", func() {
+	Describe("ProvideReader()", func() {
 		It("provides a unique reader each time", func() {
-			writer := fileProvider.ProvideWriter("some-name-1")
+			writer := fileProvider.ProvideWriter(expectedName1)
 			Expect(writer).ToNot(BeNil())
 			writer.Write([]byte("some-data"))
 
-			reader1 := fileProvider.ProvideReader("some-name-1")
-			reader2 := fileProvider.ProvideReader("some-name-1")
+			reader1 := fileProvider.ProvideReader(expectedName1)
+			reader2 := fileProvider.ProvideReader(expectedName1)
 			reader1.Read(make([]byte, 1))
 
 			Expect(reader1).ToNot(Equal(reader2))
 		})
+	})
+
+	Describe("ProvdeLastIndex()", func() {
+		Context("directory is not present", func() {
+			It("returns false for OK", func() {
+				_, ok := fileProvider.ProvideLastIndex(expectedName1)
+				Expect(ok).To(BeFalse())
+			})
+		})
+
+		Context("directory is present", func() {
+
+			BeforeEach(func() {
+				Expect(os.Mkdir(path.Join(tmpDir, expectedName1), 0777)).To(Succeed())
+			})
+
+			It("returns true for OK and the index", func() {
+				index, ok := fileProvider.ProvideLastIndex(expectedName1)
+				Expect(ok).To(BeTrue())
+				Expect(index).To(BeEquivalentTo(0))
+			})
+		})
+
 	})
 })

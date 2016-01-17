@@ -13,12 +13,14 @@ type mockFileProvider struct {
 	readerCh          chan *mockReader
 	indexCh           chan int64
 	initIndexResultCh chan int64
+	lastIndexCh       chan uint64
 }
 
 type subWrapper struct {
 	io.Writer
 	indexCh           chan int64
 	initIndexResultCh chan int64
+	lastIndexCh       chan uint64
 }
 
 type indexWrapper struct {
@@ -34,12 +36,13 @@ func newMockFileProvider() *mockFileProvider {
 		readerCh:          make(chan *mockReader, 100),
 		indexCh:           make(chan int64, 100),
 		initIndexResultCh: make(chan int64, 100),
+		lastIndexCh:       make(chan uint64, 100),
 	}
 }
 
 func (m *mockFileProvider) ProvideWriter(name string) broker.InitableWriter {
 	m.writerNameCh <- name
-	return newSubWrapper(<-m.writerCh, m.indexCh, m.initIndexResultCh)
+	return newSubWrapper(<-m.writerCh, m.indexCh, m.initIndexResultCh, m.lastIndexCh)
 }
 
 func (m *mockFileProvider) ProvideReader(name string) broker.IndexReader {
@@ -47,11 +50,12 @@ func (m *mockFileProvider) ProvideReader(name string) broker.IndexReader {
 	return <-m.readerCh
 }
 
-func newSubWrapper(writer io.Writer, indexCh, initIndexResultCh chan int64) *subWrapper {
+func newSubWrapper(writer io.Writer, indexCh, initIndexResultCh chan int64, lastIndexCh chan uint64) *subWrapper {
 	return &subWrapper{
 		Writer:            writer,
 		indexCh:           indexCh,
 		initIndexResultCh: initIndexResultCh,
+		lastIndexCh:       lastIndexCh,
 	}
 }
 
@@ -59,4 +63,8 @@ func (s *subWrapper) InitWriteIndex(index int64, data []byte) (int64, error) {
 	s.Write(data)
 	s.indexCh <- index
 	return <-s.initIndexResultCh, nil
+}
+
+func (s *subWrapper) LastIndex() uint64 {
+	return <-s.lastIndexCh
 }

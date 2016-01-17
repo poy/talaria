@@ -7,6 +7,7 @@ message Client{
 		ReadFromFile = 3;
 		SeekIndex = 4;
 		Impeach = 5;
+    ViableLeader = 6;
 	}
 
 	required uint64 messageId = 1;
@@ -17,6 +18,7 @@ message Client{
 	optional ReadFromFile readFromFile = 5;
 	optional SeekIndex seekIndex = 6;
 	optional Impeach impeach = 7;
+  optional ViableLeader viableLeader = 8;
 }
 
 message FetchFile{
@@ -41,4 +43,9 @@ message SeekIndex{
 
 message Impeach{
   required string name = 1;
+}
+
+message ViableLeader{
+  required string name = 1;
+	required uint64 index = 2;
 }

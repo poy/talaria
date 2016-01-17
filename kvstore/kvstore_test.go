@@ -358,4 +358,41 @@ var _ = Describe("KVStore", func() {
 		})
 	})
 
+	Describe("FetchReplicas", func() {
+		var (
+			expectedURLs []string
+			expectedKey  string
+		)
+
+		var createReplica = func(index int, URL string) {
+			session, _, err := consulClient.Session().CreateNoChecks(nil, nil)
+			Expect(err).ToNot(HaveOccurred())
+
+			pair := &api.KVPair{
+				Key:     fmt.Sprintf("%s-%s~%d", kvstore.Prefix, expectedKey, index),
+				Session: session,
+				Value:   []byte(URL),
+			}
+
+			_, _, err = consulClient.KV().Acquire(pair, nil)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
+		BeforeEach(func() {
+			expectedURLs = []string{
+				"ws://some-url-1",
+				"ws://some-url-2",
+				"ws://some-url-3",
+			}
+
+			for i, URL := range expectedURLs {
+				createReplica(i, URL)
+			}
+		})
+
+		It("returns the URLs of the replicas", func() {
+			Expect(kv.FetchReplicas(expectedKey)).To(Equal(expectedURLs))
+		})
+	})
+
 })

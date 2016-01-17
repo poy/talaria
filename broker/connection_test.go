@@ -463,32 +463,60 @@ var _ = Describe("Connection", func() {
 		})
 	})
 
-	Describe("Impeach()", func() {
+	Describe("ValidateLeader", func() {
 		var (
-			expectedName string
+			expectedName  string
+			expectedIndex uint64
 		)
 
 		BeforeEach(func() {
 			expectedName = "some-name"
 		})
 
-		It("sends a impeach message to the broker", func() {
-			connection.Impeach(expectedName)
+		Context("impeach leader", func() {
 
-			var clientMsg *messages.Client
-			Eventually(mockServer.clientCh).Should(Receive(&clientMsg))
-			Expect(clientMsg.GetMessageType()).To(Equal(messages.Client_Impeach))
-			Expect(clientMsg.Impeach).ToNot(BeNil())
-			Expect(clientMsg.Impeach.GetName()).To(Equal(expectedName))
+			BeforeEach(func() {
+				mockServer.serverCh <- buildImpeach(1, true)
+			})
+
+			It("returns true", func() {
+				impeach := connection.ValidateLeader(expectedName, expectedIndex)
+
+				Expect(impeach).To(BeTrue())
+			})
+
+			It("sends the proper client message", func() {
+				connection.ValidateLeader(expectedName, expectedIndex)
+
+				var client *messages.Client
+				Eventually(mockServer.clientCh).Should(Receive(&client))
+				Expect(client.GetMessageType()).To(Equal(messages.Client_ViableLeader))
+				Expect(client.ViableLeader).ToNot(BeNil())
+				Expect(client.ViableLeader.GetName()).To(Equal(expectedName))
+				Expect(client.ViableLeader.GetIndex()).To(Equal(expectedIndex))
+			})
+
+		})
+
+		Context("don't impeach leader", func() {
+
+			BeforeEach(func() {
+				mockServer.serverCh <- buildImpeach(1, false)
+			})
+
+			It("returns false", func() {
+				impeach := connection.ValidateLeader(expectedName, expectedIndex)
+
+				Expect(impeach).To(BeFalse())
+			})
 		})
 	})
 
 })
 
 func buildError(messageId uint64, errStr string) []byte {
-	msgType := messages.Server_Error
 	server := &messages.Server{
-		MessageType: &msgType,
+		MessageType: messages.Server_Error.Enum(),
 		MessageId:   proto.Uint64(messageId),
 		Error: &messages.Error{
 			Message: proto.String(errStr),
@@ -501,9 +529,8 @@ func buildError(messageId uint64, errStr string) []byte {
 }
 
 func buildFileLocation(messageId uint64) []byte {
-	msgType := messages.Server_FileLocation
 	server := &messages.Server{
-		MessageType: &msgType,
+		MessageType: messages.Server_FileLocation.Enum(),
 		MessageId:   proto.Uint64(messageId),
 		FileLocation: &messages.FileLocation{
 			Local: proto.Bool(true),
@@ -517,9 +544,8 @@ func buildFileLocation(messageId uint64) []byte {
 
 func buildRemoteFileLocation(messageId uint64, uri string) []byte {
 	uri = switchProtocol(uri)
-	msgType := messages.Server_FileLocation
 	server := &messages.Server{
-		MessageType: &msgType,
+		MessageType: messages.Server_FileLocation.Enum(),
 		MessageId:   proto.Uint64(messageId),
 		FileLocation: &messages.FileLocation{
 			Local: proto.Bool(false),
@@ -541,9 +567,8 @@ func switchProtocol(uri string) string {
 }
 
 func buildFileIndex(messageId uint64, index int64) []byte {
-	msgType := messages.Server_FileIndex
 	server := &messages.Server{
-		MessageType: &msgType,
+		MessageType: messages.Server_FileIndex.Enum(),
 		MessageId:   proto.Uint64(messageId),
 		FileIndex: &messages.FileIndex{
 			Index: proto.Int64(index),
@@ -556,13 +581,26 @@ func buildFileIndex(messageId uint64, index int64) []byte {
 }
 
 func buildReadData(messageId uint64, data []byte, index int64) []byte {
-	msgType := messages.Server_ReadData
 	server := &messages.Server{
-		MessageType: &msgType,
+		MessageType: messages.Server_ReadData.Enum(),
 		MessageId:   proto.Uint64(messageId),
 		ReadData: &messages.ReadData{
 			Data:  data,
 			Index: proto.Int64(index),
+		},
+	}
+
+	data, err := server.Marshal()
+	Expect(err).ToNot(HaveOccurred())
+	return data
+}
+
+func buildImpeach(messageId uint64, impeach bool) []byte {
+	server := &messages.Server{
+		MessageType: messages.Server_ImpeachLeader.Enum(),
+		MessageId:   proto.Uint64(messageId),
+		ImpeachLeader: &messages.ImpeachLeader{
+			Impeach: proto.Bool(impeach),
 		},
 	}
 

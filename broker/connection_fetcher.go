@@ -24,7 +24,7 @@ type ConnectionFetcher struct {
 
 func NewConnectionFetcher(blacklist []string, URLs ...string) (*ConnectionFetcher, error) {
 	log := logging.Log("ConnectionFetcher")
-	log.Debug("Broker List: %v", URLs)
+	log.Debug("Broker List: %v -> Blacklist %v", URLs, blacklist)
 
 	var conns []*Connection
 	for _, URL := range URLs {
@@ -46,10 +46,18 @@ func NewConnectionFetcher(blacklist []string, URLs ...string) (*ConnectionFetche
 func (c *ConnectionFetcher) FetchConnection(URL string) (*Connection, error) {
 	_, conn := c.fetchConnectionIndex(URL)
 	if conn == nil {
-		return nil, fmt.Errorf("Unknown URL %s", URL)
+		conn = c.createConnection(URL)
 	}
 
-	return conn, nil
+	if conn == nil {
+		return nil, fmt.Errorf("Connection not available: %s", URL)
+	}
+
+	if c.onBlacklist(URL) {
+		return nil, BlacklistedErr
+	}
+
+	return c.verifyConn(conn), nil
 }
 
 func (c *ConnectionFetcher) Fetch(fileName string, create bool) (*Connection, uint64, error) {
@@ -168,16 +176,16 @@ func (c *ConnectionFetcher) checkBlacklist(conn *Connection, fileId uint64, err 
 		return nil, 0, fmt.Errorf(err.Error())
 	}
 
-	if c.onBlacklist(conn) {
+	if c.onBlacklist(conn.URL) {
 		return nil, 0, BlacklistedErr
 	}
 
 	return conn, fileId, nil
 }
 
-func (c *ConnectionFetcher) onBlacklist(conn *Connection) bool {
-	for _, URL := range c.blacklist {
-		if URL == conn.URL {
+func (c *ConnectionFetcher) onBlacklist(URL string) bool {
+	for _, blURL := range c.blacklist {
+		if blURL == URL {
 			return true
 		}
 	}

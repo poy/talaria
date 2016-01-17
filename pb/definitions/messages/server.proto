@@ -7,6 +7,7 @@ message Server{
 		FileIndex = 3;
 		ReadData = 4;
     FileMeta = 5;
+    ImpeachLeader = 6;
 	}
 
 	required uint64 messageId = 1;
@@ -17,6 +18,7 @@ message Server{
 	optional FileIndex fileIndex = 5;
 	optional ReadData readData = 6;
   optional FileMeta fileMeta = 7;
+  optional ImpeachLeader impeachLeader = 8;
 }
 
 message Error{
@@ -40,4 +42,8 @@ message ReadData{
 
 message FileMeta{
   repeated string replicaURIs = 1;
+}
+
+message ImpeachLeader{
+  required bool impeach = 1;
 }

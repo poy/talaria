@@ -16,6 +16,7 @@
 		ReadFromFile
 		SeekIndex
 		Impeach
+		ViableLeader
 */
 package messages
 
@@ -40,6 +41,7 @@ const (
 	Client_ReadFromFile Client_MessageType = 3
 	Client_SeekIndex    Client_MessageType = 4
 	Client_Impeach      Client_MessageType = 5
+	Client_ViableLeader Client_MessageType = 6
 )
 
 var Client_MessageType_name = map[int32]string{
@@ -48,6 +50,7 @@ var Client_MessageType_name = map[int32]string{
 	3: "ReadFromFile",
 	4: "SeekIndex",
 	5: "Impeach",
+	6: "ViableLeader",
 }
 var Client_MessageType_value = map[string]int32{
 	"FetchFile":    1,
@@ -55,6 +58,7 @@ var Client_MessageType_value = map[string]int32{
 	"ReadFromFile": 3,
 	"SeekIndex":    4,
 	"Impeach":      5,
+	"ViableLeader": 6,
 }
 
 func (x Client_MessageType) Enum() *Client_MessageType {
@@ -82,6 +86,7 @@ type Client struct {
 	ReadFromFile     *ReadFromFile       `protobuf:"bytes,5,opt,name=readFromFile" json:"readFromFile,omitempty"`
 	SeekIndex        *SeekIndex          `protobuf:"bytes,6,opt,name=seekIndex" json:"seekIndex,omitempty"`
 	Impeach          *Impeach            `protobuf:"bytes,7,opt,name=impeach" json:"impeach,omitempty"`
+	ViableLeader     *ViableLeader       `protobuf:"bytes,8,opt,name=viableLeader" json:"viableLeader,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
 }
 
@@ -134,6 +139,13 @@ func (m *Client) GetSeekIndex() *SeekIndex {
 func (m *Client) GetImpeach() *Impeach {
 	if m != nil {
 		return m.Impeach
+	}
+	return nil
+}
+
+func (m *Client) GetViableLeader() *ViableLeader {
+	if m != nil {
+		return m.ViableLeader
 	}
 	return nil
 }
@@ -248,6 +260,30 @@ func (m *Impeach) GetName() string {
 		return *m.Name
 	}
 	return ""
+}
+
+type ViableLeader struct {
+	Name             *string `protobuf:"bytes,1,req,name=name" json:"name,omitempty"`
+	Index            *uint64 `protobuf:"varint,2,req,name=index" json:"index,omitempty"`
+	XXX_unrecognized []byte  `json:"-"`
+}
+
+func (m *ViableLeader) Reset()         { *m = ViableLeader{} }
+func (m *ViableLeader) String() string { return proto.CompactTextString(m) }
+func (*ViableLeader) ProtoMessage()    {}
+
+func (m *ViableLeader) GetName() string {
+	if m != nil && m.Name != nil {
+		return *m.Name
+	}
+	return ""
+}
+
+func (m *ViableLeader) GetIndex() uint64 {
+	if m != nil && m.Index != nil {
+		return *m.Index
+	}
+	return 0
 }
 
 func init() {
@@ -438,6 +474,33 @@ func (m *Client) Unmarshal(data []byte) error {
 				m.Impeach = &Impeach{}
 			}
 			if err := m.Impeach.Unmarshal(data[index:postIndex]); err != nil {
+				return err
+			}
+			index = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ViableLeader", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ViableLeader == nil {
+				m.ViableLeader = &ViableLeader{}
+			}
+			if err := m.ViableLeader.Unmarshal(data[index:postIndex]); err != nil {
 				return err
 			}
 			index = postIndex
@@ -845,6 +908,88 @@ func (m *Impeach) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *ViableLeader) Unmarshal(data []byte) error {
+	l := len(data)
+	index := 0
+	for index < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if index >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[index]
+			index++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		switch fieldNum {
+		case 1:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Name", wireType)
+			}
+			var stringLen uint64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				stringLen |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + int(stringLen)
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			s := string(data[index:postIndex])
+			m.Name = &s
+			index = postIndex
+		case 2:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Index", wireType)
+			}
+			var v uint64
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (uint64(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			m.Index = &v
+		default:
+			var sizeOfWire int
+			for {
+				sizeOfWire++
+				wire >>= 7
+				if wire == 0 {
+					break
+				}
+			}
+			index -= sizeOfWire
+			skippy, err := github_com_gogo_protobuf_proto.Skip(data[index:])
+			if err != nil {
+				return err
+			}
+			if (index + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, data[index:index+skippy]...)
+			index += skippy
+		}
+	}
+	return nil
+}
 func (m *Client) Size() (n int) {
 	var l int
 	_ = l
@@ -872,6 +1017,10 @@ func (m *Client) Size() (n int) {
 	}
 	if m.Impeach != nil {
 		l = m.Impeach.Size()
+		n += 1 + l + sovClient(uint64(l))
+	}
+	if m.ViableLeader != nil {
+		l = m.ViableLeader.Size()
 		n += 1 + l + sovClient(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -948,6 +1097,22 @@ func (m *Impeach) Size() (n int) {
 	if m.Name != nil {
 		l = len(*m.Name)
 		n += 1 + l + sovClient(uint64(l))
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ViableLeader) Size() (n int) {
+	var l int
+	_ = l
+	if m.Name != nil {
+		l = len(*m.Name)
+		n += 1 + l + sovClient(uint64(l))
+	}
+	if m.Index != nil {
+		n += 1 + sovClient(uint64(*m.Index))
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1042,6 +1207,16 @@ func (m *Client) MarshalTo(data []byte) (n int, err error) {
 			return 0, err
 		}
 		i += n5
+	}
+	if m.ViableLeader != nil {
+		data[i] = 0x42
+		i++
+		i = encodeVarintClient(data, i, uint64(m.ViableLeader.Size()))
+		n6, err := m.ViableLeader.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)
@@ -1200,6 +1375,38 @@ func (m *Impeach) MarshalTo(data []byte) (n int, err error) {
 		i++
 		i = encodeVarintClient(data, i, uint64(len(*m.Name)))
 		i += copy(data[i:], *m.Name)
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(data[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ViableLeader) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *ViableLeader) MarshalTo(data []byte) (n int, err error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Name != nil {
+		data[i] = 0xa
+		i++
+		i = encodeVarintClient(data, i, uint64(len(*m.Name)))
+		i += copy(data[i:], *m.Name)
+	}
+	if m.Index != nil {
+		data[i] = 0x10
+		i++
+		i = encodeVarintClient(data, i, uint64(*m.Index))
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

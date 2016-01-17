@@ -92,6 +92,22 @@ func (k *KVStore) ListenForLeader(name string, callback func(name, uri string)) 
 	go k.listenForLeader(name, callback)
 }
 
+func (k *KVStore) FetchReplicas(name string) []string {
+	var URLs []string
+	pairs, _, err := k.kv.List(fmt.Sprintf("%s-%s", Prefix, name), nil)
+	if err != nil {
+		k.log.Panic("Unable to list keys", err)
+	}
+
+	for _, pair := range pairs {
+		if pair.Session != "" {
+			URLs = append(URLs, string(pair.Value))
+		}
+	}
+
+	return URLs
+}
+
 func (k *KVStore) tryAcquire(key string) bool {
 	pair := &api.KVPair{
 		Key:     fmt.Sprintf("%s-%s", Prefix, key),

@@ -20,11 +20,12 @@ var _ = math.Inf
 type Server_MessageType int32
 
 const (
-	Server_Error        Server_MessageType = 1
-	Server_FileLocation Server_MessageType = 2
-	Server_FileIndex    Server_MessageType = 3
-	Server_ReadData     Server_MessageType = 4
-	Server_FileMeta     Server_MessageType = 5
+	Server_Error         Server_MessageType = 1
+	Server_FileLocation  Server_MessageType = 2
+	Server_FileIndex     Server_MessageType = 3
+	Server_ReadData      Server_MessageType = 4
+	Server_FileMeta      Server_MessageType = 5
+	Server_ImpeachLeader Server_MessageType = 6
 )
 
 var Server_MessageType_name = map[int32]string{
@@ -33,13 +34,15 @@ var Server_MessageType_name = map[int32]string{
 	3: "FileIndex",
 	4: "ReadData",
 	5: "FileMeta",
+	6: "ImpeachLeader",
 }
 var Server_MessageType_value = map[string]int32{
-	"Error":        1,
-	"FileLocation": 2,
-	"FileIndex":    3,
-	"ReadData":     4,
-	"FileMeta":     5,
+	"Error":         1,
+	"FileLocation":  2,
+	"FileIndex":     3,
+	"ReadData":      4,
+	"FileMeta":      5,
+	"ImpeachLeader": 6,
 }
 
 func (x Server_MessageType) Enum() *Server_MessageType {
@@ -67,6 +70,7 @@ type Server struct {
 	FileIndex        *FileIndex          `protobuf:"bytes,5,opt,name=fileIndex" json:"fileIndex,omitempty"`
 	ReadData         *ReadData           `protobuf:"bytes,6,opt,name=readData" json:"readData,omitempty"`
 	FileMeta         *FileMeta           `protobuf:"bytes,7,opt,name=fileMeta" json:"fileMeta,omitempty"`
+	ImpeachLeader    *ImpeachLeader      `protobuf:"bytes,8,opt,name=impeachLeader" json:"impeachLeader,omitempty"`
 	XXX_unrecognized []byte              `json:"-"`
 }
 
@@ -119,6 +123,13 @@ func (m *Server) GetReadData() *ReadData {
 func (m *Server) GetFileMeta() *FileMeta {
 	if m != nil {
 		return m.FileMeta
+	}
+	return nil
+}
+
+func (m *Server) GetImpeachLeader() *ImpeachLeader {
+	if m != nil {
+		return m.ImpeachLeader
 	}
 	return nil
 }
@@ -225,6 +236,22 @@ func (m *FileMeta) GetReplicaURIs() []string {
 		return m.ReplicaURIs
 	}
 	return nil
+}
+
+type ImpeachLeader struct {
+	Impeach          *bool  `protobuf:"varint,1,req,name=impeach" json:"impeach,omitempty"`
+	XXX_unrecognized []byte `json:"-"`
+}
+
+func (m *ImpeachLeader) Reset()         { *m = ImpeachLeader{} }
+func (m *ImpeachLeader) String() string { return proto.CompactTextString(m) }
+func (*ImpeachLeader) ProtoMessage()    {}
+
+func (m *ImpeachLeader) GetImpeach() bool {
+	if m != nil && m.Impeach != nil {
+		return *m.Impeach
+	}
+	return false
 }
 
 func init() {
@@ -415,6 +442,33 @@ func (m *Server) Unmarshal(data []byte) error {
 				m.FileMeta = &FileMeta{}
 			}
 			if err := m.FileMeta.Unmarshal(data[index:postIndex]); err != nil {
+				return err
+			}
+			index = postIndex
+		case 8:
+			if wireType != 2 {
+				return fmt.Errorf("proto: wrong wireType = %d for field ImpeachLeader", wireType)
+			}
+			var msglen int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				msglen |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			postIndex := index + msglen
+			if postIndex > l {
+				return io.ErrUnexpectedEOF
+			}
+			if m.ImpeachLeader == nil {
+				m.ImpeachLeader = &ImpeachLeader{}
+			}
+			if err := m.ImpeachLeader.Unmarshal(data[index:postIndex]); err != nil {
 				return err
 			}
 			index = postIndex
@@ -811,6 +865,66 @@ func (m *FileMeta) Unmarshal(data []byte) error {
 	}
 	return nil
 }
+func (m *ImpeachLeader) Unmarshal(data []byte) error {
+	l := len(data)
+	index := 0
+	for index < l {
+		var wire uint64
+		for shift := uint(0); ; shift += 7 {
+			if index >= l {
+				return io.ErrUnexpectedEOF
+			}
+			b := data[index]
+			index++
+			wire |= (uint64(b) & 0x7F) << shift
+			if b < 0x80 {
+				break
+			}
+		}
+		fieldNum := int32(wire >> 3)
+		wireType := int(wire & 0x7)
+		switch fieldNum {
+		case 1:
+			if wireType != 0 {
+				return fmt.Errorf("proto: wrong wireType = %d for field Impeach", wireType)
+			}
+			var v int
+			for shift := uint(0); ; shift += 7 {
+				if index >= l {
+					return io.ErrUnexpectedEOF
+				}
+				b := data[index]
+				index++
+				v |= (int(b) & 0x7F) << shift
+				if b < 0x80 {
+					break
+				}
+			}
+			b := bool(v != 0)
+			m.Impeach = &b
+		default:
+			var sizeOfWire int
+			for {
+				sizeOfWire++
+				wire >>= 7
+				if wire == 0 {
+					break
+				}
+			}
+			index -= sizeOfWire
+			skippy, err := github_com_gogo_protobuf_proto.Skip(data[index:])
+			if err != nil {
+				return err
+			}
+			if (index + skippy) > l {
+				return io.ErrUnexpectedEOF
+			}
+			m.XXX_unrecognized = append(m.XXX_unrecognized, data[index:index+skippy]...)
+			index += skippy
+		}
+	}
+	return nil
+}
 func (m *Server) Size() (n int) {
 	var l int
 	_ = l
@@ -838,6 +952,10 @@ func (m *Server) Size() (n int) {
 	}
 	if m.FileMeta != nil {
 		l = m.FileMeta.Size()
+		n += 1 + l + sovServer(uint64(l))
+	}
+	if m.ImpeachLeader != nil {
+		l = m.ImpeachLeader.Size()
 		n += 1 + l + sovServer(uint64(l))
 	}
 	if m.XXX_unrecognized != nil {
@@ -914,6 +1032,18 @@ func (m *FileMeta) Size() (n int) {
 			l = len(s)
 			n += 1 + l + sovServer(uint64(l))
 		}
+	}
+	if m.XXX_unrecognized != nil {
+		n += len(m.XXX_unrecognized)
+	}
+	return n
+}
+
+func (m *ImpeachLeader) Size() (n int) {
+	var l int
+	_ = l
+	if m.Impeach != nil {
+		n += 2
 	}
 	if m.XXX_unrecognized != nil {
 		n += len(m.XXX_unrecognized)
@@ -1008,6 +1138,16 @@ func (m *Server) MarshalTo(data []byte) (n int, err error) {
 			return 0, err
 		}
 		i += n5
+	}
+	if m.ImpeachLeader != nil {
+		data[i] = 0x42
+		i++
+		i = encodeVarintServer(data, i, uint64(m.ImpeachLeader.Size()))
+		n6, err := m.ImpeachLeader.MarshalTo(data[i:])
+		if err != nil {
+			return 0, err
+		}
+		i += n6
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)
@@ -1176,6 +1316,37 @@ func (m *FileMeta) MarshalTo(data []byte) (n int, err error) {
 			i++
 			i += copy(data[i:], s)
 		}
+	}
+	if m.XXX_unrecognized != nil {
+		i += copy(data[i:], m.XXX_unrecognized)
+	}
+	return i, nil
+}
+
+func (m *ImpeachLeader) Marshal() (data []byte, err error) {
+	size := m.Size()
+	data = make([]byte, size)
+	n, err := m.MarshalTo(data)
+	if err != nil {
+		return nil, err
+	}
+	return data[:n], nil
+}
+
+func (m *ImpeachLeader) MarshalTo(data []byte) (n int, err error) {
+	var i int
+	_ = i
+	var l int
+	_ = l
+	if m.Impeach != nil {
+		data[i] = 0x8
+		i++
+		if *m.Impeach {
+			data[i] = 1
+		} else {
+			data[i] = 0
+		}
+		i++
 	}
 	if m.XXX_unrecognized != nil {
 		i += copy(data[i:], m.XXX_unrecognized)

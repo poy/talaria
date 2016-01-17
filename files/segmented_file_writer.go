@@ -75,6 +75,10 @@ func (s *SegmentedFileWriter) Write(data []byte) (int, error) {
 	return s.subWrite(data)
 }
 
+func (s *SegmentedFileWriter) LastIndex() uint64 {
+	return s.writeCount
+}
+
 func (s *SegmentedFileWriter) subWrite(data []byte) (int, error) {
 	if s.currentLength >= s.desiredLength {
 		s.closeFile(s.file)

@@ -3,6 +3,7 @@ package broker
 import (
 	"sync"
 
+	"github.com/apoydence/talaria/broker/leadervalidator"
 	"github.com/apoydence/talaria/logging"
 )
 
@@ -25,9 +26,17 @@ func (l *LazyReaderFetcher) FetchReader(name string) (ReadConnection, uint64, er
 	return l.fetchFetcher().Fetch(name, false)
 }
 
-func (l *LazyReaderFetcher) FetchImpeacher(URL string) Impeacher {
-	impeacher, _ := l.fetchFetcher().FetchConnection(URL)
-	return impeacher
+func (l *LazyReaderFetcher) FetchValidator(URL string) leadervalidator.Validator {
+	conn, err := l.fetchFetcher().FetchConnection(URL)
+
+	if err == BlacklistedErr {
+		return nil
+	}
+
+	if err != nil {
+		l.log.Panic("Unable to fetch connection.", err)
+	}
+	return conn
 }
 
 func (l *LazyReaderFetcher) fetchFetcher() *ConnectionFetcher {
