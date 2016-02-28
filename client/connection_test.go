@@ -1,4 +1,4 @@
-package broker_test
+package client_test
 
 import (
 	"net/http/httptest"
@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/client"
 	"github.com/apoydence/talaria/pb/messages"
 	"github.com/gogo/protobuf/proto"
 
@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("Connection", func() {
 	var (
-		connection *broker.Connection
+		connection *client.Connection
 		server     *httptest.Server
 		mockServer *mockServer
 
@@ -30,7 +30,7 @@ var _ = Describe("Connection", func() {
 		server = httptest.NewServer(mockServer)
 
 		var err error
-		connection, err = broker.NewConnection("ws" + server.URL[4:])
+		connection, err = client.NewConnection("ws" + server.URL[4:])
 		Expect(err).ToNot(HaveOccurred())
 	})
 

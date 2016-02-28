@@ -1,9 +1,9 @@
-package broker_test
+package client_test
 
 import (
 	"net/http/httptest"
 
-	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/client"
 	"github.com/apoydence/talaria/pb/messages"
 
 	. "github.com/onsi/ginkgo"
@@ -16,7 +16,7 @@ var _ = Describe("Client", func() {
 		mockServer *mockServer
 		server     *httptest.Server
 
-		client *broker.Client
+		clt *client.Client
 	)
 
 	var createMockServer = func() string {
@@ -28,12 +28,12 @@ var _ = Describe("Client", func() {
 		URL := createMockServer()
 
 		var err error
-		client, err = broker.NewClient(URL)
+		clt, err = client.NewClient(URL)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
 	AfterEach(func() {
-		client.Close()
+		clt.Close()
 		close(mockServer.serverCh)
 
 		server.CloseClientConnections()
@@ -58,10 +58,10 @@ var _ = Describe("Client", func() {
 			It("writes to the correct broker", func(done Done) {
 				defer close(done)
 
-				Expect(client.CreateFile(expectedFileName)).To(Succeed())
+				Expect(clt.CreateFile(expectedFileName)).To(Succeed())
 
 				var msg *messages.Client
-				Eventually(mockServer.clientCh).Should(Receive(&msg))
+				Eventually(mockServer.cltCh).Should(Receive(&msg))
 				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 				Expect(msg.FetchFile.GetCreate()).To(BeTrue())
 			}, 5)
@@ -95,17 +95,17 @@ var _ = Describe("Client", func() {
 			It("writes to the correct broker", func(done Done) {
 				defer close(done)
 
-				writer, err := client.FetchWriter(expectedFileName)
+				writer, err := clt.FetchWriter(expectedFileName)
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = writer.WriteToFile(expectedData)
 				Expect(err).ToNot(HaveOccurred())
 
 				var msg *messages.Client
-				Eventually(mockServer.clientCh).Should(Receive(&msg))
+				Eventually(mockServer.cltCh).Should(Receive(&msg))
 				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 
-				Eventually(mockServer.clientCh).Should(Receive(&msg))
+				Eventually(mockServer.cltCh).Should(Receive(&msg))
 				Expect(msg.GetMessageType()).To(Equal(messages.Client_WriteToFile))
 				Expect(msg.GetWriteToFile().GetData()).To(Equal(expectedData))
 			}, 5)
@@ -124,12 +124,12 @@ var _ = Describe("Client", func() {
 				}()
 
 				go func() {
-					for _ = range mockServer.clientCh {
+					for _ = range mockServer.cltCh {
 						//NOP
 					}
 				}()
 
-				writer, _ := client.FetchWriter(expectedFileName)
+				writer, _ := clt.FetchWriter(expectedFileName)
 
 				for i := 0; i < count; i++ {
 					writer.WriteToFile(expectedData)
@@ -163,7 +163,7 @@ var _ = Describe("Client", func() {
 			It("reads from the correct broker", func(done Done) {
 				defer close(done)
 
-				reader, err := client.FetchReader(expectedFileName)
+				reader, err := clt.FetchReader(expectedFileName)
 				Expect(err).ToNot(HaveOccurred())
 
 				data, index, err := reader.ReadFromFile()
@@ -172,7 +172,7 @@ var _ = Describe("Client", func() {
 				Expect(index).To(BeEquivalentTo(101))
 
 				var msg *messages.Client
-				Eventually(mockServer.clientCh).Should(Receive(&msg))
+				Eventually(mockServer.cltCh).Should(Receive(&msg))
 				Expect(msg.GetMessageType()).To(Equal(messages.Client_FetchFile))
 				Expect(msg.GetFetchFile().GetName()).To(Equal(expectedFileName))
 			})
@@ -191,12 +191,12 @@ var _ = Describe("Client", func() {
 				}()
 
 				go func() {
-					for _ = range mockServer.clientCh {
+					for _ = range mockServer.cltCh {
 						//NOP
 					}
 				}()
 
-				reader, err := client.FetchReader("some-file")
+				reader, err := clt.FetchReader("some-file")
 				Expect(err).ToNot(HaveOccurred())
 				for i := 0; i < count; i++ {
 					reader.ReadFromFile()
@@ -226,7 +226,7 @@ var _ = Describe("Client", func() {
 
 			It("returns the broker URI that is the leader of the given file", func(done Done) {
 				defer close(done)
-				meta, err := client.FileMeta(expectedFileName)
+				meta, err := clt.FileMeta(expectedFileName)
 
 				Expect(err).ToNot(HaveOccurred())
 				Expect(meta.GetReplicaURIs()).To(HaveLen(1))
@@ -248,7 +248,7 @@ var _ = Describe("Client", func() {
 
 			It("returns an error for an unknown file", func(done Done) {
 				defer close(done)
-				_, err := client.FileMeta(expectedFileName)
+				_, err := clt.FileMeta(expectedFileName)
 
 				Expect(err).To(MatchError(expectedError))
 			})
@@ -265,4 +265,8 @@ func startMockServer() (*mockServer, *httptest.Server) {
 	mockServer := newMockServer()
 	server := httptest.NewServer(mockServer)
 	return mockServer, server
+}
+
+func convertToWs(URL string) string {
+	return "ws" + URL[4:]
 }
