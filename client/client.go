@@ -15,7 +15,7 @@ type Client struct {
 	fetcher *ConnectionFetcher
 }
 
-func NewClient(URLs ...string) (*Client, error) {
+func New(URLs ...string) (*Client, error) {
 	log := logging.Log("Client")
 	log.Debug("Broker List: %v", URLs)
 

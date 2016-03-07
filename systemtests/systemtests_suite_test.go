@@ -69,7 +69,7 @@ func startClient(URLs ...string) *client.Client {
 	var clt *client.Client
 	f := func() error {
 		var err error
-		clt, err = client.NewClient(URLs...)
+		clt, err = client.New(URLs...)
 		return err
 	}
 	Eventually(f, 5).ShouldNot(HaveOccurred())

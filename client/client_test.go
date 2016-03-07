@@ -28,7 +28,7 @@ var _ = Describe("client", func() {
 		URL := createMockServer()
 
 		var err error
-		clt, err = client.NewClient(URL)
+		clt, err = client.New(URL)
 		Expect(err).ToNot(HaveOccurred())
 	})
 
