@@ -6,8 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/apoydence/talaria/broker"
-
+	"github.com/apoydence/talaria/client"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -17,7 +16,7 @@ var _ = Describe("SingleClientMultipleBrokers", func() {
 	var (
 		tmpDirs  []string
 		sessions []*gexec.Session
-		client   *broker.Client
+		client   *client.Client
 	)
 
 	BeforeEach(func() {

@@ -1,7 +1,8 @@
-package broker_test
+package client_test
 
 import (
-	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/client"
+	"github.com/apoydence/talaria/common"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -12,7 +13,7 @@ var _ = Describe("Reader", func() {
 		mockFetcher        *mockReadConnectionFetcher
 		mockReadConnection *mockReadConnection
 
-		reader *broker.Reader
+		reader *client.Reader
 
 		fileName string
 		fileId   uint64
@@ -29,7 +30,7 @@ var _ = Describe("Reader", func() {
 
 		mockFetcher = newMockReadConnectionFetcher()
 		mockReadConnection = newMockReadConnection()
-		reader = broker.NewReader(fileName, mockFetcher)
+		reader = client.NewReader(fileName, mockFetcher)
 	})
 
 	Describe("ReadFromFile()", func() {
@@ -92,12 +93,12 @@ var _ = Describe("Reader", func() {
 		Context("with websocket connection error", func() {
 
 			var (
-				expectedError *broker.ConnectionError
+				expectedError *common.ConnectionError
 			)
 
 			BeforeEach(func(done Done) {
 				defer close(done)
-				expectedError = &broker.ConnectionError{
+				expectedError = &common.ConnectionError{
 					WebsocketError: true,
 				}
 
@@ -151,12 +152,12 @@ var _ = Describe("Reader", func() {
 		Context("with websocket connection error", func() {
 
 			var (
-				expectedError *broker.ConnectionError
+				expectedError *common.ConnectionError
 			)
 
 			BeforeEach(func(done Done) {
 				defer close(done)
-				expectedError = &broker.ConnectionError{
+				expectedError = &common.ConnectionError{
 					WebsocketError: true,
 				}
 

@@ -6,7 +6,7 @@ import (
 	"os"
 	"os/exec"
 
-	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/client"
 	"github.com/apoydence/talaria/logging"
 	"github.com/hashicorp/consul/api"
 	. "github.com/onsi/ginkgo"
@@ -65,15 +65,15 @@ func startTalaria(tmpDir string) (string, *gexec.Session) {
 	return URL, session
 }
 
-func startClient(URLs ...string) *broker.Client {
-	var client *broker.Client
+func startClient(URLs ...string) *client.Client {
+	var clt *client.Client
 	f := func() error {
 		var err error
-		client, err = broker.NewClient(URLs...)
+		clt, err = client.NewClient(URLs...)
 		return err
 	}
 	Eventually(f, 5).ShouldNot(HaveOccurred())
-	return client
+	return clt
 }
 
 func startConsul() {

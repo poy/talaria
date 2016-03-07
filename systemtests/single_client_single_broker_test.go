@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/client"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
@@ -16,7 +16,7 @@ var _ = Describe("SingleConnectionSingleBroker", func() {
 
 	var (
 		session *gexec.Session
-		client  *broker.Client
+		client  *client.Client
 		URL     string
 	)
 

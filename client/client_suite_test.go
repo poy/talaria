@@ -1,4 +1,4 @@
-package broker_test
+package client_test
 
 import (
 	"github.com/apoydence/talaria/logging"
@@ -11,5 +11,9 @@ import (
 func TestBroker(t *testing.T) {
 	logging.SetLevel(logging.CRITICAL)
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Broker Suite")
+	RunSpecs(t, "Client Suite")
+}
+
+func convertToWs(URL string) string {
+	return "ws" + URL[4:]
 }

@@ -1,4 +1,4 @@
-package broker_test
+package client_test
 
 type mockReplicaListener struct {
 	nameCh     chan string

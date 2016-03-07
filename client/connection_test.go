@@ -1,4 +1,4 @@
-package broker_test
+package client_test
 
 import (
 	"net/http/httptest"
@@ -6,7 +6,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/client"
 	"github.com/apoydence/talaria/pb/messages"
 	"github.com/gogo/protobuf/proto"
 
@@ -16,7 +16,7 @@ import (
 
 var _ = Describe("Connection", func() {
 	var (
-		connection *broker.Connection
+		connection *client.Connection
 		server     *httptest.Server
 		mockServer *mockServer
 
@@ -30,7 +30,7 @@ var _ = Describe("Connection", func() {
 		server = httptest.NewServer(mockServer)
 
 		var err error
-		connection, err = broker.NewConnection("ws" + server.URL[4:])
+		connection, err = client.NewConnection("ws" + server.URL[4:])
 		Expect(err).ToNot(HaveOccurred())
 	})
 
@@ -92,7 +92,7 @@ var _ = Describe("Connection", func() {
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.WebsocketError).To(BeTrue())
-				}, 3)
+				}, 9)
 
 				It("returns true for Errored()", func() {
 					connection.FetchFile(9, expectedName, true)
@@ -228,17 +228,15 @@ var _ = Describe("Connection", func() {
 					Expect(connection.Errored()).To(BeTrue())
 				})
 
-				It("returns an error for a dead connection detected by reading", func(done Done) {
-					defer close(done)
-
+				It("returns an error for a dead connection detected by reading", func() {
 					By("waiting for the read core to detect the problem")
-					time.Sleep(1 * time.Second)
+					time.Sleep(3 * time.Second)
 
 					_, err := connection.WriteToFile(8, expectedData)
 
 					Expect(err).To(HaveOccurred())
 					Expect(err.WebsocketError).To(BeTrue())
-				}, 3)
+				})
 
 				It("populates the error with the connection URI", func() {
 					_, err := connection.WriteToFile(8, expectedData)
@@ -509,6 +507,12 @@ var _ = Describe("Connection", func() {
 
 				Expect(impeach).To(BeFalse())
 			})
+		})
+	})
+
+	Describe("Ping Pong", func() {
+		It("sends ping messages", func() {
+			Eventually(mockServer.pingCh, 3).Should(Receive())
 		})
 	})
 

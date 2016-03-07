@@ -4,6 +4,7 @@ import (
 	"sync"
 
 	"github.com/apoydence/talaria/broker/leadervalidator"
+	"github.com/apoydence/talaria/client"
 	"github.com/apoydence/talaria/logging"
 )
 
@@ -12,7 +13,7 @@ type LazyReaderFetcher struct {
 	addr string
 
 	lock    sync.Mutex
-	fetcher *ConnectionFetcher
+	fetcher *client.ConnectionFetcher
 }
 
 func NewLazyReaderFetcher(addr string) *LazyReaderFetcher {
@@ -22,14 +23,14 @@ func NewLazyReaderFetcher(addr string) *LazyReaderFetcher {
 	}
 }
 
-func (l *LazyReaderFetcher) FetchReader(name string) (ReadConnection, uint64, error) {
+func (l *LazyReaderFetcher) FetchReader(name string) (client.ReadConnection, uint64, error) {
 	return l.fetchFetcher().Fetch(name, false)
 }
 
 func (l *LazyReaderFetcher) FetchValidator(URL string) leadervalidator.Validator {
 	conn, err := l.fetchFetcher().FetchConnection(URL)
 
-	if err == BlacklistedErr {
+	if err == client.BlacklistedErr {
 		return nil
 	}
 
@@ -39,7 +40,7 @@ func (l *LazyReaderFetcher) FetchValidator(URL string) leadervalidator.Validator
 	return conn
 }
 
-func (l *LazyReaderFetcher) fetchFetcher() *ConnectionFetcher {
+func (l *LazyReaderFetcher) fetchFetcher() *client.ConnectionFetcher {
 	l.lock.Lock()
 	defer l.lock.Unlock()
 
@@ -51,8 +52,8 @@ func (l *LazyReaderFetcher) fetchFetcher() *ConnectionFetcher {
 	return l.fetcher
 }
 
-func (l *LazyReaderFetcher) createFetcher() *ConnectionFetcher {
-	fetcher, err := NewConnectionFetcher([]string{l.addr}, l.addr)
+func (l *LazyReaderFetcher) createFetcher() *client.ConnectionFetcher {
+	fetcher, err := client.NewConnectionFetcher([]string{l.addr}, l.addr)
 	if err != nil {
 		l.log.Panic("Unable to create ConnectionFetcher", err)
 	}

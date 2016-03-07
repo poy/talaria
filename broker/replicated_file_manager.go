@@ -4,6 +4,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/apoydence/talaria/client"
 	"github.com/apoydence/talaria/logging"
 )
 
@@ -19,13 +20,13 @@ type writerInfo struct {
 type ReplicatedFileManager struct {
 	log           logging.Logger
 	ioProvider    IoProvider
-	readerFetcher ReadConnectionFetcher
+	readerFetcher client.ReadConnectionFetcher
 
 	lockWriters sync.RWMutex
 	writers     map[string]*writerInfo
 }
 
-func NewReplicatedFileManager(ioProvider IoProvider, readerFetcher ReadConnectionFetcher) *ReplicatedFileManager {
+func NewReplicatedFileManager(ioProvider IoProvider, readerFetcher client.ReadConnectionFetcher) *ReplicatedFileManager {
 	return &ReplicatedFileManager{
 		log:           logging.Log("ReplicatedFileManager"),
 		ioProvider:    ioProvider,
@@ -84,7 +85,7 @@ func (r *ReplicatedFileManager) setupCopy(name string, replica uint, isUpgrade b
 
 	r.log.Debug("Adding replica %d for %s", replica, name)
 	writer := r.ioProvider.ProvideWriter(name)
-	reader := NewReader(name, r.readerFetcher)
+	reader := client.NewReader(name, r.readerFetcher)
 
 	r.writers[name] = &writerInfo{
 		writer:  writer,
@@ -103,7 +104,7 @@ func (r *ReplicatedFileManager) currentReplica(name string) (uint, bool) {
 	return info.replica, true
 }
 
-func (r *ReplicatedFileManager) copyToWriter(reader *Reader, writer InitableWriter) {
+func (r *ReplicatedFileManager) copyToWriter(reader *client.Reader, writer InitableWriter) {
 	var currentIndex int64
 	for {
 		data, index, err := reader.ReadFromFile()
@@ -125,7 +126,7 @@ func (r *ReplicatedFileManager) copyToWriter(reader *Reader, writer InitableWrit
 	}
 }
 
-func (r *ReplicatedFileManager) initWriter(currentIndex, index int64, data []byte, writer InitableWriter, reader *Reader) bool {
+func (r *ReplicatedFileManager) initWriter(currentIndex, index int64, data []byte, writer InitableWriter, reader *client.Reader) bool {
 	if currentIndex == index {
 		return false
 	}

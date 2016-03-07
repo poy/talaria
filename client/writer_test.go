@@ -1,7 +1,8 @@
-package broker_test
+package client_test
 
 import (
-	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/client"
+	"github.com/apoydence/talaria/common"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -14,7 +15,7 @@ var _ = Describe("Writer", func() {
 		expectedData        []byte
 		mockWriteConnection *mockWriteConnection
 		mockFetcher         *mockWriteConnectionFetcher
-		writer              *broker.Writer
+		writer              *client.Writer
 	)
 
 	var populateFetcherMock = func() {
@@ -29,7 +30,7 @@ var _ = Describe("Writer", func() {
 		mockWriteConnection = newMockWriteConnection()
 		mockFetcher = newMockWriteConnectionFetcher()
 
-		writer = broker.NewWriter(expectedFileName, mockFetcher)
+		writer = client.NewWriter(expectedFileName, mockFetcher)
 	})
 
 	Describe("WriteToFile()", func() {
@@ -101,13 +102,13 @@ var _ = Describe("Writer", func() {
 
 		Context("with errors", func() {
 			var (
-				expectedError *broker.ConnectionError
+				expectedError *common.ConnectionError
 			)
 
 			Context("non-websocket error", func() {
 
 				BeforeEach(func() {
-					expectedError = new(broker.ConnectionError)
+					expectedError = new(common.ConnectionError)
 					close(mockWriteConnection.indexCh)
 					close(mockFetcher.errCh)
 					populateFetcherMock()
@@ -125,7 +126,7 @@ var _ = Describe("Writer", func() {
 
 				BeforeEach(func(done Done) {
 					defer close(done)
-					expectedError = &broker.ConnectionError{
+					expectedError = &common.ConnectionError{
 						WebsocketError: true,
 					}
 

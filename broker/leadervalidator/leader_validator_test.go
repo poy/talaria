@@ -1,6 +1,8 @@
 package leadervalidator_test
 
 import (
+	"sync"
+
 	"github.com/apoydence/talaria/broker/leadervalidator"
 
 	. "github.com/onsi/ginkgo"
@@ -20,14 +22,18 @@ var _ = Describe("LeaderValidator", func() {
 
 		callbackNameCh  chan string
 		callbackValidCh chan bool
+
+		callbackWg sync.WaitGroup
 	)
 
 	var expectedCallback = func(name string, valid bool) {
+		defer callbackWg.Done()
 		callbackNameCh <- name
 		callbackValidCh <- valid
 	}
 
 	BeforeEach(func() {
+		callbackWg.Add(1)
 		expectedName = "some-name"
 		expectedIndex = 101
 
@@ -41,6 +47,10 @@ var _ = Describe("LeaderValidator", func() {
 		mockValidatorFetcher.validatorCh <- mockValidator
 
 		leaderValidator = leadervalidator.New(mockReplicaFetcher, mockValidatorFetcher)
+	})
+
+	AfterEach(func() {
+		callbackWg.Wait()
 	})
 
 	Context("2 replicas", func() {
@@ -104,15 +114,15 @@ var _ = Describe("LeaderValidator", func() {
 				Eventually(callbackValidCh).Should(Receive(BeTrue()))
 			})
 
-			Context("nil validator (blacklisted)", func(){
-				BeforeEach(func(){
+			Context("nil validator (blacklisted)", func() {
+				BeforeEach(func() {
 					By("replacing one of the validators with a nil")
-					<-mockValidatorFetcher.validatorCh 
-					<-mockValidatorFetcher.validatorCh 
+					<-mockValidatorFetcher.validatorCh
+					<-mockValidatorFetcher.validatorCh
 					mockValidatorFetcher.validatorCh <- nil
 				})
 
-				It("reports that it is ready", func(){
+				It("reports that it is ready", func() {
 					leaderValidator.Validate(expectedName, expectedIndex, expectedCallback)
 
 					Eventually(callbackNameCh).Should(Receive(Equal(expectedName)))
@@ -137,6 +147,5 @@ var _ = Describe("LeaderValidator", func() {
 			})
 		})
 
-		
 	})
 })

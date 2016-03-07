@@ -1,6 +1,6 @@
-package broker_test
+package client_test
 
-import "github.com/apoydence/talaria/broker"
+import "github.com/apoydence/talaria/common"
 
 type mockConnection struct {
 	fileIdCh chan uint64
@@ -16,13 +16,13 @@ func newMockConnection() *mockConnection {
 	}
 }
 
-func (m *mockConnection) WriteToFile(fileId uint64, data []byte) (int64, *broker.ConnectionError) {
+func (m *mockConnection) WriteToFile(fileId uint64, data []byte) (int64, *common.ConnectionError) {
 	m.fileIdCh <- fileId
 	m.dataCh <- data
 	return 99, nil
 }
 
-func (m *mockConnection) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, *broker.ConnectionError) {
+func (m *mockConnection) InitWriteIndex(fileId uint64, index int64, data []byte) (int64, *common.ConnectionError) {
 	m.indexCh <- index
 	m.dataCh <- data
 	m.fileIdCh <- fileId

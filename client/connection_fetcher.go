@@ -1,4 +1,4 @@
-package broker
+package client
 
 import (
 	"fmt"
@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/apoydence/talaria/common"
 	"github.com/apoydence/talaria/logging"
 )
 
@@ -81,7 +82,7 @@ func (c *ConnectionFetcher) subFetch(fileName string, create bool) (*Connection,
 	}
 
 	if err.Uri == "" {
-		return nil, 0, fmt.Errorf(err.errMessage)
+		return nil, 0, fmt.Errorf(err.Error())
 	}
 
 	conn, fileId, remErr := c.fetchConnectionRemote(fileName, err.Uri, fileId, create)
@@ -171,7 +172,7 @@ func (c *ConnectionFetcher) fetchConnectionIndex(URL string) (int, *Connection) 
 	return 0, nil
 }
 
-func (c *ConnectionFetcher) checkBlacklist(conn *Connection, fileId uint64, err *ConnectionError) (*Connection, uint64, error) {
+func (c *ConnectionFetcher) checkBlacklist(conn *Connection, fileId uint64, err *common.ConnectionError) (*Connection, uint64, error) {
 	if err != nil {
 		return nil, 0, fmt.Errorf(err.Error())
 	}

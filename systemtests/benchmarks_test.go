@@ -6,7 +6,7 @@ import (
 	"os"
 	"sync"
 
-	"github.com/apoydence/talaria/broker"
+	"github.com/apoydence/talaria/client"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -19,7 +19,7 @@ var _ = Describe("Benchmarks", func() {
 
 		var (
 			session *gexec.Session
-			client  *broker.Client
+			client  *client.Client
 			URL     string
 		)
 
@@ -72,7 +72,7 @@ var _ = Describe("Benchmarks", func() {
 		var (
 			tmpDirs  []string
 			sessions []*gexec.Session
-			client   *broker.Client
+			client   *client.Client
 		)
 
 		BeforeEach(func() {

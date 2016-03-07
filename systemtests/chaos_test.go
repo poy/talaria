@@ -6,16 +6,15 @@ import (
 	"os"
 	"time"
 
-	"github.com/apoydence/talaria/broker"
-
+	"github.com/apoydence/talaria/client"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
 )
 
-var _ = Describe("Chaos", func() {
+var _ = XDescribe("Chaos", func() {
 	var (
-		client   *broker.Client
+		client   *client.Client
 		brokers  []string
 		sessions []*gexec.Session
 		tmpDirs  []string
