@@ -2,8 +2,11 @@ package main
 
 import (
 	"fmt"
+	"io/ioutil"
 	"math/rand"
 	"os"
+	"path/filepath"
+	"strconv"
 	"time"
 
 	"github.com/apoydence/talaria/broker"
@@ -17,6 +20,7 @@ import (
 const (
 	dataDir       = "dataDir"
 	logLevel      = "logLevel"
+	pidFile       = "pidFile"
 	segmentLength = "segmentLength"
 	numSegments   = "numSegments"
 	numReplicas   = "numReplicas"
@@ -42,6 +46,10 @@ func main() {
 			Name:  logLevel,
 			Value: "INFO",
 			Usage: "The log level",
+		},
+		cli.StringFlag{
+			Name:  pidFile,
+			Usage: "The path to write the .pid file",
 		},
 		cli.IntFlag{
 			Name:  segmentLength + ", l",
@@ -76,6 +84,7 @@ func main() {
 func run(c *cli.Context) {
 	validateFlags(c)
 	setLogLevel(c)
+	writePidFile(c)
 
 	clientAddr := fmt.Sprintf("ws://localhost:%d", c.Int(port))
 	kvStore := kvstore.New(clientAddr, c.Int(healthPort))
@@ -105,7 +114,24 @@ func setLogLevel(c *cli.Context) {
 
 func validateFlags(c *cli.Context) {
 	if !c.IsSet(dataDir) {
-		quit(fmt.Sprintf("%s is required", dataDir), c)
+		quit(fmt.Sprintf("MISSING REQUIRED FLAG: %s\n", dataDir), c)
+	}
+}
+
+func writePidFile(c *cli.Context) {
+	path := c.String(pidFile)
+	if path == "" {
+		return
+	}
+
+	err := os.MkdirAll(filepath.Dir(path), 0755)
+	if err != nil {
+		quit(err.Error(), c)
+	}
+
+	pid := strconv.Itoa(os.Getpid())
+	if err := ioutil.WriteFile(path, []byte(pid), 0644); err != nil {
+		quit(fmt.Sprintf("Error when writting PID file %s %v", path, err), c)
 	}
 }
 
