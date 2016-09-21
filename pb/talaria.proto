@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package pb;
+
+service Talaria{
+  rpc Create(File) returns (CreateResponse) {}
+  rpc Write(stream WriteDataPacket) returns (WriteResponse)  {}
+  rpc Read(File) returns (stream ReadDataPacket) {}
+  rpc Info(File) returns (InfoResponse) {}
+}
+
+message File{
+	string fileName = 1;
+}
+
+message WriteDataPacket {
+  string fileName = 1;
+  bytes message = 2;
+}
+
+message ReadDataPacket {
+  bytes message = 1;
+}
+
+message CreateResponse {
+  string uri = 1;
+}
+
+message WriteResponse {
+}
+
+message InfoResponse {
+  string uri = 1;
+}
