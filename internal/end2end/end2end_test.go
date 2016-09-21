@@ -49,10 +49,6 @@ var _ = Describe("End2end", func() {
 			return c
 		}
 
-		var createFileName = func() string {
-			return fmt.Sprintf("some-file-%d", rand.Int63())
-		}
-
 		var writeSlowly = func(count int, fileInfo *pb.File, writer pb.Talaria_WriteClient) *sync.WaitGroup {
 			var wg sync.WaitGroup
 			wg.Add(1)
@@ -114,3 +110,7 @@ var _ = Describe("End2end", func() {
 		})
 	})
 })
+
+func createFileName() string {
+	return fmt.Sprintf("some-file-%d", rand.Int63())
+}
