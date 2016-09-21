@@ -240,6 +240,14 @@ var _ = Describe("Server", func() {
 
 					Eventually(data).Should(Receive(Equal([]byte("some-data"))))
 				})
+
+				It("increments the index each read", func() {
+					writeToReader(mReader, []byte("some-data-0"), 0, nil)
+					writeToReader(mReader, []byte("some-data-1"), 1, nil)
+
+					Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(0)))
+					Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(1)))
+				})
 			})
 
 			Context("reader returns an error", func() {

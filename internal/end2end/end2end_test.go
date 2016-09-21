@@ -53,10 +53,12 @@ var _ = Describe("End2end", func() {
 		It("writes data to a subscriber", func() {
 			writer, err := talariaClient.Write(context.Background())
 			Expect(err).ToNot(HaveOccurred())
-			writeTo("some-file", []byte("some-data"), writer)
+			writeTo("some-file", []byte("some-data-1"), writer)
+			writeTo("some-file", []byte("some-data-2"), writer)
 
 			data := fetchReader("some-file", talariaClient)
-			Eventually(data).Should(Receive(Equal([]byte("some-data"))))
+			Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
+			Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
 		})
 	})
 })
