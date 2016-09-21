@@ -70,32 +70,47 @@ var _ = Describe("End2end", func() {
 			fileInfo = &pb.File{
 				FileName: createFileName(),
 			}
-			talariaClient.Create(context.Background(), fileInfo)
 		})
 
-		It("writes data to a subscriber", func() {
-			writer, err := talariaClient.Write(context.Background())
-			Expect(err).ToNot(HaveOccurred())
-			writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
-			writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
+		Context("file has been created", func() {
+			BeforeEach(func() {
+				talariaClient.Create(context.Background(), fileInfo)
+			})
 
-			data := fetchReader(fileInfo.FileName, talariaClient)
-			Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
-			Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
+			It("writes data to a subscriber", func() {
+				writer, err := talariaClient.Write(context.Background())
+				Expect(err).ToNot(HaveOccurred())
+				writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
+				writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
+
+				data := fetchReader(fileInfo.FileName, talariaClient)
+				Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
+				Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
+			})
+
+			It("Read() tails", func() {
+				data := fetchReader(fileInfo.FileName, talariaClient)
+				writer, err := talariaClient.Write(context.Background())
+				Expect(err).ToNot(HaveOccurred())
+
+				wg := writeSlowly(10, fileInfo, writer)
+				defer wg.Wait()
+
+				for i := 0; i < 10; i++ {
+					expectedData := []byte(fmt.Sprintf("some-data-%d", i))
+					Eventually(data).Should(Receive(Equal(expectedData)))
+				}
+			})
 		})
 
-		It("Read() tails", func() {
-			data := fetchReader(fileInfo.FileName, talariaClient)
-			writer, err := talariaClient.Write(context.Background())
-			Expect(err).ToNot(HaveOccurred())
+		Context("file has not been created", func() {
+			It("returns an error", func() {
+				writer, err := talariaClient.Write(context.Background())
+				Expect(err).ToNot(HaveOccurred())
 
-			wg := writeSlowly(10, fileInfo, writer)
-			defer wg.Wait()
-
-			for i := 0; i < 10; i++ {
-				expectedData := []byte(fmt.Sprintf("some-data-%d", i))
-				Eventually(data).Should(Receive(Equal(expectedData)))
-			}
+				_, err = writer.CloseAndRecv()
+				Expect(err).To(HaveOccurred())
+			})
 		})
 	})
 })
