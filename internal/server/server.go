@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"io"
 	"log"
 
 	"golang.org/x/net/context"
@@ -75,24 +76,30 @@ func (s *Server) Read(file *pb.File, sender pb.Talaria_ReadServer) error {
 	var idx uint64
 	for {
 		data, _, err := reader.ReadAt(idx)
-		idx++
+
+		if err == io.EOF {
+			continue
+		}
+
 		if err != nil {
 			log.Printf("failed to read from '%s': %s", file.FileName, err)
 			return err
 		}
+		idx++
 
 		err = sender.Send(&pb.ReadDataPacket{
 			Message: data,
 		})
 
 		if err != nil {
-			log.Printf("failed to send: %s", err)
+			log.Printf("failed to read: %s", err)
 			return err
 		}
 	}
 }
 
 func (s *Server) Info(context.Context, *pb.File) (*pb.InfoResponse, error) {
+	panic("Not implemented")
 	return nil, nil
 }
 

@@ -3,6 +3,7 @@ package server_test
 
 import (
 	"fmt"
+	"io"
 	"net"
 
 	"golang.org/x/net/context"
@@ -247,6 +248,17 @@ var _ = Describe("Server", func() {
 
 					Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(0)))
 					Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(1)))
+				})
+
+				Describe("tails the reader", func() {
+					It("waits and then tries again", func() {
+						_, errs := startReading(reader)
+						writeToReader(mReader, nil, 0, io.EOF)
+						writeToReader(mReader, nil, 0, io.EOF)
+
+						Eventually(mReader.ReadAtCalled).Should(HaveLen(3))
+						Expect(errs).To(BeEmpty())
+					})
 				})
 			})
 

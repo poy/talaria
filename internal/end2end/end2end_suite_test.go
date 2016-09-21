@@ -33,7 +33,7 @@ var _ = BeforeSuite(func() {
 	talariaClient = connectToTalaria()
 })
 
-var _ = AfterEach(func() {
+var _ = AfterSuite(func() {
 	if clientConn != nil {
 		clientConn.Close()
 	}
