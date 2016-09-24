@@ -75,31 +75,33 @@ var _ = Describe("End2end", func() {
 				talariaClient.Create(context.Background(), fileInfo)
 			})
 
-			It("writes data to a subscriber", func() {
-				writer, err := talariaClient.Write(context.Background())
-				Expect(err).ToNot(HaveOccurred())
-				writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
-				writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
+			Context("start tailing from beginning", func() {
+				It("writes data to a subscriber", func() {
+					writer, err := talariaClient.Write(context.Background())
+					Expect(err).ToNot(HaveOccurred())
+					writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
+					writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
 
-				data, indexes := fetchReader(fileInfo.FileName, talariaClient)
-				Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
-				Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
-				Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
-				Eventually(indexes).Should(Receive(BeEquivalentTo(1)))
-			})
+					data, indexes := fetchReader(fileInfo.FileName, talariaClient)
+					Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
+					Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
+					Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
+					Eventually(indexes).Should(Receive(BeEquivalentTo(1)))
+				})
 
-			It("Read() tails", func() {
-				data, _ := fetchReader(fileInfo.FileName, talariaClient)
-				writer, err := talariaClient.Write(context.Background())
-				Expect(err).ToNot(HaveOccurred())
+				It("tails via Read()", func() {
+					data, _ := fetchReader(fileInfo.FileName, talariaClient)
+					writer, err := talariaClient.Write(context.Background())
+					Expect(err).ToNot(HaveOccurred())
 
-				wg := writeSlowly(10, fileInfo, writer)
-				defer wg.Wait()
+					wg := writeSlowly(10, fileInfo, writer)
+					defer wg.Wait()
 
-				for i := 0; i < 10; i++ {
-					expectedData := []byte(fmt.Sprintf("some-data-%d", i))
-					Eventually(data).Should(Receive(Equal(expectedData)))
-				}
+					for i := 0; i < 10; i++ {
+						expectedData := []byte(fmt.Sprintf("some-data-%d", i))
+						Eventually(data).Should(Receive(Equal(expectedData)))
+					}
+				})
 			})
 		})
 
