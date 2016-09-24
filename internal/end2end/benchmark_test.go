@@ -12,12 +12,29 @@ import (
 )
 
 var _ = Describe("Benchmark", func() {
-	var randomData = func() []byte {
+
+	var randomDataSegment = func() []byte {
 		data := make([]byte, 0, rand.Intn(65535))
 		for i := 0; i < cap(data); i++ {
-			data = append(data, byte(rand.Int()%255))
+			data = append(data, byte(rand.Intn(255)))
 		}
 		return data
+	}
+
+	var randomDataBuilder = func() func() []byte {
+		segments := make([][]byte, 0)
+		for i := 0; i < 10; i++ {
+			segments = append(segments, randomDataSegment())
+		}
+
+		return func() []byte {
+			result := make([]byte, 0, rand.Intn(3))
+			c := cap(result)
+			for i := 0; i < c; i++ {
+				result = append(result, segments[rand.Intn(len(segments))]...)
+			}
+			return result
+		}
 	}
 
 	Context("single file", func() {
@@ -34,12 +51,13 @@ var _ = Describe("Benchmark", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		Measure("write 1000 random data points", func(b Benchmarker) {
+		Measure("write 10000 random data points", func(b Benchmarker) {
 			writer, err := talariaClient.Write(context.Background())
 			Expect(err).ToNot(HaveOccurred())
+			randomData := randomDataBuilder()
 
 			b.Time("runtime", func() {
-				for i := 0; i < 1000; i++ {
+				for i := 0; i < 10000; i++ {
 					writer.Send(&pb.WriteDataPacket{
 						FileName: fileInfo.FileName,
 						Message:  randomData(),
@@ -48,13 +66,14 @@ var _ = Describe("Benchmark", func() {
 			})
 		}, 1)
 
-		Measure("reads 1000 random data points", func(b Benchmarker) {
-			count := 1000
+		Measure("reads 10000 random data points", func(b Benchmarker) {
+			count := 10000
 			writer, err := talariaClient.Write(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
 			reader, err := talariaClient.Read(context.Background(), fileInfo)
 			Expect(err).ToNot(HaveOccurred())
+			randomData := randomDataBuilder()
 
 			go func() {
 				for i := 0; i < count; i++ {
@@ -101,6 +120,7 @@ var _ = Describe("Benchmark", func() {
 
 					go func(info *pb.File) {
 						defer wg.Done()
+						randomData := randomDataBuilder()
 
 						writer, err := talariaClient.Write(context.Background())
 						Expect(err).ToNot(HaveOccurred())
@@ -109,7 +129,6 @@ var _ = Describe("Benchmark", func() {
 							writer.Send(&pb.WriteDataPacket{
 								FileName: info.FileName,
 								Message:  randomData(),
-								// Message: []byte("ADASF"),
 							})
 						}
 
