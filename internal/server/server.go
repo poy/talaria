@@ -75,7 +75,7 @@ func (s *Server) Read(file *pb.File, sender pb.Talaria_ReadServer) error {
 
 	var idx uint64
 	for {
-		data, _, err := reader.ReadAt(idx)
+		data, actualIdx, err := reader.ReadAt(idx)
 
 		if err == io.EOF {
 			continue
@@ -89,6 +89,7 @@ func (s *Server) Read(file *pb.File, sender pb.Talaria_ReadServer) error {
 
 		err = sender.Send(&pb.ReadDataPacket{
 			Message: data,
+			Index:   actualIdx,
 		})
 
 		if err != nil {

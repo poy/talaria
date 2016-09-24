@@ -27,8 +27,9 @@ var _ = Describe("End2end", func() {
 			Expect(writer.Send(packet)).To(Succeed())
 		}
 
-		var fetchReader = func(name string, client pb.TalariaClient) chan []byte {
+		var fetchReader = func(name string, client pb.TalariaClient) (chan []byte, chan uint64) {
 			c := make(chan []byte, 100)
+			idx := make(chan uint64, 100)
 
 			fileInfo = &pb.File{
 				FileName: name,
@@ -44,9 +45,10 @@ var _ = Describe("End2end", func() {
 						return
 					}
 					c <- packet.Message
+					idx <- packet.Index
 				}
 			}()
-			return c
+			return c, idx
 		}
 
 		var writeSlowly = func(count int, fileInfo *pb.File, writer pb.Talaria_WriteClient) *sync.WaitGroup {
@@ -79,13 +81,15 @@ var _ = Describe("End2end", func() {
 				writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
 				writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
 
-				data := fetchReader(fileInfo.FileName, talariaClient)
+				data, indexes := fetchReader(fileInfo.FileName, talariaClient)
 				Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
+				Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
 				Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
+				Eventually(indexes).Should(Receive(BeEquivalentTo(1)))
 			})
 
 			It("Read() tails", func() {
-				data := fetchReader(fileInfo.FileName, talariaClient)
+				data, _ := fetchReader(fileInfo.FileName, talariaClient)
 				writer, err := talariaClient.Write(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 

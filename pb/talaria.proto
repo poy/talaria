@@ -20,6 +20,7 @@ message WriteDataPacket {
 
 message ReadDataPacket {
   bytes message = 1;
+  uint64 index = 2;
 }
 
 message CreateResponse {

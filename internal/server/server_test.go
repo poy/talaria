@@ -188,8 +188,9 @@ var _ = Describe("Server", func() {
 			info    *pb.File
 		)
 
-		var startReading = func(reader pb.Talaria_ReadClient) (chan []byte, chan error) {
+		var startReading = func(reader pb.Talaria_ReadClient) (chan []byte, chan uint64, chan error) {
 			d := make(chan []byte, 100)
+			i := make(chan uint64, 100)
 			e := make(chan error, 100)
 			go func() {
 				for {
@@ -200,10 +201,11 @@ var _ = Describe("Server", func() {
 					}
 
 					d <- packet.Message
+					i <- packet.Index
 				}
 			}()
 
-			return d, e
+			return d, i, e
 		}
 
 		var writeToReader = func(reader *mockReader, data []byte, idx uint64, err error) {
@@ -236,10 +238,21 @@ var _ = Describe("Server", func() {
 
 			Context("reader doesn't return an error", func() {
 				It("returns data from the reader", func() {
-					data, _ := startReading(reader)
+					data, _, _ := startReading(reader)
 					writeToReader(mReader, []byte("some-data"), 0, nil)
 
 					Eventually(data).Should(Receive(Equal([]byte("some-data"))))
+				})
+
+				It("returns indexes from the reader", func() {
+					_, indexes, _ := startReading(reader)
+					writeToReader(mReader, []byte("some-data"), 0, nil)
+					writeToReader(mReader, []byte("some-data"), 1, nil)
+					writeToReader(mReader, []byte("some-data"), 2, nil)
+
+					Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
+					Eventually(indexes).Should(Receive(BeEquivalentTo(1)))
+					Eventually(indexes).Should(Receive(BeEquivalentTo(2)))
 				})
 
 				It("increments the index each read", func() {
@@ -252,7 +265,7 @@ var _ = Describe("Server", func() {
 
 				Describe("tails the reader", func() {
 					It("waits and then tries again", func() {
-						_, errs := startReading(reader)
+						_, _, errs := startReading(reader)
 						writeToReader(mReader, nil, 0, io.EOF)
 						writeToReader(mReader, nil, 0, io.EOF)
 
@@ -264,7 +277,7 @@ var _ = Describe("Server", func() {
 
 			Context("reader returns an error", func() {
 				It("returns an error", func() {
-					_, errs := startReading(reader)
+					_, _, errs := startReading(reader)
 					writeToReader(mReader, nil, 0, fmt.Errorf("some-error"))
 
 					Eventually(errs).ShouldNot(BeEmpty())
@@ -278,7 +291,7 @@ var _ = Describe("Server", func() {
 			})
 
 			It("returns an error", func() {
-				_, errs := startReading(reader)
+				_, _, errs := startReading(reader)
 
 				Eventually(errs).ShouldNot(BeEmpty())
 			})
