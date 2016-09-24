@@ -11,6 +11,7 @@ service Talaria{
 
 message File{
 	string fileName = 1;
+  uint64 startIndex = 2;
 }
 
 message WriteDataPacket {

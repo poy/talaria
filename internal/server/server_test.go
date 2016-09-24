@@ -82,7 +82,9 @@ var _ = Describe("Server", func() {
 	Describe("Create()", func() {
 		Context("fetcher does not return an error", func() {
 			It("does not return an error", func() {
-				_, err := client.Create(context.Background(), &pb.File{"some-file"})
+				_, err := client.Create(context.Background(), &pb.File{
+					FileName: "some-file",
+				})
 				Expect(err).ToNot(HaveOccurred())
 			})
 		})
@@ -93,7 +95,9 @@ var _ = Describe("Server", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := client.Create(context.Background(), &pb.File{"some-file"})
+				_, err := client.Create(context.Background(), &pb.File{
+					FileName: "some-file",
+				})
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -221,56 +225,80 @@ var _ = Describe("Server", func() {
 
 			mReader = newMockReader()
 			mockIOFetcher.FetchReaderOutput.Ret0 <- mReader
-
-			var err error
-			reader, err = client.Read(context.Background(), info)
-			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Context("fetching the file does not return an error", func() {
-			It("uses the expected name for the fetcher only once", func() {
-				startReading(reader)
-
-				Eventually(mockIOFetcher.FetchReaderInput.Name).Should(HaveLen(1))
-				Consistently(mockIOFetcher.FetchReaderInput.Name).Should(HaveLen(1))
-				Expect(mockIOFetcher.FetchReaderInput.Name).To(BeCalled(With(info.FileName)))
-			})
-
 			Context("reader doesn't return an error", func() {
-				It("returns data from the reader", func() {
-					data, _, _ := startReading(reader)
-					writeToReader(mReader, []byte("some-data"), 0, nil)
+				Context("start index is 0 (beginning)", func() {
+					BeforeEach(func() {
+						var err error
+						reader, err = client.Read(context.Background(), info)
+						Expect(err).ToNot(HaveOccurred())
+					})
 
-					Eventually(data).Should(Receive(Equal([]byte("some-data"))))
+					It("uses the expected name for the fetcher only once", func() {
+						startReading(reader)
+
+						Eventually(mockIOFetcher.FetchReaderInput.Name).Should(HaveLen(1))
+						Consistently(mockIOFetcher.FetchReaderInput.Name).Should(HaveLen(1))
+						Expect(mockIOFetcher.FetchReaderInput.Name).To(BeCalled(With(info.FileName)))
+					})
+
+					It("returns data from the reader", func() {
+						data, _, _ := startReading(reader)
+						writeToReader(mReader, []byte("some-data"), 0, nil)
+
+						Eventually(data).Should(Receive(Equal([]byte("some-data"))))
+					})
+
+					It("returns indexes from the reader", func() {
+						_, indexes, _ := startReading(reader)
+						writeToReader(mReader, []byte("some-data"), 0, nil)
+						writeToReader(mReader, []byte("some-data"), 1, nil)
+						writeToReader(mReader, []byte("some-data"), 2, nil)
+
+						Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
+						Eventually(indexes).Should(Receive(BeEquivalentTo(1)))
+						Eventually(indexes).Should(Receive(BeEquivalentTo(2)))
+					})
+
+					It("increments the index each read", func() {
+						writeToReader(mReader, []byte("some-data-0"), 0, nil)
+						writeToReader(mReader, []byte("some-data-1"), 1, nil)
+
+						Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(0)))
+						Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(1)))
+					})
+
+					Describe("tails the reader", func() {
+						It("waits and then tries again", func() {
+							_, _, errs := startReading(reader)
+							writeToReader(mReader, nil, 0, io.EOF)
+							writeToReader(mReader, nil, 0, io.EOF)
+
+							Eventually(mReader.ReadAtCalled).Should(HaveLen(3))
+							Expect(errs).To(BeEmpty())
+						})
+					})
 				})
 
-				It("returns indexes from the reader", func() {
-					_, indexes, _ := startReading(reader)
-					writeToReader(mReader, []byte("some-data"), 0, nil)
-					writeToReader(mReader, []byte("some-data"), 1, nil)
-					writeToReader(mReader, []byte("some-data"), 2, nil)
+				Context("start index is set to non-zero", func() {
+					BeforeEach(func() {
+						info.StartIndex = 1
 
-					Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
-					Eventually(indexes).Should(Receive(BeEquivalentTo(1)))
-					Eventually(indexes).Should(Receive(BeEquivalentTo(2)))
-				})
+						var err error
+						reader, err = client.Read(context.Background(), info)
+						Expect(err).ToNot(HaveOccurred())
+					})
 
-				It("increments the index each read", func() {
-					writeToReader(mReader, []byte("some-data-0"), 0, nil)
-					writeToReader(mReader, []byte("some-data-1"), 1, nil)
+					It("starts at the given index", func() {
+						writeToReader(mReader, []byte("some-data-3"), 0, nil)
+						writeToReader(mReader, []byte("some-data-1"), 1, nil)
+						writeToReader(mReader, []byte("some-data-2"), 2, nil)
 
-					Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(0)))
-					Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(1)))
-				})
-
-				Describe("tails the reader", func() {
-					It("waits and then tries again", func() {
-						_, _, errs := startReading(reader)
-						writeToReader(mReader, nil, 0, io.EOF)
-						writeToReader(mReader, nil, 0, io.EOF)
-
-						Eventually(mReader.ReadAtCalled).Should(HaveLen(3))
-						Expect(errs).To(BeEmpty())
+						var idx uint64
+						Eventually(mReader.ReadAtInput.Index).Should(Receive(&idx))
+						Expect(idx).To(BeEquivalentTo(1))
 					})
 				})
 			})

@@ -73,7 +73,7 @@ func (s *Server) Read(file *pb.File, sender pb.Talaria_ReadServer) error {
 		return fmt.Errorf("unknown file: '%s'", file.FileName)
 	}
 
-	var idx uint64
+	idx := file.StartIndex
 	for {
 		data, actualIdx, err := reader.ReadAt(idx)
 
