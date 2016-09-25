@@ -7,58 +7,6 @@ package server_test
 
 import "github.com/apoydence/talaria/internal/server"
 
-type mockReader struct {
-	ReadAtCalled chan bool
-	ReadAtInput  struct {
-		Index chan uint64
-	}
-	ReadAtOutput struct {
-		Ret0 chan []byte
-		Ret1 chan uint64
-		Ret2 chan error
-	}
-}
-
-func newMockReader() *mockReader {
-	m := &mockReader{}
-	m.ReadAtCalled = make(chan bool, 100)
-	m.ReadAtInput.Index = make(chan uint64, 100)
-	m.ReadAtOutput.Ret0 = make(chan []byte, 100)
-	m.ReadAtOutput.Ret1 = make(chan uint64, 100)
-	m.ReadAtOutput.Ret2 = make(chan error, 100)
-	return m
-}
-func (m *mockReader) ReadAt(index uint64) ([]byte, uint64, error) {
-	m.ReadAtCalled <- true
-	m.ReadAtInput.Index <- index
-	return <-m.ReadAtOutput.Ret0, <-m.ReadAtOutput.Ret1, <-m.ReadAtOutput.Ret2
-}
-
-type mockWriter struct {
-	WriteToCalled chan bool
-	WriteToInput  struct {
-		Data chan []byte
-	}
-	WriteToOutput struct {
-		Ret0 chan uint64
-		Ret1 chan error
-	}
-}
-
-func newMockWriter() *mockWriter {
-	m := &mockWriter{}
-	m.WriteToCalled = make(chan bool, 100)
-	m.WriteToInput.Data = make(chan []byte, 100)
-	m.WriteToOutput.Ret0 = make(chan uint64, 100)
-	m.WriteToOutput.Ret1 = make(chan error, 100)
-	return m
-}
-func (m *mockWriter) WriteTo(data []byte) (uint64, error) {
-	m.WriteToCalled <- true
-	m.WriteToInput.Data <- data
-	return <-m.WriteToOutput.Ret0, <-m.WriteToOutput.Ret1
-}
-
 type mockIOFetcher struct {
 	CreateCalled chan bool
 	CreateInput  struct {
@@ -114,4 +62,66 @@ func (m *mockIOFetcher) FetchReader(name string) (server.Reader, error) {
 	m.FetchReaderCalled <- true
 	m.FetchReaderInput.Name <- name
 	return <-m.FetchReaderOutput.Ret0, <-m.FetchReaderOutput.Ret1
+}
+
+type mockWriter struct {
+	WriteToCalled chan bool
+	WriteToInput  struct {
+		Data chan []byte
+	}
+	WriteToOutput struct {
+		Ret0 chan uint64
+		Ret1 chan error
+	}
+}
+
+func newMockWriter() *mockWriter {
+	m := &mockWriter{}
+	m.WriteToCalled = make(chan bool, 100)
+	m.WriteToInput.Data = make(chan []byte, 100)
+	m.WriteToOutput.Ret0 = make(chan uint64, 100)
+	m.WriteToOutput.Ret1 = make(chan error, 100)
+	return m
+}
+func (m *mockWriter) WriteTo(data []byte) (uint64, error) {
+	m.WriteToCalled <- true
+	m.WriteToInput.Data <- data
+	return <-m.WriteToOutput.Ret0, <-m.WriteToOutput.Ret1
+}
+
+type mockReader struct {
+	ReadAtCalled chan bool
+	ReadAtInput  struct {
+		Index chan uint64
+	}
+	ReadAtOutput struct {
+		Ret0 chan []byte
+		Ret1 chan uint64
+		Ret2 chan error
+	}
+	LastIndexCalled chan bool
+	LastIndexOutput struct {
+		Ret0 chan uint64
+	}
+}
+
+func newMockReader() *mockReader {
+	m := &mockReader{}
+	m.ReadAtCalled = make(chan bool, 100)
+	m.ReadAtInput.Index = make(chan uint64, 100)
+	m.ReadAtOutput.Ret0 = make(chan []byte, 100)
+	m.ReadAtOutput.Ret1 = make(chan uint64, 100)
+	m.ReadAtOutput.Ret2 = make(chan error, 100)
+	m.LastIndexCalled = make(chan bool, 100)
+	m.LastIndexOutput.Ret0 = make(chan uint64, 100)
+	return m
+}
+func (m *mockReader) ReadAt(index uint64) ([]byte, uint64, error) {
+	m.ReadAtCalled <- true
+	m.ReadAtInput.Index <- index
+	return <-m.ReadAtOutput.Ret0, <-m.ReadAtOutput.Ret1, <-m.ReadAtOutput.Ret2
+}
+func (m *mockReader) LastIndex() uint64 {
+	m.LastIndexCalled <- true
+	return <-m.LastIndexOutput.Ret0
 }

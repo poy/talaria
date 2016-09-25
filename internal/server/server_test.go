@@ -227,6 +227,10 @@ var _ = Describe("Server", func() {
 			mockIOFetcher.FetchReaderOutput.Ret0 <- mReader
 		})
 
+		JustBeforeEach(func() {
+			close(mReader.LastIndexOutput.Ret0)
+		})
+
 		Context("fetching the file does not return an error", func() {
 			Context("reader doesn't return an error", func() {
 				Context("start index is 0 (beginning)", func() {
@@ -299,6 +303,28 @@ var _ = Describe("Server", func() {
 						var idx uint64
 						Eventually(mReader.ReadAtInput.Index).Should(Receive(&idx))
 						Expect(idx).To(BeEquivalentTo(1))
+					})
+				})
+
+				Context("StartFronEnd is set to true", func() {
+					BeforeEach(func() {
+						info.StartIndex = 1
+						info.StartFromEnd = true
+						mReader.LastIndexOutput.Ret0 <- 2
+
+						var err error
+						reader, err = client.Read(context.Background(), info)
+						Expect(err).ToNot(HaveOccurred())
+					})
+
+					It("starts from the end", func() {
+						writeToReader(mReader, []byte("some-data-3"), 0, nil)
+						writeToReader(mReader, []byte("some-data-1"), 1, nil)
+						writeToReader(mReader, []byte("some-data-2"), 2, nil)
+
+						var idx uint64
+						Eventually(mReader.ReadAtInput.Index).Should(Receive(&idx))
+						Expect(idx).To(BeEquivalentTo(2))
 					})
 				})
 			})

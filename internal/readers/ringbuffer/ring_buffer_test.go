@@ -32,7 +32,7 @@ var _ = Describe("RingBuffer", func() {
 				d.WriteTo(secondValue)
 			})
 
-			Describe("Write()", func() {
+			Describe("WriteTo()", func() {
 				It("returns the written index", func() {
 					idx, err := d.WriteTo(secondValue)
 					Expect(err).ToNot(HaveOccurred())
@@ -40,7 +40,7 @@ var _ = Describe("RingBuffer", func() {
 				})
 			})
 
-			Describe("Read()", func() {
+			Describe("ReadAt()", func() {
 				It("returns expected value", func() {
 					data, idx, err := d.ReadAt(0)
 					Expect(err).ToNot(HaveOccurred())
@@ -53,6 +53,12 @@ var _ = Describe("RingBuffer", func() {
 						_, _, err := d.ReadAt(2)
 						Expect(err).To(MatchError(io.EOF))
 					})
+				})
+			})
+
+			Describe("LastIndex()", func() {
+				It("returns the last index", func() {
+					Expect(d.LastIndex()).To(BeEquivalentTo(1))
 				})
 			})
 

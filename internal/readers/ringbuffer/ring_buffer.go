@@ -48,3 +48,7 @@ func (b *RingBuffer) ReadAt(readIndex uint64) ([]byte, uint64, error) {
 
 	return result.data, result.seq, nil
 }
+
+func (b *RingBuffer) LastIndex() uint64 {
+	return atomic.LoadUint64(&b.writeIndex)
+}

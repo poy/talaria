@@ -12,6 +12,7 @@ import (
 
 type Reader interface {
 	ReadAt(index uint64) ([]byte, uint64, error)
+	LastIndex() uint64
 }
 
 type Writer interface {
@@ -74,6 +75,10 @@ func (s *Server) Read(file *pb.File, sender pb.Talaria_ReadServer) error {
 	}
 
 	idx := file.StartIndex
+	if file.StartFromEnd {
+		idx = reader.LastIndex()
+	}
+
 	for {
 		data, actualIdx, err := reader.ReadAt(idx)
 
