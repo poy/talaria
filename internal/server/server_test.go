@@ -196,9 +196,9 @@ var _ = Describe("Server", func() {
 			d := make(chan []byte, 100)
 			i := make(chan uint64, 100)
 			e := make(chan error, 100)
-			go func() {
+			go func(r pb.Talaria_ReadClient) {
 				for {
-					packet, err := reader.Recv()
+					packet, err := r.Recv()
 					if err != nil {
 						e <- err
 						return
@@ -207,7 +207,7 @@ var _ = Describe("Server", func() {
 					d <- packet.Message
 					i <- packet.Index
 				}
-			}()
+			}(reader)
 
 			return d, i, e
 		}
@@ -342,6 +342,10 @@ var _ = Describe("Server", func() {
 		Context("fetching the buffer returns an error", func() {
 			BeforeEach(func() {
 				mockIOFetcher.FetchReaderOutput.Ret1 <- fmt.Errorf("some-error")
+
+				var err error
+				reader, err = client.Read(context.Background(), info)
+				Expect(err).ToNot(HaveOccurred())
 			})
 
 			It("returns an error", func() {
