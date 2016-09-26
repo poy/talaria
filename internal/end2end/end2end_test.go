@@ -149,12 +149,18 @@ var _ = Describe("End2end", func() {
 			})
 
 			Context("tail from end", func() {
+				var waitForData = func() {
+					data, _ := fetchReaderWithIndex(fileInfo.FileName, 0, talariaClient)
+					Eventually(data).Should(HaveLen(3))
+				}
+
 				It("reads from the given index", func() {
 					writer, err := talariaClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
 					writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
 					writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
 					writeTo(fileInfo.FileName, []byte("some-data-3"), writer)
+					waitForData()
 
 					data, indexes := fetchReaderLastIndex(fileInfo.FileName, talariaClient)
 
