@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apoydence/talaria/internal/readers/ringbuffer"
+	"github.com/apoydence/talaria/internal/buffers/ringbuffer"
 	"github.com/apoydence/talaria/internal/server"
 )
 

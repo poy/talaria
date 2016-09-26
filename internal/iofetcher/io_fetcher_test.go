@@ -1,8 +1,8 @@
 package iofetcher_test
 
 import (
+	"github.com/apoydence/talaria/internal/buffers/ringbuffer"
 	"github.com/apoydence/talaria/internal/iofetcher"
-	"github.com/apoydence/talaria/internal/readers/ringbuffer"
 	"github.com/apoydence/talaria/internal/server"
 
 	. "github.com/onsi/ginkgo"
