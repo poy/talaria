@@ -37,17 +37,17 @@ var _ = Describe("Benchmark", func() {
 		}
 	}
 
-	Context("single file", func() {
+	Context("single buffer", func() {
 		var (
-			fileInfo *pb.File
+			bufferInfo *pb.BufferInfo
 		)
 
 		BeforeEach(func() {
-			fileInfo = &pb.File{
-				FileName: createFileName(),
+			bufferInfo = &pb.BufferInfo{
+				Name: createName(),
 			}
 
-			_, err := talariaClient.Create(context.Background(), fileInfo)
+			_, err := talariaClient.Create(context.Background(), bufferInfo)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
@@ -59,8 +59,8 @@ var _ = Describe("Benchmark", func() {
 			b.Time("runtime", func() {
 				for i := 0; i < 10000; i++ {
 					writer.Send(&pb.WriteDataPacket{
-						FileName: fileInfo.FileName,
-						Message:  randomData(),
+						Name:    bufferInfo.Name,
+						Message: randomData(),
 					})
 				}
 			})
@@ -71,15 +71,15 @@ var _ = Describe("Benchmark", func() {
 			writer, err := talariaClient.Write(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
-			reader, err := talariaClient.Read(context.Background(), fileInfo)
+			reader, err := talariaClient.Read(context.Background(), bufferInfo)
 			Expect(err).ToNot(HaveOccurred())
 			randomData := randomDataBuilder()
 
 			go func() {
 				for i := 0; i < count; i++ {
 					writer.Send(&pb.WriteDataPacket{
-						FileName: fileInfo.FileName,
-						Message:  randomData(),
+						Name:    bufferInfo.Name,
+						Message: randomData(),
 					})
 				}
 			}()
@@ -92,33 +92,33 @@ var _ = Describe("Benchmark", func() {
 		}, 1)
 	})
 
-	Context("multiple files", func() {
+	Context("multiple buffers", func() {
 		var (
-			fileInfos []*pb.File
+			bufferInfos []*pb.BufferInfo
 		)
 
 		BeforeEach(func() {
 			for i := 0; i < 5; i++ {
-				fileInfo := &pb.File{
-					FileName: createFileName(),
+				bufferInfo := &pb.BufferInfo{
+					Name: createName(),
 				}
 
-				_, err := talariaClient.Create(context.Background(), fileInfo)
+				_, err := talariaClient.Create(context.Background(), bufferInfo)
 				Expect(err).ToNot(HaveOccurred())
-				fileInfos = append(fileInfos, fileInfo)
+				bufferInfos = append(bufferInfos, bufferInfo)
 			}
 		})
 
-		Measure("read 100 random data points to each 5 files", func(b Benchmarker) {
+		Measure("read 100 random data points to each 5 buffers", func(b Benchmarker) {
 			count := 100
 
 			b.Time("runtime", func() {
 
 				var wg sync.WaitGroup
-				for _, fi := range fileInfos {
+				for _, fi := range bufferInfos {
 					wg.Add(2)
 
-					go func(info *pb.File) {
+					go func(info *pb.BufferInfo) {
 						defer wg.Done()
 						randomData := randomDataBuilder()
 
@@ -127,14 +127,14 @@ var _ = Describe("Benchmark", func() {
 
 						for i := 0; i < count; i++ {
 							writer.Send(&pb.WriteDataPacket{
-								FileName: info.FileName,
-								Message:  randomData(),
+								Name:    info.Name,
+								Message: randomData(),
 							})
 						}
 
 					}(fi)
 
-					go func(info *pb.File) {
+					go func(info *pb.BufferInfo) {
 						defer wg.Done()
 						defer GinkgoRecover()
 

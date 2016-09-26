@@ -35,8 +35,8 @@ func New(fetcher IOFetcher) *Server {
 	}
 }
 
-func (s *Server) Create(ctx context.Context, info *pb.File) (*pb.CreateResponse, error) {
-	return new(pb.CreateResponse), s.fetcher.Create(info.FileName)
+func (s *Server) Create(ctx context.Context, info *pb.BufferInfo) (*pb.CreateResponse, error) {
+	return new(pb.CreateResponse), s.fetcher.Create(info.Name)
 }
 
 func (s *Server) Write(rx pb.Talaria_WriteServer) error {
@@ -51,31 +51,31 @@ func (s *Server) Write(rx pb.Talaria_WriteServer) error {
 			return err
 		}
 
-		writer, err := s.fetchWriter(writers, packet.FileName)
+		writer, err := s.fetchWriter(writers, packet.Name)
 		if err != nil {
-			log.Printf("unknown file: '%s'", packet.FileName)
-			return fmt.Errorf("unknown file: '%s'", packet.FileName)
+			log.Printf("unknown buffer: '%s'", packet.Name)
+			return fmt.Errorf("unknown buffer: '%s'", packet.Name)
 		}
 
 		if _, err = writer.WriteTo(packet.Message); err != nil {
-			log.Printf("error writing to file '%s': %s", packet.FileName, err)
+			log.Printf("error writing to buffer '%s': %s", packet.Name, err)
 			return err
 		}
 	}
 }
 
-func (s *Server) Read(file *pb.File, sender pb.Talaria_ReadServer) error {
-	log.Printf("Starting reader for '%s'...", file.FileName)
-	defer log.Printf("Reader done for '%s'.", file.FileName)
+func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error {
+	log.Printf("Starting reader for '%s'...", buffer.Name)
+	defer log.Printf("Reader done for '%s'.", buffer.Name)
 
-	reader, err := s.fetcher.FetchReader(file.FileName)
+	reader, err := s.fetcher.FetchReader(buffer.Name)
 	if err != nil {
-		log.Printf("unknown file: '%s'", file.FileName)
-		return fmt.Errorf("unknown file: '%s'", file.FileName)
+		log.Printf("unknown buffer: '%s'", buffer.Name)
+		return fmt.Errorf("unknown buffer: '%s'", buffer.Name)
 	}
 
-	idx := file.StartIndex
-	if file.StartFromEnd {
+	idx := buffer.StartIndex
+	if buffer.StartFromEnd {
 		idx = reader.LastIndex()
 	}
 
@@ -87,7 +87,7 @@ func (s *Server) Read(file *pb.File, sender pb.Talaria_ReadServer) error {
 		}
 
 		if err != nil {
-			log.Printf("failed to read from '%s': %s", file.FileName, err)
+			log.Printf("failed to read from '%s': %s", buffer.Name, err)
 			return err
 		}
 		idx++
@@ -104,7 +104,7 @@ func (s *Server) Read(file *pb.File, sender pb.Talaria_ReadServer) error {
 	}
 }
 
-func (s *Server) Info(context.Context, *pb.File) (*pb.InfoResponse, error) {
+func (s *Server) Info(context.Context, *pb.BufferInfo) (*pb.InfoResponse, error) {
 	panic("Not implemented")
 	return nil, nil
 }

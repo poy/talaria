@@ -82,8 +82,8 @@ var _ = Describe("Server", func() {
 	Describe("Create()", func() {
 		Context("fetcher does not return an error", func() {
 			It("does not return an error", func() {
-				_, err := client.Create(context.Background(), &pb.File{
-					FileName: "some-file",
+				_, err := client.Create(context.Background(), &pb.BufferInfo{
+					Name: "some-buffer",
 				})
 				Expect(err).ToNot(HaveOccurred())
 			})
@@ -95,8 +95,8 @@ var _ = Describe("Server", func() {
 			})
 
 			It("returns an error", func() {
-				_, err := client.Create(context.Background(), &pb.File{
-					FileName: "some-file",
+				_, err := client.Create(context.Background(), &pb.BufferInfo{
+					Name: "some-buffer",
 				})
 				Expect(err).To(HaveOccurred())
 			})
@@ -120,20 +120,20 @@ var _ = Describe("Server", func() {
 			Expect(err).ToNot(HaveOccurred())
 		})
 
-		Context("fetching the file does not return an error", func() {
+		Context("fetching the buffer does not return an error", func() {
 			var (
-				info   *pb.File
+				info   *pb.BufferInfo
 				packet *pb.WriteDataPacket
 			)
 
 			BeforeEach(func() {
-				info = &pb.File{
-					FileName: "some-name",
+				info = &pb.BufferInfo{
+					Name: "some-name",
 				}
 
 				packet = &pb.WriteDataPacket{
-					FileName: info.FileName,
-					Message:  []byte("some-data"),
+					Name:    info.Name,
+					Message: []byte("some-data"),
 				}
 
 				mockIOFetcher.FetchWriterOutput.Ret0 <- mockWriter
@@ -144,7 +144,7 @@ var _ = Describe("Server", func() {
 					Consistently(keepWriting(packet)).Should(Succeed())
 
 					Expect(mockIOFetcher.FetchWriterInput.Name).To(HaveLen(1))
-					Expect(mockIOFetcher.FetchWriterInput.Name).To(BeCalled(With(info.FileName)))
+					Expect(mockIOFetcher.FetchWriterInput.Name).To(BeCalled(With(info.Name)))
 				})
 
 				It("writes to the given writer", func() {
@@ -165,7 +165,7 @@ var _ = Describe("Server", func() {
 			})
 		})
 
-		Context("fetching the file returns an error", func() {
+		Context("fetching the buffer returns an error", func() {
 			var (
 				packet *pb.WriteDataPacket
 			)
@@ -174,8 +174,8 @@ var _ = Describe("Server", func() {
 				mockIOFetcher.FetchWriterOutput.Ret1 <- fmt.Errorf("some-error")
 
 				packet = &pb.WriteDataPacket{
-					FileName: "unknown-name",
-					Message:  []byte("some-data"),
+					Name:    "unknown-name",
+					Message: []byte("some-data"),
 				}
 			})
 
@@ -189,7 +189,7 @@ var _ = Describe("Server", func() {
 		var (
 			mReader *mockReader
 			reader  pb.Talaria_ReadClient
-			info    *pb.File
+			info    *pb.BufferInfo
 		)
 
 		var startReading = func(reader pb.Talaria_ReadClient) (chan []byte, chan uint64, chan error) {
@@ -219,8 +219,8 @@ var _ = Describe("Server", func() {
 		}
 
 		BeforeEach(func() {
-			info = &pb.File{
-				FileName: "some-name",
+			info = &pb.BufferInfo{
+				Name: "some-name",
 			}
 
 			mReader = newMockReader()
@@ -231,7 +231,7 @@ var _ = Describe("Server", func() {
 			close(mReader.LastIndexOutput.Ret0)
 		})
 
-		Context("fetching the file does not return an error", func() {
+		Context("fetching the buffer does not return an error", func() {
 			Context("reader doesn't return an error", func() {
 				Context("start index is 0 (beginning)", func() {
 					BeforeEach(func() {
@@ -245,7 +245,7 @@ var _ = Describe("Server", func() {
 
 						Eventually(mockIOFetcher.FetchReaderInput.Name).Should(HaveLen(1))
 						Consistently(mockIOFetcher.FetchReaderInput.Name).Should(HaveLen(1))
-						Expect(mockIOFetcher.FetchReaderInput.Name).To(BeCalled(With(info.FileName)))
+						Expect(mockIOFetcher.FetchReaderInput.Name).To(BeCalled(With(info.Name)))
 					})
 
 					It("returns data from the reader", func() {
@@ -339,7 +339,7 @@ var _ = Describe("Server", func() {
 			})
 		})
 
-		Context("fetching the file returns an error", func() {
+		Context("fetching the buffer returns an error", func() {
 			BeforeEach(func() {
 				mockIOFetcher.FetchReaderOutput.Ret1 <- fmt.Errorf("some-error")
 			})

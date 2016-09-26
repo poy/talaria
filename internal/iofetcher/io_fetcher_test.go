@@ -21,33 +21,33 @@ var _ = Describe("IoFetcher", func() {
 	Describe("FetchReader()", func() {
 		Context("Create() has been called", func() {
 			BeforeEach(func() {
-				Expect(fetcher.Create("some-file")).To(Succeed())
+				Expect(fetcher.Create("some-buffer")).To(Succeed())
 			})
 
 			It("returns the same reader each time", func() {
-				readerA, err := fetcher.FetchReader("some-file")
+				readerA, err := fetcher.FetchReader("some-buffer")
 				Expect(err).ToNot(HaveOccurred())
 
-				readerB, err := fetcher.FetchReader("some-file")
+				readerB, err := fetcher.FetchReader("some-buffer")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(readerA).ToNot(BeNil())
 				Expect(readerA).To(Equal(readerB))
 			})
 
-			Context("Create() has been called twice for the same file", func() {
+			Context("Create() has been called twice for the same buffer", func() {
 				var (
 					readerA server.Reader
 				)
 
 				BeforeEach(func() {
-					readerA, _ = fetcher.FetchReader("some-file")
+					readerA, _ = fetcher.FetchReader("some-buffer")
 					readerA.(*ringbuffer.RingBuffer).Size = 99
-					Expect(fetcher.Create("some-file")).To(Succeed())
+					Expect(fetcher.Create("some-buffer")).To(Succeed())
 				})
 
 				It("still returns the same reader each time", func() {
-					readerB, _ := fetcher.FetchReader("some-file")
+					readerB, _ := fetcher.FetchReader("some-buffer")
 
 					Expect(readerA).To(Equal(readerB))
 				})
@@ -56,7 +56,7 @@ var _ = Describe("IoFetcher", func() {
 
 		Context("Create() has not been called", func() {
 			It("returns an error", func() {
-				_, err := fetcher.FetchReader("some-file")
+				_, err := fetcher.FetchReader("some-buffer")
 				Expect(err).To(HaveOccurred())
 			})
 		})
@@ -65,14 +65,14 @@ var _ = Describe("IoFetcher", func() {
 	Describe("FetchWriter()", func() {
 		Context("Create() has been called", func() {
 			BeforeEach(func() {
-				Expect(fetcher.Create("some-file")).To(Succeed())
+				Expect(fetcher.Create("some-buffer")).To(Succeed())
 			})
 
 			It("returns the same writer each time", func() {
-				writerA, err := fetcher.FetchWriter("some-file")
+				writerA, err := fetcher.FetchWriter("some-buffer")
 				Expect(err).ToNot(HaveOccurred())
 
-				writerB, err := fetcher.FetchWriter("some-file")
+				writerB, err := fetcher.FetchWriter("some-buffer")
 				Expect(err).ToNot(HaveOccurred())
 
 				Expect(writerA).ToNot(BeNil())
@@ -82,7 +82,7 @@ var _ = Describe("IoFetcher", func() {
 
 		Context("Create() has not been called", func() {
 			It("returns an error", func() {
-				_, err := fetcher.FetchWriter("some-file")
+				_, err := fetcher.FetchWriter("some-buffer")
 				Expect(err).To(HaveOccurred())
 			})
 		})

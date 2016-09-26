@@ -3,20 +3,20 @@ syntax = "proto3";
 package pb;
 
 service Talaria{
-  rpc Create(File) returns (CreateResponse) {}
+  rpc Create(BufferInfo) returns (CreateResponse) {}
   rpc Write(stream WriteDataPacket) returns (WriteResponse)  {}
-  rpc Read(File) returns (stream ReadDataPacket) {}
-  rpc Info(File) returns (InfoResponse) {}
+  rpc Read(BufferInfo) returns (stream ReadDataPacket) {}
+  rpc Info(BufferInfo) returns (InfoResponse) {}
 }
 
-message File{
-	string fileName = 1;
+message BufferInfo{
+	string name = 1;
   uint64 startIndex = 2;
   bool startFromEnd = 3;
 }
 
 message WriteDataPacket {
-  string fileName = 1;
+  string name = 1;
   bytes message = 2;
 }
 

@@ -16,13 +16,13 @@ import (
 var _ = Describe("End2end", func() {
 	Context("Data has been written", func() {
 		var (
-			fileInfo *pb.File
+			bufferInfo *pb.BufferInfo
 		)
 
 		var writeTo = func(name string, data []byte, writer pb.Talaria_WriteClient) {
 			packet := &pb.WriteDataPacket{
-				FileName: name,
-				Message:  data,
+				Name:    name,
+				Message: data,
 			}
 			Expect(writer.Send(packet)).To(Succeed())
 		}
@@ -31,12 +31,12 @@ var _ = Describe("End2end", func() {
 			c := make(chan []byte, 100)
 			idx := make(chan uint64, 100)
 
-			fileInfo = &pb.File{
-				FileName:   name,
+			bufferInfo = &pb.BufferInfo{
+				Name:       name,
 				StartIndex: index,
 			}
 
-			reader, err := client.Read(context.Background(), fileInfo)
+			reader, err := client.Read(context.Background(), bufferInfo)
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
@@ -56,13 +56,13 @@ var _ = Describe("End2end", func() {
 			c := make(chan []byte, 100)
 			idx := make(chan uint64, 100)
 
-			fileInfo = &pb.File{
-				FileName:     name,
+			bufferInfo = &pb.BufferInfo{
+				Name:         name,
 				StartIndex:   1,
 				StartFromEnd: true,
 			}
 
-			reader, err := client.Read(context.Background(), fileInfo)
+			reader, err := client.Read(context.Background(), bufferInfo)
 			Expect(err).ToNot(HaveOccurred())
 
 			go func() {
@@ -78,38 +78,38 @@ var _ = Describe("End2end", func() {
 			return c, idx
 		}
 
-		var writeSlowly = func(count int, fileInfo *pb.File, writer pb.Talaria_WriteClient) *sync.WaitGroup {
+		var writeSlowly = func(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteClient) *sync.WaitGroup {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
 				for i := 0; i < count; i++ {
 					time.Sleep(time.Millisecond)
-					writeTo(fileInfo.FileName, []byte(fmt.Sprintf("some-data-%d", i)), writer)
+					writeTo(bufferInfo.Name, []byte(fmt.Sprintf("some-data-%d", i)), writer)
 				}
 			}()
 			return &wg
 		}
 
 		BeforeEach(func() {
-			fileInfo = &pb.File{
-				FileName: createFileName(),
+			bufferInfo = &pb.BufferInfo{
+				Name: createName(),
 			}
 		})
 
-		Context("file has been created", func() {
+		Context("buffer has been created", func() {
 			BeforeEach(func() {
-				talariaClient.Create(context.Background(), fileInfo)
+				talariaClient.Create(context.Background(), bufferInfo)
 			})
 
 			Context("start tailing from beginning", func() {
 				It("writes data to a subscriber", func() {
 					writer, err := talariaClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
-					writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
-					writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
+					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
+					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
 
-					data, indexes := fetchReaderWithIndex(fileInfo.FileName, 0, talariaClient)
+					data, indexes := fetchReaderWithIndex(bufferInfo.Name, 0, talariaClient)
 					Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
 					Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
 					Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
@@ -117,11 +117,11 @@ var _ = Describe("End2end", func() {
 				})
 
 				It("tails via Read()", func() {
-					data, _ := fetchReaderWithIndex(fileInfo.FileName, 0, talariaClient)
+					data, _ := fetchReaderWithIndex(bufferInfo.Name, 0, talariaClient)
 					writer, err := talariaClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
 
-					wg := writeSlowly(10, fileInfo, writer)
+					wg := writeSlowly(10, bufferInfo, writer)
 					defer wg.Wait()
 
 					for i := 0; i < 10; i++ {
@@ -135,11 +135,11 @@ var _ = Describe("End2end", func() {
 				It("reads from the given index", func() {
 					writer, err := talariaClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
-					writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
-					writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
-					writeTo(fileInfo.FileName, []byte("some-data-3"), writer)
+					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
+					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
+					writeTo(bufferInfo.Name, []byte("some-data-3"), writer)
 
-					data, indexes := fetchReaderWithIndex(fileInfo.FileName, 1, talariaClient)
+					data, indexes := fetchReaderWithIndex(bufferInfo.Name, 1, talariaClient)
 
 					var idx uint64
 					Eventually(indexes).Should(Receive(&idx))
@@ -150,19 +150,19 @@ var _ = Describe("End2end", func() {
 
 			Context("tail from end", func() {
 				var waitForData = func() {
-					data, _ := fetchReaderWithIndex(fileInfo.FileName, 0, talariaClient)
+					data, _ := fetchReaderWithIndex(bufferInfo.Name, 0, talariaClient)
 					Eventually(data).Should(HaveLen(3))
 				}
 
 				It("reads from the given index", func() {
 					writer, err := talariaClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
-					writeTo(fileInfo.FileName, []byte("some-data-1"), writer)
-					writeTo(fileInfo.FileName, []byte("some-data-2"), writer)
-					writeTo(fileInfo.FileName, []byte("some-data-3"), writer)
+					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
+					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
+					writeTo(bufferInfo.Name, []byte("some-data-3"), writer)
 					waitForData()
 
-					data, indexes := fetchReaderLastIndex(fileInfo.FileName, talariaClient)
+					data, indexes := fetchReaderLastIndex(bufferInfo.Name, talariaClient)
 
 					var idx uint64
 					Eventually(indexes).Should(Receive(&idx))
@@ -172,7 +172,7 @@ var _ = Describe("End2end", func() {
 			})
 		})
 
-		Context("file has not been created", func() {
+		Context("buffer has not been created", func() {
 			It("returns an error", func() {
 				writer, err := talariaClient.Write(context.Background())
 				Expect(err).ToNot(HaveOccurred())
@@ -184,6 +184,6 @@ var _ = Describe("End2end", func() {
 	})
 })
 
-func createFileName() string {
-	return fmt.Sprintf("some-file-%d", rand.Int63())
+func createName() string {
+	return fmt.Sprintf("some-buffer-%d", rand.Int63())
 }
