@@ -29,8 +29,8 @@ var (
 )
 
 var _ = BeforeSuite(func() {
-	startTalaria()
-	talariaClient = connectToTalaria()
+	startTalariaNode()
+	talariaClient = connectToTalariaNode()
 })
 
 var _ = AfterSuite(func() {
@@ -42,7 +42,7 @@ var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
 
-func connectToTalaria() pb.TalariaClient {
+func connectToTalariaNode() pb.TalariaClient {
 	var err error
 	clientConn, err = grpc.Dial(fmt.Sprintf("localhost:%d", talariaPort), grpc.WithInsecure())
 	Expect(err).ToNot(HaveOccurred())
@@ -50,9 +50,9 @@ func connectToTalaria() pb.TalariaClient {
 	return pb.NewTalariaClient(clientConn)
 }
 
-func startTalaria() {
+func startTalariaNode() {
 	talariaPort = end2end.AvailablePort()
-	path, err := gexec.Build("github.com/apoydence/talaria")
+	path, err := gexec.Build("github.com/apoydence/talaria/node")
 	Expect(err).ToNot(HaveOccurred())
 	command := exec.Command(path)
 	command.Env = []string{

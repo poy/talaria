@@ -3,7 +3,7 @@ package ringbuffer_test
 import (
 	"io"
 
-	"github.com/apoydence/talaria/internal/buffers/ringbuffer"
+	"github.com/apoydence/talaria/node/internal/buffers/ringbuffer"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )

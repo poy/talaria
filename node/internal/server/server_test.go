@@ -8,7 +8,7 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/talaria/internal/server"
+	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/pb"
 	"google.golang.org/grpc"
 

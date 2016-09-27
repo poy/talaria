@@ -7,7 +7,7 @@ import (
 	"testing"
 )
 
-func TestTalaria(t *testing.T) {
+func TestScheduler(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Talaria Suite")
+	RunSpecs(t, "Scheduler Suite")
 }

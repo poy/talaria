@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/apoydence/talaria/internal/buffers/ringbuffer"
-	"github.com/apoydence/talaria/internal/server"
+	"github.com/apoydence/talaria/node/internal/buffers/ringbuffer"
+	"github.com/apoydence/talaria/node/internal/server"
 )
 
 type IOFetcher struct {

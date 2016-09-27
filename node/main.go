@@ -5,18 +5,17 @@ import (
 	"log"
 	"net"
 
-	"github.com/apoydence/talaria/internal/config"
-	"github.com/apoydence/talaria/internal/iofetcher"
-	"github.com/apoydence/talaria/internal/server"
+	"github.com/apoydence/talaria/node/config"
+	"github.com/apoydence/talaria/node/internal/iofetcher"
+	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/pb"
 	"google.golang.org/grpc"
 )
 
 func main() {
-	log.Print("Starting Talaria...")
-	defer log.Print("Closing Talaria")
+	log.Print("Starting Talaria Node...")
+	defer log.Print("Closing Talaria Node")
 	conf := config.Load()
-	fmt.Println(conf)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.Port))
 	if err != nil {

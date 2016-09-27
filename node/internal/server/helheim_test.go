@@ -5,7 +5,7 @@
 
 package server_test
 
-import "github.com/apoydence/talaria/internal/server"
+import "github.com/apoydence/talaria/node/internal/server"
 
 type mockIOFetcher struct {
 	CreateCalled chan bool
