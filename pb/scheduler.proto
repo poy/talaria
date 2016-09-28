@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package pb;
+
+service Scheduler{
+  rpc Create(CreateInfo) returns (CreateResponse) {}
+}
+
+message CreateInfo {
+  string name = 1;
+}
+
+message CreateResponse {
+  string uri = 1;
+}

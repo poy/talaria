@@ -5,13 +5,13 @@ import (
 	"os/exec"
 	"time"
 
-	"google.golang.org/grpc"
-
 	"github.com/apoydence/talaria/internal/end2end"
 	"github.com/apoydence/talaria/pb"
+	"github.com/apoydence/talaria/pb/intra"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"github.com/onsi/gomega/gexec"
+	"google.golang.org/grpc"
 
 	"testing"
 )
@@ -22,21 +22,19 @@ func TestEnd2end(t *testing.T) {
 }
 
 var (
-	nodePort      int
-	schedulerPort int
+	nodePort int
 
 	sessions    []*gexec.Session
 	clientConns []*grpc.ClientConn
 
 	nodeClient      pb.TalariaClient
-	schedulerClient pb.SchedulerClient
+	intraNodeClient intra.NodeClient
 )
 
 var _ = BeforeSuite(func() {
 	startNode()
-	startScheduler()
 	nodeClient = connectToNode()
-	schedulerClient = connectToScheduler()
+	intraNodeClient = connectToIntraNode()
 })
 
 var _ = AfterSuite(func() {
@@ -59,16 +57,17 @@ func connectToNode() pb.TalariaClient {
 	return pb.NewTalariaClient(clientConn)
 }
 
-func connectToScheduler() pb.SchedulerClient {
-	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", schedulerPort), grpc.WithInsecure())
+func connectToIntraNode() intra.NodeClient {
+	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", nodePort), grpc.WithInsecure())
 	Expect(err).ToNot(HaveOccurred())
 	clientConns = append(clientConns, clientConn)
 
-	return pb.NewSchedulerClient(clientConn)
+	return intra.NewNodeClient(clientConn)
 }
 
 func startNode() {
 	nodePort = end2end.AvailablePort()
+
 	path, err := gexec.Build("github.com/apoydence/talaria/node")
 	Expect(err).ToNot(HaveOccurred())
 	command := exec.Command(path)
@@ -80,20 +79,4 @@ func startNode() {
 	Expect(err).ToNot(HaveOccurred())
 	Consistently(nodeSession.Exited).ShouldNot(BeClosed())
 	sessions = append(sessions, nodeSession)
-}
-
-func startScheduler() {
-	schedulerPort = end2end.AvailablePort()
-	path, err := gexec.Build("github.com/apoydence/talaria/scheduler")
-	Expect(err).ToNot(HaveOccurred())
-	command := exec.Command(path)
-	command.Env = []string{
-		fmt.Sprintf("PORT=%d", schedulerPort),
-		fmt.Sprintf("NODES=localhost:%d", nodePort),
-	}
-
-	schedulerSession, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
-	Expect(err).ToNot(HaveOccurred())
-	Consistently(schedulerSession.Exited).ShouldNot(BeClosed())
-	sessions = append(sessions, schedulerSession)
 }

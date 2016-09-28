@@ -7,88 +7,6 @@ package server_test
 
 import "github.com/apoydence/talaria/node/internal/server"
 
-type mockIOFetcher struct {
-	CreateCalled chan bool
-	CreateInput  struct {
-		Name chan string
-	}
-	CreateOutput struct {
-		Ret0 chan error
-	}
-	FetchWriterCalled chan bool
-	FetchWriterInput  struct {
-		Name chan string
-	}
-	FetchWriterOutput struct {
-		Ret0 chan server.Writer
-		Ret1 chan error
-	}
-	FetchReaderCalled chan bool
-	FetchReaderInput  struct {
-		Name chan string
-	}
-	FetchReaderOutput struct {
-		Ret0 chan server.Reader
-		Ret1 chan error
-	}
-}
-
-func newMockIOFetcher() *mockIOFetcher {
-	m := &mockIOFetcher{}
-	m.CreateCalled = make(chan bool, 100)
-	m.CreateInput.Name = make(chan string, 100)
-	m.CreateOutput.Ret0 = make(chan error, 100)
-	m.FetchWriterCalled = make(chan bool, 100)
-	m.FetchWriterInput.Name = make(chan string, 100)
-	m.FetchWriterOutput.Ret0 = make(chan server.Writer, 100)
-	m.FetchWriterOutput.Ret1 = make(chan error, 100)
-	m.FetchReaderCalled = make(chan bool, 100)
-	m.FetchReaderInput.Name = make(chan string, 100)
-	m.FetchReaderOutput.Ret0 = make(chan server.Reader, 100)
-	m.FetchReaderOutput.Ret1 = make(chan error, 100)
-	return m
-}
-func (m *mockIOFetcher) Create(name string) error {
-	m.CreateCalled <- true
-	m.CreateInput.Name <- name
-	return <-m.CreateOutput.Ret0
-}
-func (m *mockIOFetcher) FetchWriter(name string) (server.Writer, error) {
-	m.FetchWriterCalled <- true
-	m.FetchWriterInput.Name <- name
-	return <-m.FetchWriterOutput.Ret0, <-m.FetchWriterOutput.Ret1
-}
-func (m *mockIOFetcher) FetchReader(name string) (server.Reader, error) {
-	m.FetchReaderCalled <- true
-	m.FetchReaderInput.Name <- name
-	return <-m.FetchReaderOutput.Ret0, <-m.FetchReaderOutput.Ret1
-}
-
-type mockWriter struct {
-	WriteToCalled chan bool
-	WriteToInput  struct {
-		Data chan []byte
-	}
-	WriteToOutput struct {
-		Ret0 chan uint64
-		Ret1 chan error
-	}
-}
-
-func newMockWriter() *mockWriter {
-	m := &mockWriter{}
-	m.WriteToCalled = make(chan bool, 100)
-	m.WriteToInput.Data = make(chan []byte, 100)
-	m.WriteToOutput.Ret0 = make(chan uint64, 100)
-	m.WriteToOutput.Ret1 = make(chan error, 100)
-	return m
-}
-func (m *mockWriter) WriteTo(data []byte) (uint64, error) {
-	m.WriteToCalled <- true
-	m.WriteToInput.Data <- data
-	return <-m.WriteToOutput.Ret0, <-m.WriteToOutput.Ret1
-}
-
 type mockReader struct {
 	ReadAtCalled chan bool
 	ReadAtInput  struct {
@@ -124,4 +42,71 @@ func (m *mockReader) ReadAt(index uint64) ([]byte, uint64, error) {
 func (m *mockReader) LastIndex() uint64 {
 	m.LastIndexCalled <- true
 	return <-m.LastIndexOutput.Ret0
+}
+
+type mockIOFetcher struct {
+	FetchWriterCalled chan bool
+	FetchWriterInput  struct {
+		Name chan string
+	}
+	FetchWriterOutput struct {
+		Ret0 chan server.Writer
+		Ret1 chan error
+	}
+	FetchReaderCalled chan bool
+	FetchReaderInput  struct {
+		Name chan string
+	}
+	FetchReaderOutput struct {
+		Ret0 chan server.Reader
+		Ret1 chan error
+	}
+}
+
+func newMockIOFetcher() *mockIOFetcher {
+	m := &mockIOFetcher{}
+	m.FetchWriterCalled = make(chan bool, 100)
+	m.FetchWriterInput.Name = make(chan string, 100)
+	m.FetchWriterOutput.Ret0 = make(chan server.Writer, 100)
+	m.FetchWriterOutput.Ret1 = make(chan error, 100)
+	m.FetchReaderCalled = make(chan bool, 100)
+	m.FetchReaderInput.Name = make(chan string, 100)
+	m.FetchReaderOutput.Ret0 = make(chan server.Reader, 100)
+	m.FetchReaderOutput.Ret1 = make(chan error, 100)
+	return m
+}
+func (m *mockIOFetcher) FetchWriter(name string) (server.Writer, error) {
+	m.FetchWriterCalled <- true
+	m.FetchWriterInput.Name <- name
+	return <-m.FetchWriterOutput.Ret0, <-m.FetchWriterOutput.Ret1
+}
+func (m *mockIOFetcher) FetchReader(name string) (server.Reader, error) {
+	m.FetchReaderCalled <- true
+	m.FetchReaderInput.Name <- name
+	return <-m.FetchReaderOutput.Ret0, <-m.FetchReaderOutput.Ret1
+}
+
+type mockWriter struct {
+	WriteToCalled chan bool
+	WriteToInput  struct {
+		Data chan []byte
+	}
+	WriteToOutput struct {
+		Ret0 chan uint64
+		Ret1 chan error
+	}
+}
+
+func newMockWriter() *mockWriter {
+	m := &mockWriter{}
+	m.WriteToCalled = make(chan bool, 100)
+	m.WriteToInput.Data = make(chan []byte, 100)
+	m.WriteToOutput.Ret0 = make(chan uint64, 100)
+	m.WriteToOutput.Ret1 = make(chan error, 100)
+	return m
+}
+func (m *mockWriter) WriteTo(data []byte) (uint64, error) {
+	m.WriteToCalled <- true
+	m.WriteToInput.Data <- data
+	return <-m.WriteToOutput.Ret0, <-m.WriteToOutput.Ret1
 }

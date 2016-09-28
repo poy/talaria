@@ -6,9 +6,11 @@ import (
 	"net"
 
 	"github.com/apoydence/talaria/node/config"
+	"github.com/apoydence/talaria/node/internal/intraserver"
 	"github.com/apoydence/talaria/node/internal/iofetcher"
 	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/pb"
+	"github.com/apoydence/talaria/pb/intra"
 	"google.golang.org/grpc"
 )
 
@@ -25,8 +27,11 @@ func main() {
 
 	ioFetcher := iofetcher.New()
 	talaria := server.New(ioFetcher)
+	intraServer := intraserver.New(ioFetcher)
 
 	grpcServer := grpc.NewServer()
+
+	intra.RegisterNodeServer(grpcServer, intraServer)
 	pb.RegisterTalariaServer(grpcServer, talaria)
 	grpcServer.Serve(lis)
 }

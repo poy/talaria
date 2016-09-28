@@ -40,6 +40,7 @@ var _ = Describe("Benchmark", func() {
 	Context("single buffer", func() {
 		var (
 			bufferInfo *pb.BufferInfo
+			createInfo *pb.CreateInfo
 		)
 
 		BeforeEach(func() {
@@ -47,12 +48,16 @@ var _ = Describe("Benchmark", func() {
 				Name: createName(),
 			}
 
-			_, err := talariaClient.Create(context.Background(), bufferInfo)
+			createInfo = &pb.CreateInfo{
+				Name: bufferInfo.Name,
+			}
+
+			_, err := schedulerClient.Create(context.Background(), createInfo)
 			Expect(err).ToNot(HaveOccurred())
 		})
 
 		Measure("write 10000 random data points", func(b Benchmarker) {
-			writer, err := talariaClient.Write(context.Background())
+			writer, err := nodeClient.Write(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 			randomData := randomDataBuilder()
 
@@ -68,10 +73,10 @@ var _ = Describe("Benchmark", func() {
 
 		Measure("reads 10000 random data points", func(b Benchmarker) {
 			count := 10000
-			writer, err := talariaClient.Write(context.Background())
+			writer, err := nodeClient.Write(context.Background())
 			Expect(err).ToNot(HaveOccurred())
 
-			reader, err := talariaClient.Read(context.Background(), bufferInfo)
+			reader, err := nodeClient.Read(context.Background(), bufferInfo)
 			Expect(err).ToNot(HaveOccurred())
 			randomData := randomDataBuilder()
 
@@ -95,6 +100,7 @@ var _ = Describe("Benchmark", func() {
 	Context("multiple buffers", func() {
 		var (
 			bufferInfos []*pb.BufferInfo
+			createInfos []*pb.CreateInfo
 		)
 
 		BeforeEach(func() {
@@ -103,9 +109,14 @@ var _ = Describe("Benchmark", func() {
 					Name: createName(),
 				}
 
-				_, err := talariaClient.Create(context.Background(), bufferInfo)
+				createInfo := &pb.CreateInfo{
+					Name: bufferInfo.Name,
+				}
+
+				_, err := schedulerClient.Create(context.Background(), createInfo)
 				Expect(err).ToNot(HaveOccurred())
 				bufferInfos = append(bufferInfos, bufferInfo)
+				createInfos = append(createInfos, createInfo)
 			}
 		})
 
@@ -122,7 +133,7 @@ var _ = Describe("Benchmark", func() {
 						defer wg.Done()
 						randomData := randomDataBuilder()
 
-						writer, err := talariaClient.Write(context.Background())
+						writer, err := nodeClient.Write(context.Background())
 						Expect(err).ToNot(HaveOccurred())
 
 						for i := 0; i < count; i++ {
@@ -138,7 +149,7 @@ var _ = Describe("Benchmark", func() {
 						defer wg.Done()
 						defer GinkgoRecover()
 
-						reader, err := talariaClient.Read(context.Background(), info)
+						reader, err := nodeClient.Read(context.Background(), info)
 						Expect(err).ToNot(HaveOccurred())
 
 						for i := 0; i < count; i++ {

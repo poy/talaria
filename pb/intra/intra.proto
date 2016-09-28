@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package intra;
+
+service Node{
+  rpc Create(CreateInfo) returns (CreateResponse) {}
+}
+
+message CreateInfo {
+  string name = 1;
+}
+
+message CreateResponse {
+}

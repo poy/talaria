@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"sync"
 
 	"golang.org/x/net/context"
 
@@ -57,8 +58,6 @@ var _ = Describe("Server", func() {
 	})
 
 	JustBeforeEach(func() {
-		close(mockIOFetcher.CreateOutput.Ret0)
-
 		close(mockIOFetcher.FetchWriterOutput.Ret0)
 		close(mockIOFetcher.FetchWriterOutput.Ret1)
 
@@ -77,30 +76,6 @@ var _ = Describe("Server", func() {
 		for _, conn := range conns {
 			conn.Close()
 		}
-	})
-
-	Describe("Create()", func() {
-		Context("fetcher does not return an error", func() {
-			It("does not return an error", func() {
-				_, err := client.Create(context.Background(), &pb.BufferInfo{
-					Name: "some-buffer",
-				})
-				Expect(err).ToNot(HaveOccurred())
-			})
-		})
-
-		Context("fetcher returns an error on Create", func() {
-			BeforeEach(func() {
-				mockIOFetcher.CreateOutput.Ret0 <- fmt.Errorf("some-error")
-			})
-
-			It("returns an error", func() {
-				_, err := client.Create(context.Background(), &pb.BufferInfo{
-					Name: "some-buffer",
-				})
-				Expect(err).To(HaveOccurred())
-			})
-		})
 	})
 
 	Describe("Write()", func() {
@@ -187,16 +162,28 @@ var _ = Describe("Server", func() {
 
 	Describe("Read()", func() {
 		var (
-			mReader *mockReader
-			reader  pb.Talaria_ReadClient
-			info    *pb.BufferInfo
+			mReader        *mockReader
+			reader         pb.Talaria_ReadClient
+			info           *pb.BufferInfo
+			startReadingWg *sync.WaitGroup
+			ctx            context.Context
+			cancel         context.CancelFunc
 		)
 
+		var setupReader = func() {
+			ctx, cancel = context.WithCancel(context.Background())
+			var err error
+			reader, err = client.Read(ctx, info)
+			Expect(err).ToNot(HaveOccurred())
+		}
+
 		var startReading = func(reader pb.Talaria_ReadClient) (chan []byte, chan uint64, chan error) {
+			startReadingWg.Add(1)
 			d := make(chan []byte, 100)
 			i := make(chan uint64, 100)
 			e := make(chan error, 100)
 			go func(r pb.Talaria_ReadClient) {
+				defer startReadingWg.Done()
 				for {
 					packet, err := r.Recv()
 					if err != nil {
@@ -219,6 +206,7 @@ var _ = Describe("Server", func() {
 		}
 
 		BeforeEach(func() {
+			startReadingWg = new(sync.WaitGroup)
 			info = &pb.BufferInfo{
 				Name: "some-name",
 			}
@@ -231,13 +219,18 @@ var _ = Describe("Server", func() {
 			close(mReader.LastIndexOutput.Ret0)
 		})
 
+		AfterEach(func(done Done) {
+			defer close(done)
+			cancel()
+
+			startReadingWg.Wait()
+		})
+
 		Context("fetching the buffer does not return an error", func() {
 			Context("reader doesn't return an error", func() {
 				Context("start index is 0 (beginning)", func() {
 					BeforeEach(func() {
-						var err error
-						reader, err = client.Read(context.Background(), info)
-						Expect(err).ToNot(HaveOccurred())
+						setupReader()
 					})
 
 					It("uses the expected name for the fetcher only once", func() {
@@ -289,10 +282,7 @@ var _ = Describe("Server", func() {
 				Context("start index is set to non-zero", func() {
 					BeforeEach(func() {
 						info.StartIndex = 1
-
-						var err error
-						reader, err = client.Read(context.Background(), info)
-						Expect(err).ToNot(HaveOccurred())
+						setupReader()
 					})
 
 					It("starts at the given index", func() {
@@ -312,9 +302,7 @@ var _ = Describe("Server", func() {
 						info.StartFromEnd = true
 						mReader.LastIndexOutput.Ret0 <- 2
 
-						var err error
-						reader, err = client.Read(context.Background(), info)
-						Expect(err).ToNot(HaveOccurred())
+						setupReader()
 					})
 
 					It("starts from the end", func() {
@@ -330,6 +318,10 @@ var _ = Describe("Server", func() {
 			})
 
 			Context("reader returns an error", func() {
+				BeforeEach(func() {
+					setupReader()
+				})
+
 				It("returns an error", func() {
 					_, _, errs := startReading(reader)
 					writeToReader(mReader, nil, 0, fmt.Errorf("some-error"))
@@ -343,9 +335,7 @@ var _ = Describe("Server", func() {
 			BeforeEach(func() {
 				mockIOFetcher.FetchReaderOutput.Ret1 <- fmt.Errorf("some-error")
 
-				var err error
-				reader, err = client.Read(context.Background(), info)
-				Expect(err).ToNot(HaveOccurred())
+				setupReader()
 			})
 
 			It("returns an error", func() {

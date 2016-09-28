@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -20,7 +21,6 @@ type Writer interface {
 }
 
 type IOFetcher interface {
-	Create(name string) error
 	FetchWriter(name string) (Writer, error)
 	FetchReader(name string) (Reader, error)
 }
@@ -33,10 +33,6 @@ func New(fetcher IOFetcher) *Server {
 	return &Server{
 		fetcher: fetcher,
 	}
-}
-
-func (s *Server) Create(ctx context.Context, info *pb.BufferInfo) (*pb.CreateResponse, error) {
-	return new(pb.CreateResponse), s.fetcher.Create(info.Name)
 }
 
 func (s *Server) Write(rx pb.Talaria_WriteServer) error {
@@ -83,6 +79,7 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error
 		data, actualIdx, err := reader.ReadAt(idx)
 
 		if err == io.EOF {
+			time.Sleep(10 * time.Millisecond)
 			continue
 		}
 

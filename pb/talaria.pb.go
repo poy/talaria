@@ -2,20 +2,6 @@
 // source: talaria.proto
 // DO NOT EDIT!
 
-/*
-Package pb is a generated protocol buffer package.
-
-It is generated from these files:
-	talaria.proto
-
-It has these top-level messages:
-	BufferInfo
-	WriteDataPacket
-	ReadDataPacket
-	CreateResponse
-	WriteResponse
-	InfoResponse
-*/
 package pb
 
 import proto "github.com/golang/protobuf/proto"
@@ -32,12 +18,6 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
-
 type BufferInfo struct {
 	Name         string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	StartIndex   uint64 `protobuf:"varint,2,opt,name=startIndex" json:"startIndex,omitempty"`
@@ -47,7 +27,7 @@ type BufferInfo struct {
 func (m *BufferInfo) Reset()                    { *m = BufferInfo{} }
 func (m *BufferInfo) String() string            { return proto.CompactTextString(m) }
 func (*BufferInfo) ProtoMessage()               {}
-func (*BufferInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (*BufferInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
 
 type WriteDataPacket struct {
 	Name    string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
@@ -57,7 +37,7 @@ type WriteDataPacket struct {
 func (m *WriteDataPacket) Reset()                    { *m = WriteDataPacket{} }
 func (m *WriteDataPacket) String() string            { return proto.CompactTextString(m) }
 func (*WriteDataPacket) ProtoMessage()               {}
-func (*WriteDataPacket) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*WriteDataPacket) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
 
 type ReadDataPacket struct {
 	Message []byte `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
@@ -67,16 +47,7 @@ type ReadDataPacket struct {
 func (m *ReadDataPacket) Reset()                    { *m = ReadDataPacket{} }
 func (m *ReadDataPacket) String() string            { return proto.CompactTextString(m) }
 func (*ReadDataPacket) ProtoMessage()               {}
-func (*ReadDataPacket) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
-
-type CreateResponse struct {
-	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
-}
-
-func (m *CreateResponse) Reset()                    { *m = CreateResponse{} }
-func (m *CreateResponse) String() string            { return proto.CompactTextString(m) }
-func (*CreateResponse) ProtoMessage()               {}
-func (*CreateResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*ReadDataPacket) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
 
 type WriteResponse struct {
 }
@@ -84,7 +55,7 @@ type WriteResponse struct {
 func (m *WriteResponse) Reset()                    { *m = WriteResponse{} }
 func (m *WriteResponse) String() string            { return proto.CompactTextString(m) }
 func (*WriteResponse) ProtoMessage()               {}
-func (*WriteResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (*WriteResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
 
 type InfoResponse struct {
 	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
@@ -93,13 +64,12 @@ type InfoResponse struct {
 func (m *InfoResponse) Reset()                    { *m = InfoResponse{} }
 func (m *InfoResponse) String() string            { return proto.CompactTextString(m) }
 func (*InfoResponse) ProtoMessage()               {}
-func (*InfoResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (*InfoResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{4} }
 
 func init() {
 	proto.RegisterType((*BufferInfo)(nil), "pb.BufferInfo")
 	proto.RegisterType((*WriteDataPacket)(nil), "pb.WriteDataPacket")
 	proto.RegisterType((*ReadDataPacket)(nil), "pb.ReadDataPacket")
-	proto.RegisterType((*CreateResponse)(nil), "pb.CreateResponse")
 	proto.RegisterType((*WriteResponse)(nil), "pb.WriteResponse")
 	proto.RegisterType((*InfoResponse)(nil), "pb.InfoResponse")
 }
@@ -115,10 +85,8 @@ const _ = grpc.SupportPackageIsVersion3
 // Client API for Talaria service
 
 type TalariaClient interface {
-	Create(ctx context.Context, in *BufferInfo, opts ...grpc.CallOption) (*CreateResponse, error)
 	Write(ctx context.Context, opts ...grpc.CallOption) (Talaria_WriteClient, error)
 	Read(ctx context.Context, in *BufferInfo, opts ...grpc.CallOption) (Talaria_ReadClient, error)
-	Info(ctx context.Context, in *BufferInfo, opts ...grpc.CallOption) (*InfoResponse, error)
 }
 
 type talariaClient struct {
@@ -127,15 +95,6 @@ type talariaClient struct {
 
 func NewTalariaClient(cc *grpc.ClientConn) TalariaClient {
 	return &talariaClient{cc}
-}
-
-func (c *talariaClient) Create(ctx context.Context, in *BufferInfo, opts ...grpc.CallOption) (*CreateResponse, error) {
-	out := new(CreateResponse)
-	err := grpc.Invoke(ctx, "/pb.Talaria/Create", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
 }
 
 func (c *talariaClient) Write(ctx context.Context, opts ...grpc.CallOption) (Talaria_WriteClient, error) {
@@ -204,44 +163,15 @@ func (x *talariaReadClient) Recv() (*ReadDataPacket, error) {
 	return m, nil
 }
 
-func (c *talariaClient) Info(ctx context.Context, in *BufferInfo, opts ...grpc.CallOption) (*InfoResponse, error) {
-	out := new(InfoResponse)
-	err := grpc.Invoke(ctx, "/pb.Talaria/Info", in, out, c.cc, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // Server API for Talaria service
 
 type TalariaServer interface {
-	Create(context.Context, *BufferInfo) (*CreateResponse, error)
 	Write(Talaria_WriteServer) error
 	Read(*BufferInfo, Talaria_ReadServer) error
-	Info(context.Context, *BufferInfo) (*InfoResponse, error)
 }
 
 func RegisterTalariaServer(s *grpc.Server, srv TalariaServer) {
 	s.RegisterService(&_Talaria_serviceDesc, srv)
-}
-
-func _Talaria_Create_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BufferInfo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TalariaServer).Create(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pb.Talaria/Create",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TalariaServer).Create(ctx, req.(*BufferInfo))
-	}
-	return interceptor(ctx, in, info, handler)
 }
 
 func _Talaria_Write_Handler(srv interface{}, stream grpc.ServerStream) error {
@@ -291,37 +221,10 @@ func (x *talariaReadServer) Send(m *ReadDataPacket) error {
 	return x.ServerStream.SendMsg(m)
 }
 
-func _Talaria_Info_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(BufferInfo)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(TalariaServer).Info(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/pb.Talaria/Info",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(TalariaServer).Info(ctx, req.(*BufferInfo))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 var _Talaria_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "pb.Talaria",
 	HandlerType: (*TalariaServer)(nil),
-	Methods: []grpc.MethodDesc{
-		{
-			MethodName: "Create",
-			Handler:    _Talaria_Create_Handler,
-		},
-		{
-			MethodName: "Info",
-			Handler:    _Talaria_Info_Handler,
-		},
-	},
+	Methods:     []grpc.MethodDesc{},
 	Streams: []grpc.StreamDesc{
 		{
 			StreamName:    "Write",
@@ -334,30 +237,28 @@ var _Talaria_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: fileDescriptor0,
+	Metadata: fileDescriptor1,
 }
 
-func init() { proto.RegisterFile("talaria.proto", fileDescriptor0) }
+func init() { proto.RegisterFile("talaria.proto", fileDescriptor1) }
 
-var fileDescriptor0 = []byte{
-	// 299 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x74, 0x92, 0x4d, 0x4b, 0xfb, 0x40,
-	0x10, 0xc6, 0xbb, 0x6d, 0xda, 0xfe, 0xff, 0x43, 0x9b, 0xd6, 0xd1, 0x43, 0xe8, 0x41, 0xc2, 0x9e,
-	0x82, 0x87, 0x20, 0xf6, 0x03, 0x28, 0xbe, 0x41, 0x6f, 0xb2, 0x08, 0x9e, 0x27, 0x66, 0x22, 0x41,
-	0xf3, 0xc2, 0x66, 0x0b, 0x7e, 0x46, 0x3f, 0x95, 0xec, 0xc6, 0xda, 0xa4, 0xd4, 0xdb, 0x3c, 0xb3,
-	0xcf, 0xf0, 0xcc, 0xfe, 0x76, 0x61, 0x6e, 0xe8, 0x83, 0x74, 0x4e, 0x71, 0xad, 0x2b, 0x53, 0xe1,
-	0xb0, 0x4e, 0x64, 0x0a, 0x70, 0xbb, 0xcd, 0x32, 0xd6, 0x9b, 0x32, 0xab, 0x10, 0xc1, 0x2b, 0xa9,
-	0xe0, 0x40, 0x84, 0x22, 0xfa, 0xaf, 0x5c, 0x8d, 0xe7, 0x00, 0x8d, 0x21, 0x6d, 0x36, 0x65, 0xca,
-	0x9f, 0xc1, 0x30, 0x14, 0x91, 0xa7, 0x3a, 0x1d, 0x94, 0x30, 0x73, 0xea, 0x51, 0x57, 0xc5, 0x43,
-	0x99, 0x06, 0xa3, 0x50, 0x44, 0xff, 0x54, 0xaf, 0x27, 0xaf, 0x61, 0xf1, 0xa2, 0x73, 0xc3, 0xf7,
-	0x64, 0xe8, 0x89, 0x5e, 0xdf, 0xd9, 0x1c, 0x8d, 0x0a, 0x60, 0x5a, 0x70, 0xd3, 0xd0, 0x1b, 0xbb,
-	0x9c, 0x99, 0xda, 0x49, 0x79, 0x03, 0xbe, 0x62, 0x4a, 0x3b, 0xf3, 0x1d, 0xaf, 0xe8, 0x79, 0xf1,
-	0x0c, 0xc6, 0x79, 0x67, 0xd7, 0x56, 0x48, 0x09, 0xfe, 0x9d, 0x66, 0x32, 0xac, 0xb8, 0xa9, 0xab,
-	0xb2, 0x61, 0x5c, 0xc2, 0x68, 0xab, 0xf3, 0x9f, 0x05, 0x6c, 0x29, 0x17, 0x30, 0x77, 0x6b, 0xee,
-	0x2c, 0x32, 0x84, 0x99, 0xe5, 0xf2, 0xf7, 0xc8, 0xd5, 0x97, 0x80, 0xe9, 0x73, 0x4b, 0x15, 0x63,
-	0x98, 0xb4, 0x11, 0xe8, 0xc7, 0x75, 0x12, 0xef, 0xb9, 0xae, 0xd0, 0xea, 0x7e, 0xbc, 0x1c, 0xe0,
-	0x1a, 0xc6, 0x2e, 0x0e, 0x4f, 0xed, 0xf1, 0x01, 0xa0, 0xd5, 0xc9, 0x6f, 0x73, 0x3f, 0x12, 0x09,
-	0x8c, 0xc1, 0xb3, 0x24, 0x8e, 0x47, 0xf4, 0x19, 0xc9, 0xc1, 0xa5, 0xc0, 0x0b, 0xf0, 0xdc, 0xd3,
-	0x1e, 0xfa, 0x97, 0x56, 0x77, 0x2f, 0x27, 0x07, 0xc9, 0xc4, 0xfd, 0x8b, 0xf5, 0x77, 0x00, 0x00,
-	0x00, 0xff, 0xff, 0xf9, 0x4c, 0xd1, 0xb9, 0x28, 0x02, 0x00, 0x00,
+var fileDescriptor1 = []byte{
+	// 261 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x6c, 0x91, 0x41, 0x4b, 0xc3, 0x40,
+	0x10, 0x85, 0xbb, 0x6d, 0x6a, 0x75, 0x48, 0x5b, 0x1d, 0x3d, 0x84, 0x1e, 0x24, 0xec, 0x29, 0xa7,
+	0x20, 0xf6, 0x07, 0x28, 0xa2, 0x42, 0x6f, 0xb2, 0x08, 0x9e, 0x27, 0x66, 0x22, 0x41, 0xb3, 0x09,
+	0xbb, 0x5b, 0xf0, 0xe7, 0xcb, 0x6e, 0x6d, 0x4d, 0xa4, 0xb7, 0xf9, 0x5e, 0x66, 0x32, 0xef, 0xcd,
+	0xc2, 0xdc, 0xd1, 0x17, 0x99, 0x9a, 0xf2, 0xce, 0xb4, 0xae, 0xc5, 0x71, 0x57, 0xc8, 0x12, 0xe0,
+	0x61, 0x5b, 0x55, 0x6c, 0x36, 0xba, 0x6a, 0x11, 0x21, 0xd2, 0xd4, 0x70, 0x22, 0x52, 0x91, 0x9d,
+	0xa9, 0x50, 0xe3, 0x35, 0x80, 0x75, 0x64, 0xdc, 0x46, 0x97, 0xfc, 0x9d, 0x8c, 0x53, 0x91, 0x45,
+	0xaa, 0xa7, 0xa0, 0x84, 0x38, 0xd0, 0xb3, 0x69, 0x9b, 0x27, 0x5d, 0x26, 0x93, 0x54, 0x64, 0xa7,
+	0x6a, 0xa0, 0xc9, 0x3b, 0x58, 0xbe, 0x99, 0xda, 0xf1, 0x23, 0x39, 0x7a, 0xa1, 0xf7, 0x4f, 0x76,
+	0x47, 0x57, 0x25, 0x30, 0x6b, 0xd8, 0x5a, 0xfa, 0xe0, 0xb0, 0x27, 0x56, 0x7b, 0x94, 0xf7, 0xb0,
+	0x50, 0x4c, 0x65, 0x6f, 0xbe, 0xd7, 0x2b, 0x06, 0xbd, 0x78, 0x05, 0xd3, 0xba, 0xe7, 0x75, 0x07,
+	0x72, 0x09, 0xf3, 0x60, 0x41, 0xb1, 0xed, 0x5a, 0x6d, 0x59, 0xa6, 0x10, 0xfb, 0xcc, 0x7b, 0xc6,
+	0x73, 0x98, 0x6c, 0x4d, 0xfd, 0xeb, 0xc7, 0x97, 0xb7, 0x1a, 0x66, 0xaf, 0xbb, 0x83, 0xe1, 0x1a,
+	0xa6, 0x61, 0x1a, 0x2f, 0xf3, 0xae, 0xc8, 0xff, 0x65, 0x59, 0x5d, 0x1c, 0xc4, 0xc3, 0xdf, 0x47,
+	0x99, 0xc0, 0x1c, 0x22, 0x6f, 0x1a, 0x17, 0xfe, 0xf3, 0xdf, 0x95, 0x57, 0xe8, 0x79, 0x18, 0x47,
+	0x8e, 0x6e, 0x44, 0x71, 0x12, 0x9e, 0x65, 0xfd, 0x13, 0x00, 0x00, 0xff, 0xff, 0x07, 0x9e, 0x31,
+	0xa5, 0xa7, 0x01, 0x00, 0x00,
 }

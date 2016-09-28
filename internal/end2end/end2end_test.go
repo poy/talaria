@@ -17,6 +17,7 @@ var _ = Describe("End2end", func() {
 	Context("Data has been written", func() {
 		var (
 			bufferInfo *pb.BufferInfo
+			createInfo *pb.CreateInfo
 		)
 
 		var writeTo = func(name string, data []byte, writer pb.Talaria_WriteClient) {
@@ -82,6 +83,7 @@ var _ = Describe("End2end", func() {
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
+				defer GinkgoRecover()
 				defer wg.Done()
 				for i := 0; i < count; i++ {
 					time.Sleep(time.Millisecond)
@@ -95,21 +97,25 @@ var _ = Describe("End2end", func() {
 			bufferInfo = &pb.BufferInfo{
 				Name: createName(),
 			}
+
+			createInfo = &pb.CreateInfo{
+				Name: bufferInfo.Name,
+			}
 		})
 
 		Context("buffer has been created", func() {
 			BeforeEach(func() {
-				talariaClient.Create(context.Background(), bufferInfo)
+				schedulerClient.Create(context.Background(), createInfo)
 			})
 
 			Context("start tailing from beginning", func() {
 				It("writes data to a subscriber", func() {
-					writer, err := talariaClient.Write(context.Background())
+					writer, err := nodeClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
 					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
 					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
 
-					data, indexes := fetchReaderWithIndex(bufferInfo.Name, 0, talariaClient)
+					data, indexes := fetchReaderWithIndex(bufferInfo.Name, 0, nodeClient)
 					Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
 					Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
 					Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
@@ -117,8 +123,8 @@ var _ = Describe("End2end", func() {
 				})
 
 				It("tails via Read()", func() {
-					data, _ := fetchReaderWithIndex(bufferInfo.Name, 0, talariaClient)
-					writer, err := talariaClient.Write(context.Background())
+					data, _ := fetchReaderWithIndex(bufferInfo.Name, 0, nodeClient)
+					writer, err := nodeClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
 
 					wg := writeSlowly(10, bufferInfo, writer)
@@ -133,13 +139,13 @@ var _ = Describe("End2end", func() {
 
 			Context("tail from middle", func() {
 				It("reads from the given index", func() {
-					writer, err := talariaClient.Write(context.Background())
+					writer, err := nodeClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
 					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
 					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
 					writeTo(bufferInfo.Name, []byte("some-data-3"), writer)
 
-					data, indexes := fetchReaderWithIndex(bufferInfo.Name, 1, talariaClient)
+					data, indexes := fetchReaderWithIndex(bufferInfo.Name, 1, nodeClient)
 
 					var idx uint64
 					Eventually(indexes).Should(Receive(&idx))
@@ -150,19 +156,19 @@ var _ = Describe("End2end", func() {
 
 			Context("tail from end", func() {
 				var waitForData = func() {
-					data, _ := fetchReaderWithIndex(bufferInfo.Name, 0, talariaClient)
+					data, _ := fetchReaderWithIndex(bufferInfo.Name, 0, nodeClient)
 					Eventually(data).Should(HaveLen(3))
 				}
 
 				It("reads from the given index", func() {
-					writer, err := talariaClient.Write(context.Background())
+					writer, err := nodeClient.Write(context.Background())
 					Expect(err).ToNot(HaveOccurred())
 					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
 					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
 					writeTo(bufferInfo.Name, []byte("some-data-3"), writer)
 					waitForData()
 
-					data, indexes := fetchReaderLastIndex(bufferInfo.Name, talariaClient)
+					data, indexes := fetchReaderLastIndex(bufferInfo.Name, nodeClient)
 
 					var idx uint64
 					Eventually(indexes).Should(Receive(&idx))
@@ -174,7 +180,7 @@ var _ = Describe("End2end", func() {
 
 		Context("buffer has not been created", func() {
 			It("returns an error", func() {
-				writer, err := talariaClient.Write(context.Background())
+				writer, err := nodeClient.Write(context.Background())
 				Expect(err).ToNot(HaveOccurred())
 
 				_, err = writer.CloseAndRecv()
