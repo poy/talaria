@@ -78,6 +78,10 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error
 	for {
 		data, actualIdx, err := reader.ReadAt(idx)
 
+		if err == io.EOF && s.isDone(sender.Context()) {
+			return io.EOF
+		}
+
 		if err == io.EOF {
 			time.Sleep(10 * time.Millisecond)
 			continue
@@ -101,9 +105,13 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error
 	}
 }
 
-func (s *Server) Info(context.Context, *pb.BufferInfo) (*pb.InfoResponse, error) {
-	panic("Not implemented")
-	return nil, nil
+func (s *Server) isDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
+	}
 }
 
 func (s *Server) fetchWriter(m map[string]Writer, name string) (Writer, error) {

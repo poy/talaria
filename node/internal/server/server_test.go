@@ -9,6 +9,7 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/apoydence/eachers/testhelpers"
 	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/pb"
 	"google.golang.org/grpc"
@@ -20,8 +21,9 @@ import (
 
 var _ = Describe("Server", func() {
 	var (
-		mockIOFetcher *mockIOFetcher
-		mockWriter    *mockWriter
+		mockIOFetcher  *mockIOFetcher
+		mockWriter     *mockWriter
+		handlerWrapper *handlerWrapper
 
 		listeners []net.Listener
 		conns     []*grpc.ClientConn
@@ -41,7 +43,8 @@ var _ = Describe("Server", func() {
 		Expect(err).ToNot(HaveOccurred())
 		listeners = append(listeners, lis)
 		gs := grpc.NewServer()
-		pb.RegisterTalariaServer(gs, handler)
+		handlerWrapper = newHandlerWrapper(handler)
+		pb.RegisterTalariaServer(gs, handlerWrapper)
 		go gs.Serve(lis)
 		return lis.Addr().String()
 	}
@@ -224,6 +227,11 @@ var _ = Describe("Server", func() {
 			cancel()
 
 			startReadingWg.Wait()
+			testhelpers.AlwaysReturn(mReader.ReadAtOutput.Ret2, io.EOF)
+			close(mReader.ReadAtOutput.Ret0)
+			close(mReader.ReadAtOutput.Ret1)
+
+			Eventually(handlerWrapper.rDone, 5).Should(BeClosed())
 		})
 
 		Context("fetching the buffer does not return an error", func() {
@@ -346,3 +354,27 @@ var _ = Describe("Server", func() {
 		})
 	})
 })
+
+type handlerWrapper struct {
+	rDone   chan struct{}
+	wDone   chan struct{}
+	handler pb.TalariaServer
+}
+
+func newHandlerWrapper(handler pb.TalariaServer) *handlerWrapper {
+	return &handlerWrapper{
+		rDone:   make(chan struct{}),
+		wDone:   make(chan struct{}),
+		handler: handler,
+	}
+}
+
+func (w *handlerWrapper) Write(s pb.Talaria_WriteServer) error {
+	defer close(w.wDone)
+	return w.handler.Write(s)
+}
+
+func (w *handlerWrapper) Read(i *pb.BufferInfo, s pb.Talaria_ReadServer) error {
+	defer close(w.rDone)
+	return w.handler.Read(i, s)
+}
