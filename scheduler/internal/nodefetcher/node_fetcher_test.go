@@ -61,14 +61,20 @@ var _ = Describe("NodeFetcher", func() {
 
 		Describe("FetchNode()", func() {
 			It("selects a random node each time", func() {
+				m := make(map[string]int)
 				for i := 0; i < 100; i++ {
-					node := nodeFetcher.FetchNode()
+					node, URI := nodeFetcher.FetchNode()
 					Expect(node).ToNot(BeNil())
 					node.Create(context.Background(), createInfo)
+					m[URI]++
 				}
 
 				Eventually(len(mockNodes[0].c)).Should(BeNumerically("~", len(mockNodes[1].c), 20))
 				Eventually(len(mockNodes[0].c)).Should(BeNumerically("~", len(mockNodes[2].c), 20))
+				Expect(m).To(HaveLen(len(serverURIs)))
+				for _, URI := range serverURIs {
+					Expect(m[URI]).To(BeNumerically("~", 100/len(serverURIs), 20))
+				}
 			})
 		})
 	})

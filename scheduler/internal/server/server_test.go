@@ -19,6 +19,7 @@ var _ = Describe("Server", func() {
 		mockNodeFetcher *mockNodeFetcher
 		mockNodeClient  *mockNodeClient
 		createInfo      *pb.CreateInfo
+		nodeURI         string
 
 		s *server.Server
 	)
@@ -26,6 +27,7 @@ var _ = Describe("Server", func() {
 	BeforeEach(func() {
 		mockNodeClient = newMockNodeClient()
 		mockNodeFetcher = newMockNodeFetcher()
+		nodeURI = "some-uri"
 
 		s = server.New(mockNodeFetcher)
 
@@ -35,7 +37,8 @@ var _ = Describe("Server", func() {
 	})
 
 	JustBeforeEach(func() {
-		close(mockNodeFetcher.FetchNodeOutput.Ret0)
+		close(mockNodeFetcher.FetchNodeOutput.Client)
+		close(mockNodeFetcher.FetchNodeOutput.URI)
 
 		close(mockNodeClient.CreateOutput.Ret0)
 		close(mockNodeClient.CreateOutput.Ret1)
@@ -44,13 +47,16 @@ var _ = Describe("Server", func() {
 	Describe("Create()", func() {
 		Context("nodes available", func() {
 			BeforeEach(func() {
-				mockNodeFetcher.FetchNodeOutput.Ret0 <- mockNodeClient
-				mockNodeFetcher.FetchNodeOutput.Ret0 <- mockNodeClient
+				mockNodeFetcher.FetchNodeOutput.Client <- mockNodeClient
+				mockNodeFetcher.FetchNodeOutput.URI <- nodeURI
+				mockNodeFetcher.FetchNodeOutput.Client <- mockNodeClient
+				mockNodeFetcher.FetchNodeOutput.URI <- nodeURI
 			})
 
-			It("does not return an error", func() {
-				_, err := s.Create(context.Background(), createInfo)
+			It("does not return an error and gives the URI", func() {
+				resp, err := s.Create(context.Background(), createInfo)
 				Expect(err).ToNot(HaveOccurred())
+				Expect(resp.Uri).To(Equal(nodeURI))
 			})
 
 			It("fetches a new node each time", func() {
@@ -85,7 +91,7 @@ var _ = Describe("Server", func() {
 					BeforeEach(func() {
 						for i := 0; i < 10; i++ {
 							mockNodeClient.CreateOutput.Ret1 <- fmt.Errorf("some-error")
-							mockNodeFetcher.FetchNodeOutput.Ret0 <- mockNodeClient
+							mockNodeFetcher.FetchNodeOutput.Client <- mockNodeClient
 						}
 					})
 

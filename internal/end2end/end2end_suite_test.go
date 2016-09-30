@@ -3,6 +3,7 @@ package end2end_test
 import (
 	"fmt"
 	"os/exec"
+	"strings"
 	"time"
 
 	"google.golang.org/grpc"
@@ -22,20 +23,22 @@ func TestEnd2end(t *testing.T) {
 }
 
 var (
-	nodePort      int
+	nodePorts     []int
 	schedulerPort int
 
 	sessions    []*gexec.Session
 	clientConns []*grpc.ClientConn
 
-	nodeClient      pb.TalariaClient
+	nodeClients     map[string]pb.TalariaClient
 	schedulerClient pb.SchedulerClient
 )
 
 var _ = BeforeSuite(func() {
 	startNode()
+	startNode()
 	startScheduler()
-	nodeClient = connectToNode()
+
+	nodeClients = setupNodeClients(nodePorts)
 	schedulerClient = connectToScheduler()
 })
 
@@ -51,7 +54,16 @@ var _ = AfterSuite(func() {
 	gexec.CleanupBuildArtifacts()
 })
 
-func connectToNode() pb.TalariaClient {
+func setupNodeClients(ports []int) map[string]pb.TalariaClient {
+	clients := make(map[string]pb.TalariaClient)
+	for _, port := range ports {
+		URI := fmt.Sprintf("localhost:%d", port)
+		clients[URI] = connectToNode(port)
+	}
+	return clients
+}
+
+func connectToNode(nodePort int) pb.TalariaClient {
 	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", nodePort), grpc.WithInsecure())
 	Expect(err).ToNot(HaveOccurred())
 	clientConns = append(clientConns, clientConn)
@@ -68,7 +80,8 @@ func connectToScheduler() pb.SchedulerClient {
 }
 
 func startNode() {
-	nodePort = end2end.AvailablePort()
+	nodePort := end2end.AvailablePort()
+	nodePorts = append(nodePorts, nodePort)
 	path, err := gexec.Build("github.com/apoydence/talaria/node")
 	Expect(err).ToNot(HaveOccurred())
 	command := exec.Command(path)
@@ -89,11 +102,25 @@ func startScheduler() {
 	command := exec.Command(path)
 	command.Env = []string{
 		fmt.Sprintf("PORT=%d", schedulerPort),
-		fmt.Sprintf("NODES=localhost:%d", nodePort),
+		fmt.Sprintf("NODES=%s", buildNodeURIs(nodePorts)),
 	}
 
 	schedulerSession, err := gexec.Start(command, GinkgoWriter, GinkgoWriter)
 	Expect(err).ToNot(HaveOccurred())
 	Consistently(schedulerSession.Exited).ShouldNot(BeClosed())
 	sessions = append(sessions, schedulerSession)
+}
+
+func buildNodeURIs(ports []int) string {
+	var URIs []string
+	for _, port := range ports {
+		URIs = append(URIs, fmt.Sprintf("localhost:%d", port))
+	}
+	return strings.Join(URIs, ",")
+}
+
+func fetchNodeClient(URI string) pb.TalariaClient {
+	client := nodeClients[URI]
+	Expect(client).ToNot(BeNil(), fmt.Sprintf("'%s' does not align with a Node server", URI))
+	return client
 }

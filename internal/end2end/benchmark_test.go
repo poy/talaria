@@ -41,6 +41,7 @@ var _ = Describe("Benchmark", func() {
 		var (
 			bufferInfo *pb.BufferInfo
 			createInfo *pb.CreateInfo
+			nodeClient pb.TalariaClient
 		)
 
 		BeforeEach(func() {
@@ -52,8 +53,9 @@ var _ = Describe("Benchmark", func() {
 				Name: bufferInfo.Name,
 			}
 
-			_, err := schedulerClient.Create(context.Background(), createInfo)
+			resp, err := schedulerClient.Create(context.Background(), createInfo)
 			Expect(err).ToNot(HaveOccurred())
+			nodeClient = fetchNodeClient(resp.Uri)
 		})
 
 		Measure("write 10000 random data points", func(b Benchmarker) {
@@ -101,6 +103,7 @@ var _ = Describe("Benchmark", func() {
 		var (
 			bufferInfos []*pb.BufferInfo
 			createInfos []*pb.CreateInfo
+			nodeClient  pb.TalariaClient
 		)
 
 		BeforeEach(func() {
@@ -113,8 +116,9 @@ var _ = Describe("Benchmark", func() {
 					Name: bufferInfo.Name,
 				}
 
-				_, err := schedulerClient.Create(context.Background(), createInfo)
+				resp, err := schedulerClient.Create(context.Background(), createInfo)
 				Expect(err).ToNot(HaveOccurred())
+				nodeClient = fetchNodeClient(resp.Uri)
 				bufferInfos = append(bufferInfos, bufferInfo)
 				createInfos = append(createInfos, createInfo)
 			}

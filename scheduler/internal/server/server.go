@@ -11,7 +11,7 @@ import (
 )
 
 type NodeFetcher interface {
-	FetchNode() intra.NodeClient
+	FetchNode() (client intra.NodeClient, URI string)
 }
 
 type Server struct {
@@ -31,10 +31,10 @@ func (s *Server) Create(ctx context.Context, info *pb.CreateInfo) (*pb.CreateRes
 
 func (s *Server) retryableCreate(ctx context.Context, info *intra.CreateInfo, count int, err error) (*pb.CreateResponse, error) {
 	if count >= 5 {
-		return new(pb.CreateResponse), err
+		return nil, err
 	}
 
-	node := s.fetcher.FetchNode()
+	node, URI := s.fetcher.FetchNode()
 	if node == nil {
 		return nil, fmt.Errorf("No nodes available")
 	}
@@ -44,5 +44,7 @@ func (s *Server) retryableCreate(ctx context.Context, info *intra.CreateInfo, co
 		return s.retryableCreate(ctx, info, count+1, err)
 	}
 
-	return new(pb.CreateResponse), nil
+	return &pb.CreateResponse{
+		Uri: URI,
+	}, nil
 }

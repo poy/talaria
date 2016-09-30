@@ -6,28 +6,29 @@
 package server_test
 
 import (
-	"golang.org/x/net/context"
-
 	"github.com/apoydence/talaria/pb/intra"
+	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
 
 type mockNodeFetcher struct {
 	FetchNodeCalled chan bool
 	FetchNodeOutput struct {
-		Ret0 chan intra.NodeClient
+		Client chan intra.NodeClient
+		URI    chan string
 	}
 }
 
 func newMockNodeFetcher() *mockNodeFetcher {
 	m := &mockNodeFetcher{}
 	m.FetchNodeCalled = make(chan bool, 100)
-	m.FetchNodeOutput.Ret0 = make(chan intra.NodeClient, 100)
+	m.FetchNodeOutput.Client = make(chan intra.NodeClient, 100)
+	m.FetchNodeOutput.URI = make(chan string, 100)
 	return m
 }
-func (m *mockNodeFetcher) FetchNode() intra.NodeClient {
+func (m *mockNodeFetcher) FetchNode() (client intra.NodeClient, URI string) {
 	m.FetchNodeCalled <- true
-	return <-m.FetchNodeOutput.Ret0
+	return <-m.FetchNodeOutput.Client, <-m.FetchNodeOutput.URI
 }
 
 type mockNodeClient struct {

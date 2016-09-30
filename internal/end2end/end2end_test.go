@@ -104,8 +104,14 @@ var _ = Describe("End2end", func() {
 		})
 
 		Context("buffer has been created", func() {
+			var (
+				nodeClient pb.TalariaClient
+			)
+
 			BeforeEach(func() {
-				schedulerClient.Create(context.Background(), createInfo)
+				resp, err := schedulerClient.Create(context.Background(), createInfo)
+				Expect(err).ToNot(HaveOccurred())
+				nodeClient = fetchNodeClient(resp.Uri)
 			})
 
 			Context("start tailing from beginning", func() {
@@ -179,6 +185,16 @@ var _ = Describe("End2end", func() {
 		})
 
 		Context("buffer has not been created", func() {
+			var (
+				nodeClient pb.TalariaClient
+			)
+
+			BeforeEach(func() {
+				resp, err := schedulerClient.Create(context.Background(), createInfo)
+				Expect(err).ToNot(HaveOccurred())
+				nodeClient = fetchNodeClient(resp.Uri)
+			})
+
 			It("returns an error", func() {
 				writer, err := nodeClient.Write(context.Background())
 				Expect(err).ToNot(HaveOccurred())

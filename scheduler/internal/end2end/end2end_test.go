@@ -33,12 +33,13 @@ var _ = Describe("End2end", func() {
 
 		Context("Create() doesn't return an error", func() {
 			It("selects Node to create buffer via intra API", func() {
-				_, err := schedulerClient.Create(context.Background(), createInfo)
+				resp, err := schedulerClient.Create(context.Background(), createInfo)
 				Expect(err).ToNot(HaveOccurred())
 				expected := &intra.CreateInfo{
 					Name: createInfo.Name,
 				}
 
+				Expect(resp.Uri).To(Equal(fmt.Sprintf("localhost:%d", intraPort)))
 				Eventually(mockServer.CreateInput.Arg1).Should(BeCalled(With(expected)))
 			})
 		})

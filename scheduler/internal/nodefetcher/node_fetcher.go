@@ -9,11 +9,11 @@ import (
 )
 
 type NodeFetcher struct {
-	uris    []string
 	clients []clientInfo
 }
 
 type clientInfo struct {
+	URI    string
 	conn   *grpc.ClientConn
 	client intra.NodeClient
 }
@@ -29,19 +29,21 @@ func New(URIs []string) *NodeFetcher {
 		clients = append(clients, clientInfo{
 			conn:   conn,
 			client: client,
+			URI:    URI,
 		})
 	}
 
 	return &NodeFetcher{
-		uris:    URIs,
 		clients: clients,
 	}
 }
 
-func (f *NodeFetcher) FetchNode() intra.NodeClient {
+func (f *NodeFetcher) FetchNode() (intra.NodeClient, string) {
 	if len(f.clients) == 0 {
-		return nil
+		return nil, ""
 	}
 
-	return f.clients[rand.Intn(len(f.clients))].client
+	info := f.clients[rand.Intn(len(f.clients))]
+
+	return info.client, info.URI
 }
