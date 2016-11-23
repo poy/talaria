@@ -5,77 +5,100 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"testing"
 
 	"google.golang.org/grpc"
 
+	"github.com/apoydence/onpar"
+	. "github.com/apoydence/onpar/expect"
+	. "github.com/apoydence/onpar/matchers"
 	"github.com/apoydence/talaria/node/internal/intraserver"
 	"github.com/apoydence/talaria/pb/intra"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Intra", func() {
-	var (
-		mockIOFetcher *mockIOFetcher
+type TT struct {
+	*testing.T
+	client        intra.NodeClient
+	s             *intraserver.IntraServer
+	mockIOFetcher *mockIOFetcher
+	lis           net.Listener
+	conn          *grpc.ClientConn
+}
 
-		listeners []net.Listener
-		conns     []*grpc.ClientConn
-		s         *intraserver.IntraServer
-		client    intra.NodeClient
-	)
+func TestIntra(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
 
-	var establishClient = func(URI string) intra.NodeClient {
-		conn, err := grpc.Dial(URI, grpc.WithInsecure())
-		Expect(err).ToNot(HaveOccurred())
-		conns = append(conns, conn)
-		return intra.NewNodeClient(conn)
-	}
+	o.BeforeEach(func(t *testing.T) TT {
+		mockIOFetcher := newMockIOFetcher()
 
-	var setupGrpcServer = func(handler *intraserver.IntraServer) string {
-		lis, err := net.Listen("tcp", ":0")
-		Expect(err).ToNot(HaveOccurred())
-		listeners = append(listeners, lis)
-		gs := grpc.NewServer()
-		intra.RegisterNodeServer(gs, handler)
-		go gs.Serve(lis)
-		return lis.Addr().String()
-	}
+		s := intraserver.New(mockIOFetcher)
+		URI, lis := setupGrpcServer(s)
+		client, conn := establishClient(URI)
 
-	BeforeEach(func() {
-		listeners = nil
-		conns = nil
-		mockIOFetcher = newMockIOFetcher()
-
-		s = intraserver.New(mockIOFetcher)
-		URI := setupGrpcServer(s)
-		client = establishClient(URI)
+		return TT{
+			T:             t,
+			client:        client,
+			s:             s,
+			mockIOFetcher: mockIOFetcher,
+			lis:           lis,
+			conn:          conn,
+		}
 	})
 
-	JustBeforeEach(func() {
-		close(mockIOFetcher.CreateOutput.Ret0)
+	o.AfterEach(func(t TT) {
+		t.lis.Close()
+		t.conn.Close()
 	})
 
-	Describe("Create()", func() {
-		Context("fetcher does not return an error", func() {
-			It("does not return an error", func() {
-				_, err := client.Create(context.Background(), &intra.CreateInfo{
+	o.Group("Create()", func() {
+		o.Group("when fetcher does not return an error", func() {
+			o.BeforeEach(func(t TT) TT {
+				t.mockIOFetcher.CreateOutput.Ret0 <- nil
+				return t
+			})
+
+			o.Spec("it does not return an error", func(t TT) {
+				_, err := t.client.Create(context.Background(), &intra.CreateInfo{
 					Name: "some-buffer",
 				})
-				Expect(err).ToNot(HaveOccurred())
+				Expect(t, err == nil).To(Equal(true))
 			})
 		})
 
-		Context("fetcher returns an error on Create", func() {
-			BeforeEach(func() {
-				mockIOFetcher.CreateOutput.Ret0 <- fmt.Errorf("some-error")
+		o.Group("when fetcher returns an error on Create", func() {
+			o.BeforeEach(func(t TT) TT {
+				t.mockIOFetcher.CreateOutput.Ret0 <- fmt.Errorf("some-error")
+				return t
 			})
 
-			It("returns an error", func() {
-				_, err := client.Create(context.Background(), &intra.CreateInfo{
+			o.Spec("it returns an error", func(t TT) {
+				_, err := t.client.Create(context.Background(), &intra.CreateInfo{
 					Name: "some-buffer",
 				})
-				Expect(err).To(HaveOccurred())
+				Expect(t, err).To(HaveOccurred())
 			})
 		})
 	})
-})
+
+}
+
+func setupGrpcServer(handler *intraserver.IntraServer) (string, net.Listener) {
+	lis, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err)
+	}
+	gs := grpc.NewServer()
+	intra.RegisterNodeServer(gs, handler)
+	go gs.Serve(lis)
+	return lis.Addr().String(), lis
+}
+
+func establishClient(URI string) (intra.NodeClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial(URI, grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+	return intra.NewNodeClient(conn), conn
+}

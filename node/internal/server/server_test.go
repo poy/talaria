@@ -6,354 +6,369 @@ import (
 	"io"
 	"net"
 	"sync"
+	"testing"
 
 	"golang.org/x/net/context"
 
 	"github.com/apoydence/eachers/testhelpers"
+	"github.com/apoydence/onpar"
 	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/pb"
 	"google.golang.org/grpc"
 
-	. "github.com/apoydence/eachers"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	. "github.com/apoydence/onpar/expect"
+	. "github.com/apoydence/onpar/matchers"
 )
 
-var _ = Describe("Server", func() {
-	var (
-		mockIOFetcher  *mockIOFetcher
-		mockWriter     *mockWriter
-		handlerWrapper *handlerWrapper
+type TT struct {
+	*testing.T
+	mockIOFetcher  *mockIOFetcher
+	mockWriter     *mockWriter
+	handlerWrapper *handlerWrapper
+	s              *server.Server
+	client         pb.TalariaClient
+	closers        []io.Closer
+}
 
-		listeners []net.Listener
-		conns     []*grpc.ClientConn
-		s         *server.Server
-		client    pb.TalariaClient
-	)
+type TW struct {
+	TT
+	writer pb.Talaria_WriteClient
+	info   *pb.BufferInfo
+	packet *pb.WriteDataPacket
+}
 
-	var establishClient = func(URI string) pb.TalariaClient {
-		conn, err := grpc.Dial(URI, grpc.WithInsecure())
-		Expect(err).ToNot(HaveOccurred())
-		conns = append(conns, conn)
-		return pb.NewTalariaClient(conn)
-	}
+func TestServerWrite(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
 
-	var setupGrpcServer = func(handler pb.TalariaServer) string {
-		lis, err := net.Listen("tcp", ":0")
-		Expect(err).ToNot(HaveOccurred())
-		listeners = append(listeners, lis)
-		gs := grpc.NewServer()
-		handlerWrapper = newHandlerWrapper(handler)
-		pb.RegisterTalariaServer(gs, handlerWrapper)
-		go gs.Serve(lis)
-		return lis.Addr().String()
-	}
+	o.BeforeEach(func(t *testing.T) TW {
+		mockIOFetcher := newMockIOFetcher()
+		mockWriter := newMockWriter()
 
-	BeforeEach(func() {
-		listeners = nil
-		conns = nil
-		mockIOFetcher = newMockIOFetcher()
-		mockWriter = newMockWriter()
+		s := server.New(mockIOFetcher)
+		lis, handlerWrapper := setupGrpcServer(s)
+		client, conn := establishClient(lis.Addr().String())
 
-		s = server.New(mockIOFetcher)
-		URI := setupGrpcServer(s)
-		client = establishClient(URI)
-	})
+		writer, err := client.Write(context.Background())
+		Expect(t, err == nil).To(Equal(true))
 
-	JustBeforeEach(func() {
-		close(mockIOFetcher.FetchWriterOutput.Ret0)
-		close(mockIOFetcher.FetchWriterOutput.Ret1)
-
-		close(mockIOFetcher.FetchReaderOutput.Ret0)
-		close(mockIOFetcher.FetchReaderOutput.Ret1)
-
-		close(mockWriter.WriteToOutput.Ret0)
-		close(mockWriter.WriteToOutput.Ret1)
-	})
-
-	AfterEach(func() {
-		for _, lis := range listeners {
-			lis.Close()
+		tt := TT{
+			mockIOFetcher:  mockIOFetcher,
+			mockWriter:     mockWriter,
+			handlerWrapper: handlerWrapper,
+			s:              s,
+			client:         client,
+			closers:        []io.Closer{lis, conn},
 		}
 
-		for _, conn := range conns {
-			conn.Close()
+		tt.T = t
+
+		return TW{
+			TT:     tt,
+			writer: writer,
 		}
 	})
 
-	Describe("Write()", func() {
-		var (
-			writer pb.Talaria_WriteClient
-		)
-
-		var keepWriting = func(p *pb.WriteDataPacket) func() error {
-			return func() error {
-				return writer.Send(p)
-			}
+	o.AfterEach(func(t TW) {
+		for _, c := range t.closers {
+			c.Close()
 		}
-
-		JustBeforeEach(func() {
-			var err error
-			writer, err = client.Write(context.Background())
-			Expect(err).ToNot(HaveOccurred())
-		})
-
-		Context("fetching the buffer does not return an error", func() {
-			var (
-				info   *pb.BufferInfo
-				packet *pb.WriteDataPacket
-			)
-
-			BeforeEach(func() {
-				info = &pb.BufferInfo{
-					Name: "some-name",
-				}
-
-				packet = &pb.WriteDataPacket{
-					Name:    info.Name,
-					Message: []byte("some-data"),
-				}
-
-				mockIOFetcher.FetchWriterOutput.Ret0 <- mockWriter
-			})
-
-			Context("writer does not return an error", func() {
-				It("uses the expected name for the fetcher only once", func() {
-					Consistently(keepWriting(packet)).Should(Succeed())
-
-					Expect(mockIOFetcher.FetchWriterInput.Name).To(HaveLen(1))
-					Expect(mockIOFetcher.FetchWriterInput.Name).To(BeCalled(With(info.Name)))
-				})
-
-				It("writes to the given writer", func() {
-					writer.Send(packet)
-
-					Eventually(mockWriter.WriteToInput.Data).Should(BeCalled(With(packet.Message)))
-				})
-			})
-
-			Context("writer returns an error", func() {
-				BeforeEach(func() {
-					mockWriter.WriteToOutput.Ret1 <- fmt.Errorf("some-error")
-				})
-
-				It("returns an error", func() {
-					Eventually(keepWriting(packet)).Should(HaveOccurred())
-				})
-			})
-		})
-
-		Context("fetching the buffer returns an error", func() {
-			var (
-				packet *pb.WriteDataPacket
-			)
-
-			BeforeEach(func() {
-				mockIOFetcher.FetchWriterOutput.Ret1 <- fmt.Errorf("some-error")
-
-				packet = &pb.WriteDataPacket{
-					Name:    "unknown-name",
-					Message: []byte("some-data"),
-				}
-			})
-
-			It("returns an error", func() {
-				Eventually(keepWriting(packet)).Should(HaveOccurred())
-			})
-		})
 	})
 
-	Describe("Read()", func() {
-		var (
-			mReader        *mockReader
-			reader         pb.Talaria_ReadClient
-			info           *pb.BufferInfo
-			startReadingWg *sync.WaitGroup
-			ctx            context.Context
-			cancel         context.CancelFunc
-		)
-
-		var setupReader = func() {
-			ctx, cancel = context.WithCancel(context.Background())
-			var err error
-			reader, err = client.Read(ctx, info)
-			Expect(err).ToNot(HaveOccurred())
-		}
-
-		var startReading = func(reader pb.Talaria_ReadClient) (chan []byte, chan uint64, chan error) {
-			startReadingWg.Add(1)
-			d := make(chan []byte, 100)
-			i := make(chan uint64, 100)
-			e := make(chan error, 100)
-			go func(r pb.Talaria_ReadClient) {
-				defer startReadingWg.Done()
-				for {
-					packet, err := r.Recv()
-					if err != nil {
-						e <- err
-						return
-					}
-
-					d <- packet.Message
-					i <- packet.Index
-				}
-			}(reader)
-
-			return d, i, e
-		}
-
-		var writeToReader = func(reader *mockReader, data []byte, idx uint64, err error) {
-			reader.ReadAtOutput.Ret0 <- data
-			reader.ReadAtOutput.Ret1 <- idx
-			reader.ReadAtOutput.Ret2 <- err
-		}
-
-		BeforeEach(func() {
-			startReadingWg = new(sync.WaitGroup)
-			info = &pb.BufferInfo{
+	o.Group("when fetching the buffer does not return an error", func() {
+		o.BeforeEach(func(t TW) TW {
+			t.info = &pb.BufferInfo{
 				Name: "some-name",
 			}
 
-			mReader = newMockReader()
-			mockIOFetcher.FetchReaderOutput.Ret0 <- mReader
+			t.packet = &pb.WriteDataPacket{
+				Name:    t.info.Name,
+				Message: []byte("some-data"),
+			}
+
+			t.mockIOFetcher.FetchWriterOutput.Ret0 <- t.mockWriter
+			t.mockIOFetcher.FetchWriterOutput.Ret1 <- nil
+
+			return t
 		})
 
-		JustBeforeEach(func() {
-			close(mReader.LastIndexOutput.Ret0)
-		})
-
-		AfterEach(func(done Done) {
-			defer close(done)
-			cancel()
-
-			startReadingWg.Wait()
-			testhelpers.AlwaysReturn(mReader.ReadAtOutput.Ret2, io.EOF)
-			close(mReader.ReadAtOutput.Ret0)
-			close(mReader.ReadAtOutput.Ret1)
-
-			Eventually(handlerWrapper.rDone, 5).Should(BeClosed())
-		})
-
-		Context("fetching the buffer does not return an error", func() {
-			Context("reader doesn't return an error", func() {
-				Context("start index is 0 (beginning)", func() {
-					BeforeEach(func() {
-						setupReader()
-					})
-
-					It("uses the expected name for the fetcher only once", func() {
-						startReading(reader)
-
-						Eventually(mockIOFetcher.FetchReaderInput.Name).Should(HaveLen(1))
-						Consistently(mockIOFetcher.FetchReaderInput.Name).Should(HaveLen(1))
-						Expect(mockIOFetcher.FetchReaderInput.Name).To(BeCalled(With(info.Name)))
-					})
-
-					It("returns data from the reader", func() {
-						data, _, _ := startReading(reader)
-						writeToReader(mReader, []byte("some-data"), 0, nil)
-
-						Eventually(data).Should(Receive(Equal([]byte("some-data"))))
-					})
-
-					It("returns indexes from the reader", func() {
-						_, indexes, _ := startReading(reader)
-						writeToReader(mReader, []byte("some-data"), 0, nil)
-						writeToReader(mReader, []byte("some-data"), 1, nil)
-						writeToReader(mReader, []byte("some-data"), 2, nil)
-
-						Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
-						Eventually(indexes).Should(Receive(BeEquivalentTo(1)))
-						Eventually(indexes).Should(Receive(BeEquivalentTo(2)))
-					})
-
-					It("increments the index each read", func() {
-						writeToReader(mReader, []byte("some-data-0"), 0, nil)
-						writeToReader(mReader, []byte("some-data-1"), 1, nil)
-
-						Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(0)))
-						Eventually(mReader.ReadAtInput.Index).Should(Receive(BeEquivalentTo(1)))
-					})
-
-					Describe("tails the reader", func() {
-						It("waits and then tries again", func() {
-							_, _, errs := startReading(reader)
-							writeToReader(mReader, nil, 0, io.EOF)
-							writeToReader(mReader, nil, 0, io.EOF)
-
-							Eventually(mReader.ReadAtCalled).Should(HaveLen(3))
-							Expect(errs).To(BeEmpty())
-						})
-					})
-				})
-
-				Context("start index is set to non-zero", func() {
-					BeforeEach(func() {
-						info.StartIndex = 1
-						setupReader()
-					})
-
-					It("starts at the given index", func() {
-						writeToReader(mReader, []byte("some-data-3"), 0, nil)
-						writeToReader(mReader, []byte("some-data-1"), 1, nil)
-						writeToReader(mReader, []byte("some-data-2"), 2, nil)
-
-						var idx uint64
-						Eventually(mReader.ReadAtInput.Index).Should(Receive(&idx))
-						Expect(idx).To(BeEquivalentTo(1))
-					})
-				})
-
-				Context("StartFronEnd is set to true", func() {
-					BeforeEach(func() {
-						info.StartIndex = 1
-						info.StartFromEnd = true
-						mReader.LastIndexOutput.Ret0 <- 2
-
-						setupReader()
-					})
-
-					It("starts from the end", func() {
-						writeToReader(mReader, []byte("some-data-3"), 0, nil)
-						writeToReader(mReader, []byte("some-data-1"), 1, nil)
-						writeToReader(mReader, []byte("some-data-2"), 2, nil)
-
-						var idx uint64
-						Eventually(mReader.ReadAtInput.Index).Should(Receive(&idx))
-						Expect(idx).To(BeEquivalentTo(2))
-					})
-				})
+		o.Group("when writer does not return an error", func() {
+			o.Spec("it uses the expected name for the fetcher only once", func(t TW) {
+				Expect(t, keepWriting(t.writer, t.packet)).To(Always(Equal(true)))
+				Expect(t, t.mockIOFetcher.FetchWriterInput.Name).To(HaveLen(1))
+				Expect(t, t.mockIOFetcher.FetchWriterInput.Name).To(
+					Chain(Receive(), Equal(t.info.Name)),
+				)
 			})
 
-			Context("reader returns an error", func() {
-				BeforeEach(func() {
-					setupReader()
-				})
+			o.Spec("it writes to the given writer", func(t TW) {
+				t.writer.Send(t.packet)
 
-				It("returns an error", func() {
-					_, _, errs := startReading(reader)
-					writeToReader(mReader, nil, 0, fmt.Errorf("some-error"))
-
-					Eventually(errs).ShouldNot(BeEmpty())
-				})
+				Expect(t, t.mockWriter.WriteToInput.Data).To(ViaPolling(Chain(
+					Receive(), Equal(t.packet.Message))),
+				)
 			})
 		})
 
-		Context("fetching the buffer returns an error", func() {
-			BeforeEach(func() {
-				mockIOFetcher.FetchReaderOutput.Ret1 <- fmt.Errorf("some-error")
+		o.Group("when writer returns an error", func() {
+			o.BeforeEach(func(t TW) TW {
+				t.mockWriter.WriteToOutput.Ret0 <- 0
+				t.mockWriter.WriteToOutput.Ret1 <- fmt.Errorf("some-error")
+				t.mockIOFetcher.FetchWriterOutput.Ret0 <- t.mockWriter
+				t.mockIOFetcher.FetchWriterOutput.Ret1 <- nil
 
-				setupReader()
+				return t
 			})
 
-			It("returns an error", func() {
-				_, _, errs := startReading(reader)
-
-				Eventually(errs).ShouldNot(BeEmpty())
+			o.Spec("returns an error", func(t TW) {
+				Expect(t, keepWriting(t.writer, t.packet)).To(ViaPolling(
+					Equal(false)),
+				)
 			})
 		})
 	})
-})
+
+	o.Group("when fetching the buffer returns an error", func() {
+		o.BeforeEach(func(t TW) TW {
+			t.mockIOFetcher.FetchWriterOutput.Ret0 <- nil
+			t.mockIOFetcher.FetchWriterOutput.Ret1 <- fmt.Errorf("some-error")
+
+			t.packet = &pb.WriteDataPacket{
+				Name:    "unknown-name",
+				Message: []byte("some-data"),
+			}
+
+			return t
+		})
+
+		o.Spec("returns an error", func(t TW) {
+			Expect(t, keepWriting(t.writer, t.packet)).To(ViaPolling(
+				Equal(false)),
+			)
+		})
+	})
+
+}
+
+type TR struct {
+	TT
+	mReader        *mockReader
+	reader         pb.Talaria_ReadClient
+	info           *pb.BufferInfo
+	startReadingWg *sync.WaitGroup
+	ctx            context.Context
+	cancel         context.CancelFunc
+}
+
+func TestServerRead(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TR {
+		mockIOFetcher := newMockIOFetcher()
+		mockWriter := newMockWriter()
+
+		s := server.New(mockIOFetcher)
+		lis, handlerWrapper := setupGrpcServer(s)
+		client, conn := establishClient(lis.Addr().String())
+
+		startReadingWg := new(sync.WaitGroup)
+		info := &pb.BufferInfo{
+			Name: "some-name",
+		}
+
+		mReader := newMockReader()
+		mockIOFetcher.FetchReaderOutput.Ret0 <- mReader
+
+		ctx, cancel := context.WithCancel(context.Background())
+
+		tt := TT{
+			mockIOFetcher:  mockIOFetcher,
+			mockWriter:     mockWriter,
+			handlerWrapper: handlerWrapper,
+			s:              s,
+			client:         client,
+			closers:        []io.Closer{lis, conn},
+		}
+
+		tt.T = t
+
+		return TR{
+			TT:             tt,
+			mReader:        mReader,
+			info:           info,
+			startReadingWg: startReadingWg,
+			ctx:            ctx,
+			cancel:         cancel,
+		}
+	})
+
+	o.AfterEach(func(t TR) {
+		for _, c := range t.closers {
+			c.Close()
+		}
+
+		t.cancel()
+
+		t.startReadingWg.Wait()
+		testhelpers.AlwaysReturn(t.mReader.ReadAtOutput.Ret2, io.EOF)
+		close(t.mReader.ReadAtOutput.Ret0)
+		close(t.mReader.ReadAtOutput.Ret1)
+	})
+
+	o.Group("when fetching the buffer does not return an error", func() {
+		o.BeforeEach(func(t TR) TR {
+			close(t.mockIOFetcher.FetchReaderOutput.Ret1)
+			return t
+		})
+
+		o.Group("when reader doesn't return an error", func() {
+			o.Group("when start index is 0 (beginning)", func() {
+				o.BeforeEach(func(t TR) TR {
+					t.reader = setupReader(t.ctx, t.client, t.info)
+					close(t.mReader.LastIndexOutput.Ret0)
+
+					return t
+				})
+
+				o.Spec("it uses the expected name for the fetcher only once", func(t TR) {
+					startReading(t.reader, t.startReadingWg)
+
+					Expect(t, t.mockIOFetcher.FetchReaderInput.Name).To(ViaPolling(HaveLen(1)))
+					Expect(t, t.mockIOFetcher.FetchReaderInput.Name).To(Always(HaveLen(1)))
+					Expect(t, t.mockIOFetcher.FetchReaderInput.Name).To(
+						Chain(Receive(), Equal(t.info.Name)),
+					)
+				})
+
+				o.Spec("it returns data from the reader", func(t TR) {
+					data, _, _ := startReading(t.reader, t.startReadingWg)
+					writeToReader(t.mReader, []byte("some-data"), 0, nil)
+
+					Expect(t, data).To(ViaPolling(
+						Chain(Receive(), Equal([]byte("some-data"))),
+					))
+				})
+
+				o.Spec("it returns indexes from the reader", func(t TR) {
+					_, indexes, _ := startReading(t.reader, t.startReadingWg)
+					writeToReader(t.mReader, []byte("some-data"), 0, nil)
+					writeToReader(t.mReader, []byte("some-data"), 1, nil)
+					writeToReader(t.mReader, []byte("some-data"), 2, nil)
+
+					Expect(t, indexes).To(ViaPolling(
+						Chain(Receive(), Equal(uint64(0))),
+					))
+					Expect(t, indexes).To(ViaPolling(
+						Chain(Receive(), Equal(uint64(1))),
+					))
+					Expect(t, indexes).To(ViaPolling(
+						Chain(Receive(), Equal(uint64(2))),
+					))
+				})
+
+				o.Spec("it increments the index each read", func(t TR) {
+					writeToReader(t.mReader, []byte("some-data-0"), 0, nil)
+					writeToReader(t.mReader, []byte("some-data-1"), 1, nil)
+
+					Expect(t, t.mReader.ReadAtInput.Index).To(ViaPolling(
+						Chain(Receive(), Equal(uint64(0))),
+					))
+					Expect(t, t.mReader.ReadAtInput.Index).To(ViaPolling(
+						Chain(Receive(), Equal(uint64(1))),
+					))
+				})
+
+				o.Group("when tailing the reader", func() {
+					o.Spec("it waits and then tries again", func(t TR) {
+						_, _, errs := startReading(t.reader, t.startReadingWg)
+						writeToReader(t.mReader, nil, 0, io.EOF)
+						writeToReader(t.mReader, nil, 0, io.EOF)
+
+						Expect(t, t.mReader.ReadAtCalled).To(ViaPolling(HaveLen(3)))
+						Expect(t, errs).To(HaveLen(0))
+					})
+				})
+			})
+
+			o.Group("when start index is set to non-zero", func() {
+				o.BeforeEach(func(t TR) TR {
+					t.info.StartIndex = 1
+					t.reader = setupReader(t.ctx, t.client, t.info)
+
+					return t
+				})
+
+				o.Spec("it starts at the given index", func(t TR) {
+					writeToReader(t.mReader, []byte("some-data-3"), 0, nil)
+					writeToReader(t.mReader, []byte("some-data-1"), 1, nil)
+					writeToReader(t.mReader, []byte("some-data-2"), 2, nil)
+
+					Expect(t, t.mReader.ReadAtInput.Index).To(ViaPolling(
+						Chain(Receive(), Equal(uint64(1))),
+					))
+				})
+			})
+
+			o.Group("when StartFromEnd is set to true", func() {
+				o.BeforeEach(func(t TR) TR {
+					t.info.StartIndex = 1
+					t.info.StartFromEnd = true
+					t.mReader.LastIndexOutput.Ret0 <- 2
+
+					t.reader = setupReader(t.ctx, t.client, t.info)
+					return t
+				})
+
+				o.Spec("it starts from the end", func(t TR) {
+					writeToReader(t.mReader, []byte("some-data-3"), 0, nil)
+					writeToReader(t.mReader, []byte("some-data-1"), 1, nil)
+					writeToReader(t.mReader, []byte("some-data-2"), 2, nil)
+
+					Expect(t, t.mReader.ReadAtInput.Index).To(ViaPolling(
+						Chain(Receive(), Equal(uint64(2))),
+					))
+				})
+			})
+		})
+
+		o.Group("when the reader returns an error", func() {
+			o.BeforeEach(func(t TR) TR {
+				t.reader = setupReader(t.ctx, t.client, t.info)
+				return t
+			})
+
+			o.Spec("it returns an error", func(t TR) {
+				_, _, errs := startReading(t.reader, t.startReadingWg)
+				writeToReader(t.mReader, nil, 0, fmt.Errorf("some-error"))
+
+				Expect(t, errs).To(ViaPolling(
+					Not(HaveLen(0)),
+				))
+			})
+		})
+	})
+
+	o.Group("when fetching the buffer returns an error", func() {
+		o.BeforeEach(func(t TR) TR {
+			t.mockIOFetcher.FetchReaderOutput.Ret1 <- fmt.Errorf("some-error")
+
+			t.reader = setupReader(t.ctx, t.client, t.info)
+			return t
+		})
+
+		o.Spec("it returns an error", func(t TR) {
+			_, _, errs := startReading(t.reader, t.startReadingWg)
+
+			Expect(t, errs).To(ViaPolling(
+				Not(HaveLen(0)),
+			))
+		})
+	})
+
+}
 
 type handlerWrapper struct {
 	rDone   chan struct{}
@@ -377,4 +392,66 @@ func (w *handlerWrapper) Write(s pb.Talaria_WriteServer) error {
 func (w *handlerWrapper) Read(i *pb.BufferInfo, s pb.Talaria_ReadServer) error {
 	defer close(w.rDone)
 	return w.handler.Read(i, s)
+}
+
+func setupGrpcServer(handler pb.TalariaServer) (net.Listener, *handlerWrapper) {
+	lis, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err)
+	}
+	gs := grpc.NewServer()
+	handlerWrapper := newHandlerWrapper(handler)
+	pb.RegisterTalariaServer(gs, handlerWrapper)
+	go gs.Serve(lis)
+	return lis, handlerWrapper
+}
+
+func establishClient(URI string) (pb.TalariaClient, *grpc.ClientConn) {
+	conn, err := grpc.Dial(URI, grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+	return pb.NewTalariaClient(conn), conn
+}
+
+func keepWriting(writer pb.Talaria_WriteClient, p *pb.WriteDataPacket) func() bool {
+	return func() bool {
+		return writer.Send(p) == nil
+	}
+}
+
+func setupReader(ctx context.Context, client pb.TalariaClient, info *pb.BufferInfo) pb.Talaria_ReadClient {
+	reader, err := client.Read(ctx, info)
+	if err != nil {
+		panic(err)
+	}
+	return reader
+}
+
+func startReading(reader pb.Talaria_ReadClient, wg *sync.WaitGroup) (chan []byte, chan uint64, chan error) {
+	wg.Add(1)
+	d := make(chan []byte, 100)
+	i := make(chan uint64, 100)
+	e := make(chan error, 100)
+	go func(r pb.Talaria_ReadClient) {
+		defer wg.Done()
+		for {
+			packet, err := r.Recv()
+			if err != nil {
+				e <- err
+				return
+			}
+
+			d <- packet.Message
+			i <- packet.Index
+		}
+	}(reader)
+
+	return d, i, e
+}
+
+func writeToReader(reader *mockReader, data []byte, idx uint64, err error) {
+	reader.ReadAtOutput.Ret0 <- data
+	reader.ReadAtOutput.Ret1 <- idx
+	reader.ReadAtOutput.Ret2 <- err
 }
