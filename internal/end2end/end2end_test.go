@@ -2,210 +2,396 @@ package end2end_test
 
 import (
 	"fmt"
+	"log"
 	"math/rand"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
+	"testing"
 	"time"
+
+	"google.golang.org/grpc"
 
 	"golang.org/x/net/context"
 
+	"github.com/apoydence/onpar"
+	. "github.com/apoydence/onpar/expect"
+	. "github.com/apoydence/onpar/matchers"
+	"github.com/apoydence/talaria/internal/end2end"
 	"github.com/apoydence/talaria/pb"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"github.com/onsi/gomega/gexec"
 )
 
-var _ = Describe("End2end", func() {
-	Context("Data has been written", func() {
-		var (
-			bufferInfo *pb.BufferInfo
-			createInfo *pb.CreateInfo
-		)
+var (
+	nodePorts     []int
+	schedulerPort int
+	setupOnce     sync.Once
+)
 
-		var writeTo = func(name string, data []byte, writer pb.Talaria_WriteClient) {
-			packet := &pb.WriteDataPacket{
-				Name:    name,
-				Message: data,
-			}
-			Expect(writer.Send(packet)).To(Succeed())
-		}
+func setup() func() ([]int, int) {
+	var wg sync.WaitGroup
+	wg.Add(1)
 
-		var fetchReaderWithIndex = func(name string, index uint64, client pb.TalariaClient) (chan []byte, chan uint64) {
-			c := make(chan []byte, 100)
-			idx := make(chan uint64, 100)
+	f := func() ([]int, int) {
+		wg.Wait()
+		return nodePorts, schedulerPort
+	}
 
-			bufferInfo = &pb.BufferInfo{
-				Name:       name,
-				StartIndex: index,
-			}
-
-			reader, err := client.Read(context.Background(), bufferInfo)
-			Expect(err).ToNot(HaveOccurred())
-
-			go func() {
-				for {
-					packet, err := reader.Recv()
-					if err != nil {
-						return
-					}
-					c <- packet.Message
-					idx <- packet.Index
-				}
-			}()
-			return c, idx
-		}
-
-		var fetchReaderLastIndex = func(name string, client pb.TalariaClient) (chan []byte, chan uint64) {
-			c := make(chan []byte, 100)
-			idx := make(chan uint64, 100)
-
-			bufferInfo = &pb.BufferInfo{
-				Name:         name,
-				StartIndex:   1,
-				StartFromEnd: true,
-			}
-
-			reader, err := client.Read(context.Background(), bufferInfo)
-			Expect(err).ToNot(HaveOccurred())
-
-			go func() {
-				for {
-					packet, err := reader.Recv()
-					if err != nil {
-						return
-					}
-					c <- packet.Message
-					idx <- packet.Index
-				}
-			}()
-			return c, idx
-		}
-
-		var writeSlowly = func(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteClient) *sync.WaitGroup {
-			var wg sync.WaitGroup
-			wg.Add(1)
-			go func() {
-				defer GinkgoRecover()
-				defer wg.Done()
-				for i := 0; i < count; i++ {
-					time.Sleep(time.Millisecond)
-					writeTo(bufferInfo.Name, []byte(fmt.Sprintf("some-data-%d", i)), writer)
-				}
-			}()
-			return &wg
-		}
-
-		BeforeEach(func() {
-			bufferInfo = &pb.BufferInfo{
-				Name: createName(),
-			}
-
-			createInfo = &pb.CreateInfo{
-				Name: bufferInfo.Name,
-			}
+	go func() {
+		defer wg.Done()
+		setupOnce.Do(func() {
+			nodePort1, nodeProcess1 := startNode()
+			nodePort2, nodeProcess2 := startNode()
+			nodePorts = []int{nodePort1, nodePort2}
+			var schedulerProcess *os.Process
+			schedulerPort, schedulerProcess = startScheduler(nodePorts)
+			// TODO process cleanup
+			_ = nodeProcess1
+			_ = nodeProcess2
+			_ = schedulerProcess
 		})
+	}()
 
-		Context("buffer has been created", func() {
-			var (
-				nodeClient pb.TalariaClient
-			)
+	return f
+}
 
-			BeforeEach(func() {
-				resp, err := schedulerClient.Create(context.Background(), createInfo)
-				Expect(err).ToNot(HaveOccurred())
-				nodeClient = fetchNodeClient(resp.Uri)
-			})
+type TC struct {
+	*testing.T
+	bufferInfo *pb.BufferInfo
+	createInfo *pb.CreateInfo
+	nodeClient pb.TalariaClient
+}
 
-			Context("start tailing from beginning", func() {
-				It("writes data to a subscriber", func() {
-					writer, err := nodeClient.Write(context.Background())
-					Expect(err).ToNot(HaveOccurred())
-					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
-					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
+func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
+	await := setup()
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
 
-					data, indexes := fetchReaderWithIndex(bufferInfo.Name, 0, nodeClient)
-					Eventually(data).Should(Receive(Equal([]byte("some-data-1"))))
-					Eventually(indexes).Should(Receive(BeEquivalentTo(0)))
-					Eventually(data).Should(Receive(Equal([]byte("some-data-2"))))
-					Eventually(indexes).Should(Receive(BeEquivalentTo(1)))
-				})
+	o.BeforeEach(func(t *testing.T) TC {
+		nodePorts, schedulerPort := await()
+		nodeClients := setupNodeClients(nodePorts)
+		schedulerClient := connectToScheduler(schedulerPort)
 
-				It("tails via Read()", func() {
-					data, _ := fetchReaderWithIndex(bufferInfo.Name, 0, nodeClient)
-					writer, err := nodeClient.Write(context.Background())
-					Expect(err).ToNot(HaveOccurred())
+		bufferInfo := &pb.BufferInfo{
+			Name: createName(),
+		}
 
-					wg := writeSlowly(10, bufferInfo, writer)
-					defer wg.Wait()
+		createInfo := &pb.CreateInfo{
+			Name: bufferInfo.Name,
+		}
 
-					for i := 0; i < 10; i++ {
-						expectedData := []byte(fmt.Sprintf("some-data-%d", i))
-						Eventually(data).Should(Receive(Equal(expectedData)))
-					}
-				})
-			})
+		var nodeClient pb.TalariaClient
+		f := func() bool {
+			resp, err := schedulerClient.Create(context.Background(), createInfo)
+			if err != nil {
+				return false
+			}
+			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+			return true
+		}
+		Expect(t, f).To(ViaPolling(BeTrue()))
 
-			Context("tail from middle", func() {
-				It("reads from the given index", func() {
-					writer, err := nodeClient.Write(context.Background())
-					Expect(err).ToNot(HaveOccurred())
-					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
-					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
-					writeTo(bufferInfo.Name, []byte("some-data-3"), writer)
-
-					data, indexes := fetchReaderWithIndex(bufferInfo.Name, 1, nodeClient)
-
-					var idx uint64
-					Eventually(indexes).Should(Receive(&idx))
-					Expect(idx).To(BeEquivalentTo(1))
-					Expect(data).To(Receive(Equal([]byte("some-data-2"))))
-				})
-			})
-
-			Context("tail from end", func() {
-				var waitForData = func() {
-					data, _ := fetchReaderWithIndex(bufferInfo.Name, 0, nodeClient)
-					Eventually(data).Should(HaveLen(3))
-				}
-
-				It("reads from the given index", func() {
-					writer, err := nodeClient.Write(context.Background())
-					Expect(err).ToNot(HaveOccurred())
-					writeTo(bufferInfo.Name, []byte("some-data-1"), writer)
-					writeTo(bufferInfo.Name, []byte("some-data-2"), writer)
-					writeTo(bufferInfo.Name, []byte("some-data-3"), writer)
-					waitForData()
-
-					data, indexes := fetchReaderLastIndex(bufferInfo.Name, nodeClient)
-
-					var idx uint64
-					Eventually(indexes).Should(Receive(&idx))
-					Expect(idx).To(BeEquivalentTo(2))
-					Expect(data).To(Receive(Equal([]byte("some-data-3"))))
-				})
-			})
-		})
-
-		Context("buffer has not been created", func() {
-			var (
-				nodeClient pb.TalariaClient
-			)
-
-			BeforeEach(func() {
-				resp, err := schedulerClient.Create(context.Background(), createInfo)
-				Expect(err).ToNot(HaveOccurred())
-				nodeClient = fetchNodeClient(resp.Uri)
-			})
-
-			It("returns an error", func() {
-				writer, err := nodeClient.Write(context.Background())
-				Expect(err).ToNot(HaveOccurred())
-
-				_, err = writer.CloseAndRecv()
-				Expect(err).To(HaveOccurred())
-			})
-		})
+		return TC{
+			T:          t,
+			bufferInfo: bufferInfo,
+			createInfo: createInfo,
+			nodeClient: nodeClient,
+		}
 	})
-})
+
+	o.Group("when tailing from beginning", func() {
+		o.Spec("it writes data to a subscriber", func(t TC) {
+			writer, err := t.nodeClient.Write(context.Background())
+			Expect(t, err == nil).To(BeTrue())
+			writeTo(t.bufferInfo.Name, []byte("some-data-1"), writer)
+			writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
+
+			data, indexes := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			Expect(t, data).To(ViaPolling(
+				Chain(Receive(), Equal([]byte("some-data-1"))),
+			))
+			Expect(t, indexes).To(ViaPolling(
+				Chain(Receive(), Equal(uint64(0))),
+			))
+			Expect(t, data).To(ViaPolling(
+				Chain(Receive(), Equal([]byte("some-data-2"))),
+			))
+			Expect(t, indexes).To(ViaPolling(
+				Chain(Receive(), Equal(uint64(1))),
+			))
+		})
+
+		o.Spec("it tails via Read()", func(t TC) {
+			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			writer, err := t.nodeClient.Write(context.Background())
+			Expect(t, err == nil).To(BeTrue())
+
+			wg := writeSlowly(10, t.bufferInfo, writer)
+			defer wg.Wait()
+
+			for i := 0; i < 10; i++ {
+				expectedData := []byte(fmt.Sprintf("some-data-%d", i))
+				Expect(t, data).To(ViaPolling(
+					Chain(Receive(), Equal(expectedData)),
+				))
+			}
+		})
+
+		o.Group("when tailing from middle", func() {
+			o.Spec("it reads from the given index", func(t TC) {
+				writer, err := t.nodeClient.Write(context.Background())
+				Expect(t, err == nil).To(BeTrue())
+				writeTo(t.bufferInfo.Name, []byte("some-data-1"), writer)
+				writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
+				writeTo(t.bufferInfo.Name, []byte("some-data-3"), writer)
+
+				data, indexes := fetchReaderWithIndex(t.bufferInfo.Name, 1, t.nodeClient)
+
+				Expect(t, indexes).To(ViaPolling(
+					Chain(Receive(), Equal(uint64(1))),
+				))
+				Expect(t, data).To(ViaPolling(
+					Chain(Receive(), Equal([]byte("some-data-2"))),
+				))
+			})
+		})
+
+		o.Group("when tailing from end", func() {
+			o.Spec("it reads from the given index", func(t TC) {
+				writer, err := t.nodeClient.Write(context.Background())
+				Expect(t, err == nil).To(BeTrue())
+				writeTo(t.bufferInfo.Name, []byte("some-data-1"), writer)
+				writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
+				writeTo(t.bufferInfo.Name, []byte("some-data-3"), writer)
+				data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+				Expect(t, data).To(ViaPolling(HaveLen(3)))
+
+				data, indexes := fetchReaderLastIndex(t.bufferInfo.Name, t.nodeClient)
+
+				Expect(t, indexes).To(ViaPolling(
+					Chain(Receive(), Equal(uint64(2))),
+				))
+				Expect(t, data).To(ViaPolling(
+					Chain(Receive(), Equal([]byte("some-data-3"))),
+				))
+			})
+		})
+
+	})
+}
+
+func TestEnd2EndBufferHasNotBeenCreated(t *testing.T) {
+	await := setup()
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TC {
+		nodePorts, schedulerPort := await()
+		nodeClients := setupNodeClients(nodePorts)
+		schedulerClient := connectToScheduler(schedulerPort)
+
+		bufferInfo := &pb.BufferInfo{
+			Name: createName(),
+		}
+
+		createInfo := &pb.CreateInfo{
+			Name: bufferInfo.Name,
+		}
+
+		var nodeClient pb.TalariaClient
+		f := func() bool {
+			resp, err := schedulerClient.Create(context.Background(), createInfo)
+			if err != nil {
+				return false
+			}
+			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+			return true
+		}
+		Expect(t, f).To(ViaPolling(BeTrue()))
+
+		return TC{
+			T:          t,
+			bufferInfo: bufferInfo,
+			createInfo: createInfo,
+			nodeClient: nodeClient,
+		}
+	})
+
+	o.Spec("it returns an error", func(t TC) {
+		writer, err := t.nodeClient.Write(context.Background())
+		Expect(t, err == nil).To(BeTrue())
+
+		_, err = writer.CloseAndRecv()
+		Expect(t, err == nil).To(BeFalse())
+	})
+
+}
 
 func createName() string {
 	return fmt.Sprintf("some-buffer-%d", rand.Int63())
+}
+
+func writeTo(name string, data []byte, writer pb.Talaria_WriteClient) {
+	packet := &pb.WriteDataPacket{
+		Name:    name,
+		Message: data,
+	}
+
+	if err := writer.Send(packet); err != nil {
+		panic(err)
+	}
+}
+
+func fetchReaderWithIndex(name string, index uint64, client pb.TalariaClient) (chan []byte, chan uint64) {
+	c := make(chan []byte, 100)
+	idx := make(chan uint64, 100)
+
+	bufferInfo := &pb.BufferInfo{
+		Name:       name,
+		StartIndex: index,
+	}
+
+	reader, err := client.Read(context.Background(), bufferInfo)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			packet, err := reader.Recv()
+			if err != nil {
+				return
+			}
+			c <- packet.Message
+			idx <- packet.Index
+		}
+	}()
+	return c, idx
+}
+
+func fetchReaderLastIndex(name string, client pb.TalariaClient) (chan []byte, chan uint64) {
+	c := make(chan []byte, 100)
+	idx := make(chan uint64, 100)
+
+	bufferInfo := &pb.BufferInfo{
+		Name:         name,
+		StartIndex:   1,
+		StartFromEnd: true,
+	}
+
+	reader, err := client.Read(context.Background(), bufferInfo)
+	if err != nil {
+		panic(err)
+	}
+
+	go func() {
+		for {
+			packet, err := reader.Recv()
+			if err != nil {
+				return
+			}
+			c <- packet.Message
+			idx <- packet.Index
+		}
+	}()
+	return c, idx
+}
+
+func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteClient) *sync.WaitGroup {
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		for i := 0; i < count; i++ {
+			time.Sleep(time.Millisecond)
+			writeTo(bufferInfo.Name, []byte(fmt.Sprintf("some-data-%d", i)), writer)
+		}
+	}()
+	return &wg
+}
+
+func setupNodeClients(ports []int) map[string]pb.TalariaClient {
+	clients := make(map[string]pb.TalariaClient)
+	for _, port := range ports {
+		URI := fmt.Sprintf("localhost:%d", port)
+		clients[URI] = connectToNode(port)
+	}
+	return clients
+}
+
+func connectToNode(nodePort int) pb.TalariaClient {
+	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", nodePort), grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+
+	return pb.NewTalariaClient(clientConn)
+}
+
+func connectToScheduler(schedulerPort int) pb.SchedulerClient {
+	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", schedulerPort), grpc.WithInsecure())
+	if err != nil {
+		panic(err)
+	}
+
+	return pb.NewSchedulerClient(clientConn)
+}
+
+func startNode() (int, *os.Process) {
+	nodePort := end2end.AvailablePort()
+	path, err := gexec.Build("github.com/apoydence/talaria/node")
+	if err != nil {
+		panic(err)
+	}
+	command := exec.Command(path)
+	command.Env = []string{
+		fmt.Sprintf("PORT=%d", nodePort),
+	}
+
+	err = command.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	return nodePort, command.Process
+}
+
+func startScheduler(nodePorts []int) (int, *os.Process) {
+	schedulerPort := end2end.AvailablePort()
+	path, err := gexec.Build("github.com/apoydence/talaria/scheduler")
+	if err != nil {
+		panic(err)
+	}
+
+	command := exec.Command(path)
+	command.Env = []string{
+		fmt.Sprintf("PORT=%d", schedulerPort),
+		fmt.Sprintf("NODES=%s", buildNodeURIs(nodePorts)),
+	}
+
+	err = command.Start()
+	if err != nil {
+		panic(err)
+	}
+
+	return schedulerPort, command.Process
+}
+
+func buildNodeURIs(ports []int) string {
+	var URIs []string
+	for _, port := range ports {
+		URIs = append(URIs, fmt.Sprintf("localhost:%d", port))
+	}
+	return strings.Join(URIs, ",")
+}
+
+func fetchNodeClient(URI string, nodeClients map[string]pb.TalariaClient) pb.TalariaClient {
+	client := nodeClients[URI]
+	if client == nil {
+		log.Panic(fmt.Sprintf("'%s' does not align with a Node server", URI))
+	}
+	return client
 }

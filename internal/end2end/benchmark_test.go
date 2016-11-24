@@ -3,167 +3,194 @@ package end2end_test
 import (
 	"math/rand"
 	"sync"
+	"testing"
 
 	"golang.org/x/net/context"
 
+	. "github.com/apoydence/onpar/expect"
+	. "github.com/apoydence/onpar/matchers"
 	"github.com/apoydence/talaria/pb"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Benchmark", func() {
+func BenchmarkSingleBufferWrite(b *testing.B) {
+	await := setup()
 
-	var randomDataSegment = func() []byte {
-		data := make([]byte, 0, rand.Intn(65535))
-		for i := 0; i < cap(data); i++ {
-			data = append(data, byte(rand.Intn(255)))
-		}
-		return data
+	nodePorts, schedulerPort := await()
+
+	nodeClients := setupNodeClients(nodePorts)
+	schedulerClient := connectToScheduler(schedulerPort)
+
+	bufferInfo := &pb.BufferInfo{
+		Name: createName(),
 	}
 
-	var randomDataBuilder = func() func() []byte {
-		segments := make([][]byte, 0)
-		for i := 0; i < 10; i++ {
-			segments = append(segments, randomDataSegment())
-		}
-
-		return func() []byte {
-			result := make([]byte, 0, rand.Intn(3))
-			c := cap(result)
-			for i := 0; i < c; i++ {
-				result = append(result, segments[rand.Intn(len(segments))]...)
-			}
-			return result
-		}
+	createInfo := &pb.CreateInfo{
+		Name: bufferInfo.Name,
 	}
 
-	Context("single buffer", func() {
-		var (
-			bufferInfo *pb.BufferInfo
-			createInfo *pb.CreateInfo
-			nodeClient pb.TalariaClient
-		)
+	var nodeClient pb.TalariaClient
+	f := func() bool {
+		resp, err := schedulerClient.Create(context.Background(), createInfo)
+		if err != nil {
+			return false
+		}
+		nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+		return true
+	}
+	Expect(b, f).To(ViaPolling(BeTrue()))
 
-		BeforeEach(func() {
-			bufferInfo = &pb.BufferInfo{
-				Name: createName(),
-			}
+	writer, err := nodeClient.Write(context.Background())
+	Expect(b, err == nil).To(BeTrue())
+	randomData := randomDataBuilder()
 
-			createInfo = &pb.CreateInfo{
-				Name: bufferInfo.Name,
-			}
+	for i := 0; i < b.N; i++ {
+		writer.Send(&pb.WriteDataPacket{
+			Name:    bufferInfo.Name,
+			Message: randomData(),
+		})
+	}
+}
 
+func BenchmarkSingleBufferRead(b *testing.B) {
+	await := setup()
+	nodePorts, schedulerPort := await()
+
+	nodeClients := setupNodeClients(nodePorts)
+	schedulerClient := connectToScheduler(schedulerPort)
+
+	bufferInfo := &pb.BufferInfo{
+		Name: createName(),
+	}
+
+	createInfo := &pb.CreateInfo{
+		Name: bufferInfo.Name,
+	}
+
+	var nodeClient pb.TalariaClient
+	f := func() bool {
+		resp, err := schedulerClient.Create(context.Background(), createInfo)
+		if err != nil {
+			return false
+		}
+		nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+		return true
+	}
+	Expect(b, f).To(ViaPolling(BeTrue()))
+
+	writer, err := nodeClient.Write(context.Background())
+	Expect(b, err == nil).To(BeTrue())
+
+	reader, err := nodeClient.Read(context.Background(), bufferInfo)
+	Expect(b, err == nil).To(BeTrue())
+	randomData := randomDataBuilder()
+
+	go func() {
+		for i := 0; i < b.N; i++ {
+			writer.Send(&pb.WriteDataPacket{
+				Name:    bufferInfo.Name,
+				Message: randomData(),
+			})
+		}
+	}()
+
+	for i := 0; i < b.N; i++ {
+		reader.Recv()
+	}
+}
+
+func BenchmarkMultipleBuffersRead(b *testing.B) {
+	await := setup()
+	nodePorts, schedulerPort := await()
+
+	nodeClients := setupNodeClients(nodePorts)
+	schedulerClient := connectToScheduler(schedulerPort)
+
+	var (
+		bufferInfos []*pb.BufferInfo
+		createInfos []*pb.CreateInfo
+		clients     []pb.TalariaClient
+	)
+
+	for i := 0; i < 5; i++ {
+		bufferInfo := &pb.BufferInfo{
+			Name: createName(),
+		}
+
+		createInfo := &pb.CreateInfo{
+			Name: bufferInfo.Name,
+		}
+
+		var nodeClient pb.TalariaClient
+		f := func() bool {
 			resp, err := schedulerClient.Create(context.Background(), createInfo)
-			Expect(err).ToNot(HaveOccurred())
-			nodeClient = fetchNodeClient(resp.Uri)
-		})
-
-		Measure("write 10000 random data points", func(b Benchmarker) {
-			writer, err := nodeClient.Write(context.Background())
-			Expect(err).ToNot(HaveOccurred())
-			randomData := randomDataBuilder()
-
-			b.Time("runtime", func() {
-				for i := 0; i < 10000; i++ {
-					writer.Send(&pb.WriteDataPacket{
-						Name:    bufferInfo.Name,
-						Message: randomData(),
-					})
-				}
-			})
-		}, 1)
-
-		Measure("reads 10000 random data points", func(b Benchmarker) {
-			count := 10000
-			writer, err := nodeClient.Write(context.Background())
-			Expect(err).ToNot(HaveOccurred())
-
-			reader, err := nodeClient.Read(context.Background(), bufferInfo)
-			Expect(err).ToNot(HaveOccurred())
-			randomData := randomDataBuilder()
-
-			go func() {
-				for i := 0; i < count; i++ {
-					writer.Send(&pb.WriteDataPacket{
-						Name:    bufferInfo.Name,
-						Message: randomData(),
-					})
-				}
-			}()
-
-			b.Time("runtime", func() {
-				for i := 0; i < count; i++ {
-					reader.Recv()
-				}
-			})
-		}, 1)
-	})
-
-	Context("multiple buffers", func() {
-		var (
-			bufferInfos []*pb.BufferInfo
-			createInfos []*pb.CreateInfo
-			nodeClient  pb.TalariaClient
-		)
-
-		BeforeEach(func() {
-			for i := 0; i < 5; i++ {
-				bufferInfo := &pb.BufferInfo{
-					Name: createName(),
-				}
-
-				createInfo := &pb.CreateInfo{
-					Name: bufferInfo.Name,
-				}
-
-				resp, err := schedulerClient.Create(context.Background(), createInfo)
-				Expect(err).ToNot(HaveOccurred())
-				nodeClient = fetchNodeClient(resp.Uri)
-				bufferInfos = append(bufferInfos, bufferInfo)
-				createInfos = append(createInfos, createInfo)
+			if err != nil {
+				return false
 			}
-		})
+			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+			return true
+		}
+		Expect(b, f).To(ViaPolling(BeTrue()))
 
-		Measure("read 100 random data points to each 5 buffers", func(b Benchmarker) {
-			count := 100
+		bufferInfos = append(bufferInfos, bufferInfo)
+		createInfos = append(createInfos, createInfo)
+		clients = append(clients, nodeClient)
+	}
 
-			b.Time("runtime", func() {
+	var wg sync.WaitGroup
+	for i, fi := range bufferInfos {
+		wg.Add(2)
 
-				var wg sync.WaitGroup
-				for _, fi := range bufferInfos {
-					wg.Add(2)
+		go func(client pb.TalariaClient, info *pb.BufferInfo) {
+			defer wg.Done()
+			randomData := randomDataBuilder()
 
-					go func(info *pb.BufferInfo) {
-						defer wg.Done()
-						randomData := randomDataBuilder()
+			writer, err := client.Write(context.Background())
+			Expect(b, err == nil).To(BeTrue())
 
-						writer, err := nodeClient.Write(context.Background())
-						Expect(err).ToNot(HaveOccurred())
+			for i := 0; i < b.N; i++ {
+				writer.Send(&pb.WriteDataPacket{
+					Name:    info.Name,
+					Message: randomData(),
+				})
+			}
 
-						for i := 0; i < count; i++ {
-							writer.Send(&pb.WriteDataPacket{
-								Name:    info.Name,
-								Message: randomData(),
-							})
-						}
+		}(clients[i], fi)
 
-					}(fi)
+		go func(client pb.TalariaClient, info *pb.BufferInfo) {
+			defer wg.Done()
 
-					go func(info *pb.BufferInfo) {
-						defer wg.Done()
-						defer GinkgoRecover()
+			reader, err := client.Read(context.Background(), info)
+			Expect(b, err == nil).To(BeTrue())
 
-						reader, err := nodeClient.Read(context.Background(), info)
-						Expect(err).ToNot(HaveOccurred())
+			for i := 0; i < b.N; i++ {
+				reader.Recv()
+			}
+		}(clients[i], fi)
+	}
 
-						for i := 0; i < count; i++ {
-							reader.Recv()
-						}
-					}(fi)
-				}
+	wg.Wait()
+}
 
-				wg.Wait()
-			})
-		}, 1)
-	})
-})
+func randomDataSegment() []byte {
+	data := make([]byte, 0, rand.Intn(65535))
+	for i := 0; i < cap(data); i++ {
+		data = append(data, byte(rand.Intn(255)))
+	}
+	return data
+}
+
+func randomDataBuilder() func() []byte {
+	segments := make([][]byte, 0)
+	for i := 0; i < 10; i++ {
+		segments = append(segments, randomDataSegment())
+	}
+
+	return func() []byte {
+		result := make([]byte, 0, rand.Intn(3))
+		c := cap(result)
+		for i := 0; i < c; i++ {
+			result = append(result, segments[rand.Intn(len(segments))]...)
+		}
+		return result
+	}
+}
