@@ -28,17 +28,31 @@ var (
 	schedulerPort int
 )
 
-func init() {
+func setup() []*os.Process {
 	nodePort1, nodeProcess1 := startNode()
 	nodePort2, nodeProcess2 := startNode()
 	nodePorts = []int{nodePort1, nodePort2}
 	var schedulerProcess *os.Process
 	schedulerPort, schedulerProcess = startScheduler(nodePorts)
-	// TODO process cleanup
-	_ = nodeProcess1
-	_ = nodeProcess2
-	_ = schedulerProcess
 
+	return []*os.Process{
+		nodeProcess1,
+		nodeProcess2,
+		schedulerProcess,
+	}
+}
+
+func TestMain(m *testing.M) {
+	ps := setup()
+
+	code := m.Run()
+
+	for _, p := range ps {
+		p.Kill()
+		p.Wait()
+	}
+
+	os.Exit(code)
 }
 
 type TC struct {
@@ -288,7 +302,15 @@ func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteCl
 		defer wg.Done()
 		for i := 0; i < count; i++ {
 			time.Sleep(time.Millisecond)
-			writeTo(bufferInfo.Name, []byte(fmt.Sprintf("some-data-%d", i)), writer)
+
+			packet := &pb.WriteDataPacket{
+				Name:    bufferInfo.Name,
+				Message: []byte(fmt.Sprintf("some-data-%d", i)),
+			}
+
+			if err := writer.Send(packet); err != nil {
+				return
+			}
 		}
 	}()
 	return &wg
