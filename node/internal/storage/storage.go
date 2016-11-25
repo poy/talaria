@@ -1,24 +1,24 @@
-package iofetcher
+package storage
 
 import (
 	"fmt"
 	"log"
 
-	"github.com/apoydence/talaria/node/internal/buffers/ringbuffer"
 	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
 )
 
-type IOFetcher struct {
+type Storage struct {
 	bufs map[string]*ringbuffer.RingBuffer
 }
 
-func New() *IOFetcher {
-	return &IOFetcher{
+func New() *Storage {
+	return &Storage{
 		bufs: make(map[string]*ringbuffer.RingBuffer),
 	}
 }
 
-func (f *IOFetcher) Create(name string) error {
+func (f *Storage) Create(name string) error {
 	log.Printf("Creating '%s'", name)
 	if _, ok := f.bufs[name]; ok {
 		log.Printf("'%s' already exists...", name)
@@ -29,7 +29,7 @@ func (f *IOFetcher) Create(name string) error {
 	return nil
 }
 
-func (f *IOFetcher) FetchWriter(name string) (server.Writer, error) {
+func (f *Storage) FetchWriter(name string) (server.Writer, error) {
 	writer, ok := f.bufs[name]
 	if !ok {
 		return nil, fmt.Errorf("'%s' must be created before being fetched", name)
@@ -38,7 +38,7 @@ func (f *IOFetcher) FetchWriter(name string) (server.Writer, error) {
 	return writer, nil
 }
 
-func (f *IOFetcher) FetchReader(name string) (server.Reader, error) {
+func (f *Storage) FetchReader(name string) (server.Reader, error) {
 	reader, ok := f.bufs[name]
 	if !ok {
 		return nil, fmt.Errorf("'%s' must be created before being fetched", name)

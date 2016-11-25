@@ -7,8 +7,8 @@ import (
 
 	"github.com/apoydence/talaria/node/config"
 	"github.com/apoydence/talaria/node/internal/intraserver"
-	"github.com/apoydence/talaria/node/internal/iofetcher"
 	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/apoydence/talaria/node/internal/storage"
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
 	"google.golang.org/grpc"
@@ -25,9 +25,9 @@ func main() {
 	}
 	log.Printf("Listening on port %d", conf.Port)
 
-	ioFetcher := iofetcher.New()
-	talaria := server.New(ioFetcher)
-	intraServer := intraserver.New(ioFetcher)
+	store := storage.New()
+	talaria := server.New(store)
+	intraServer := intraserver.New(store)
 
 	grpcServer := grpc.NewServer()
 

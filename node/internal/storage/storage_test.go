@@ -1,4 +1,4 @@
-package iofetcher_test
+package storage_test
 
 import (
 	"testing"
@@ -6,18 +6,18 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/node/internal/buffers/ringbuffer"
-	"github.com/apoydence/talaria/node/internal/iofetcher"
 	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/apoydence/talaria/node/internal/storage"
+	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
 )
 
 type TT struct {
 	*testing.T
-	fetcher *iofetcher.IOFetcher
+	fetcher *storage.Storage
 	readerA server.Reader
 }
 
-func TestIOFetcherFetchReader(t *testing.T) {
+func TestStorageFetchReader(t *testing.T) {
 	t.Parallel()
 	o := onpar.New()
 	defer o.Run(t)
@@ -25,7 +25,7 @@ func TestIOFetcherFetchReader(t *testing.T) {
 	o.BeforeEach(func(t *testing.T) TT {
 		return TT{
 			T:       t,
-			fetcher: iofetcher.New(),
+			fetcher: storage.New(),
 		}
 	})
 
@@ -73,24 +73,24 @@ func TestIOFetcherFetchReader(t *testing.T) {
 	})
 }
 
-func TestIOFetcherFetchWriter(t *testing.T) {
+func TestStorageFetchWriter(t *testing.T) {
 	t.Parallel()
 	o := onpar.New()
 	defer o.Run(t)
 
-	o.BeforeEach(func(t *testing.T) (*testing.T, *iofetcher.IOFetcher) {
-		return t, iofetcher.New()
+	o.BeforeEach(func(t *testing.T) (*testing.T, *storage.Storage) {
+		return t, storage.New()
 	})
 
 	o.Group("when Create() has been called", func() {
-		o.BeforeEach(func(t *testing.T, fetcher *iofetcher.IOFetcher) (*testing.T, *iofetcher.IOFetcher) {
+		o.BeforeEach(func(t *testing.T, fetcher *storage.Storage) (*testing.T, *storage.Storage) {
 			err := fetcher.Create("some-buffer")
 			Expect(t, err == nil).To(Equal(true))
 
 			return t, fetcher
 		})
 
-		o.Spec("it returns the same writer each time", func(t *testing.T, fetcher *iofetcher.IOFetcher) {
+		o.Spec("it returns the same writer each time", func(t *testing.T, fetcher *storage.Storage) {
 			writerA, err := fetcher.FetchWriter("some-buffer")
 			Expect(t, err == nil).To(Equal(true))
 
@@ -103,7 +103,7 @@ func TestIOFetcherFetchWriter(t *testing.T) {
 	})
 
 	o.Group("when Create() has not been called", func() {
-		o.Spec("it returns an error", func(t *testing.T, fetcher *iofetcher.IOFetcher) {
+		o.Spec("it returns an error", func(t *testing.T, fetcher *storage.Storage) {
 			_, err := fetcher.FetchWriter("some-buffer")
 			Expect(t, err != nil).To(Equal(true))
 		})

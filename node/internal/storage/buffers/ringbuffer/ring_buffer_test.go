@@ -7,7 +7,7 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/node/internal/buffers/ringbuffer"
+	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
 )
 
 type TT struct {
