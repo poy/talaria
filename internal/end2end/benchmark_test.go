@@ -13,10 +13,6 @@ import (
 )
 
 func BenchmarkSingleBufferWrite(b *testing.B) {
-	await := setup()
-
-	nodePorts, schedulerPort := await()
-
 	nodeClients := setupNodeClients(nodePorts)
 	schedulerClient := connectToScheduler(schedulerPort)
 
@@ -52,9 +48,6 @@ func BenchmarkSingleBufferWrite(b *testing.B) {
 }
 
 func BenchmarkSingleBufferRead(b *testing.B) {
-	await := setup()
-	nodePorts, schedulerPort := await()
-
 	nodeClients := setupNodeClients(nodePorts)
 	schedulerClient := connectToScheduler(schedulerPort)
 
@@ -84,14 +77,14 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 	Expect(b, err == nil).To(BeTrue())
 	randomData := randomDataBuilder()
 
-	go func() {
-		for i := 0; i < b.N; i++ {
+	go func(n int) {
+		for i := 0; i < n; i++ {
 			writer.Send(&pb.WriteDataPacket{
 				Name:    bufferInfo.Name,
 				Message: randomData(),
 			})
 		}
-	}()
+	}(b.N)
 
 	for i := 0; i < b.N; i++ {
 		reader.Recv()
@@ -99,9 +92,6 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 }
 
 func BenchmarkMultipleBuffersRead(b *testing.B) {
-	await := setup()
-	nodePorts, schedulerPort := await()
-
 	nodeClients := setupNodeClients(nodePorts)
 	schedulerClient := connectToScheduler(schedulerPort)
 

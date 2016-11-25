@@ -26,34 +26,19 @@ import (
 var (
 	nodePorts     []int
 	schedulerPort int
-	setupOnce     sync.Once
 )
 
-func setup() func() ([]int, int) {
-	var wg sync.WaitGroup
-	wg.Add(1)
+func init() {
+	nodePort1, nodeProcess1 := startNode()
+	nodePort2, nodeProcess2 := startNode()
+	nodePorts = []int{nodePort1, nodePort2}
+	var schedulerProcess *os.Process
+	schedulerPort, schedulerProcess = startScheduler(nodePorts)
+	// TODO process cleanup
+	_ = nodeProcess1
+	_ = nodeProcess2
+	_ = schedulerProcess
 
-	f := func() ([]int, int) {
-		wg.Wait()
-		return nodePorts, schedulerPort
-	}
-
-	go func() {
-		defer wg.Done()
-		setupOnce.Do(func() {
-			nodePort1, nodeProcess1 := startNode()
-			nodePort2, nodeProcess2 := startNode()
-			nodePorts = []int{nodePort1, nodePort2}
-			var schedulerProcess *os.Process
-			schedulerPort, schedulerProcess = startScheduler(nodePorts)
-			// TODO process cleanup
-			_ = nodeProcess1
-			_ = nodeProcess2
-			_ = schedulerProcess
-		})
-	}()
-
-	return f
 }
 
 type TC struct {
@@ -64,13 +49,11 @@ type TC struct {
 }
 
 func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
-	await := setup()
 	t.Parallel()
 	o := onpar.New()
 	defer o.Run(t)
 
 	o.BeforeEach(func(t *testing.T) TC {
-		nodePorts, schedulerPort := await()
 		nodeClients := setupNodeClients(nodePorts)
 		schedulerClient := connectToScheduler(schedulerPort)
 
@@ -183,13 +166,11 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 }
 
 func TestEnd2EndBufferHasNotBeenCreated(t *testing.T) {
-	await := setup()
 	t.Parallel()
 	o := onpar.New()
 	defer o.Run(t)
 
 	o.BeforeEach(func(t *testing.T) TC {
-		nodePorts, schedulerPort := await()
 		nodeClients := setupNodeClients(nodePorts)
 		schedulerClient := connectToScheduler(schedulerPort)
 
