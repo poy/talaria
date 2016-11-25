@@ -98,6 +98,32 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 	}
 }
 
+func BenchmarkCreatingBuffers(b *testing.B) {
+	schedulerClient := connectToScheduler(schedulerPort)
+
+	for i := 0; i < b.N; i++ {
+		bufferInfo := &pb.BufferInfo{
+			Name: createName(),
+		}
+
+		createInfo := &pb.CreateInfo{
+			Name: bufferInfo.Name,
+		}
+
+		f := func() bool {
+			_, err := schedulerClient.Create(context.Background(), createInfo)
+			if err != nil {
+				return false
+			}
+			return true
+		}
+		Expect(b, f).To(ViaPollingMatcher{
+			Matcher:  BeTrue(),
+			Duration: 5 * time.Second,
+		})
+	}
+}
+
 func BenchmarkMultipleBuffersRead(b *testing.B) {
 	nodeClients := setupNodeClients(nodePorts)
 	schedulerClient := connectToScheduler(schedulerPort)
