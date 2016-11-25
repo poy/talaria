@@ -4,6 +4,8 @@ import (
 	"io"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/coreos/etcd/raft/raftpb"
 )
 
 type RingBuffer struct {
@@ -13,7 +15,7 @@ type RingBuffer struct {
 }
 
 type bucket struct {
-	data []byte
+	data *raftpb.Entry
 	seq  uint64
 }
 
@@ -26,7 +28,7 @@ var New = func(size int) *RingBuffer {
 	return b
 }
 
-func (b *RingBuffer) WriteTo(data []byte) (uint64, error) {
+func (b *RingBuffer) WriteTo(data *raftpb.Entry) (uint64, error) {
 	writeIndex := atomic.AddUint64(&b.writeIndex, 1)
 	idx := writeIndex % uint64(len(b.buffer))
 	newBucket := &bucket{
@@ -38,7 +40,7 @@ func (b *RingBuffer) WriteTo(data []byte) (uint64, error) {
 	return idx, nil
 }
 
-func (b *RingBuffer) ReadAt(readIndex uint64) ([]byte, uint64, error) {
+func (b *RingBuffer) ReadAt(readIndex uint64) (*raftpb.Entry, uint64, error) {
 	idx := readIndex % uint64(len(b.buffer))
 	result := (*bucket)(atomic.LoadPointer(&b.buffer[idx]))
 

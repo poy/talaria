@@ -14,6 +14,7 @@ import (
 	"github.com/apoydence/onpar"
 	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/pb"
+	"github.com/coreos/etcd/raft/raftpb"
 	"google.golang.org/grpc"
 
 	. "github.com/apoydence/onpar/expect"
@@ -106,7 +107,7 @@ func TestServerWrite(t *testing.T) {
 				t.writer.Send(t.packet)
 
 				Expect(t, t.mockWriter.WriteToInput.Data).To(ViaPolling(Chain(
-					Receive(), Equal(t.packet.Message))),
+					Receive(), Equal(&raftpb.Entry{Data: t.packet.Message}))),
 				)
 			})
 		})
@@ -451,7 +452,7 @@ func startReading(reader pb.Talaria_ReadClient, wg *sync.WaitGroup) (chan []byte
 }
 
 func writeToReader(reader *mockReader, data []byte, idx uint64, err error) {
-	reader.ReadAtOutput.Ret0 <- data
+	reader.ReadAtOutput.Ret0 <- &raftpb.Entry{Data: data}
 	reader.ReadAtOutput.Ret1 <- idx
 	reader.ReadAtOutput.Ret2 <- err
 }
