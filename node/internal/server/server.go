@@ -9,15 +9,16 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/apoydence/talaria/pb"
+	"github.com/coreos/etcd/raft/raftpb"
 )
 
 type Reader interface {
-	ReadAt(index uint64) ([]byte, uint64, error)
+	ReadAt(index uint64) (*raftpb.Entry, uint64, error)
 	LastIndex() uint64
 }
 
 type Writer interface {
-	WriteTo(data []byte) (uint64, error)
+	WriteTo(data *raftpb.Entry) (uint64, error)
 }
 
 type IOFetcher interface {
@@ -53,7 +54,7 @@ func (s *Server) Write(rx pb.Talaria_WriteServer) error {
 			return fmt.Errorf("unknown buffer: '%s'", packet.Name)
 		}
 
-		if _, err = writer.WriteTo(packet.Message); err != nil {
+		if _, err = writer.WriteTo(&raftpb.Entry{Data: packet.Message}); err != nil {
 			log.Printf("error writing to buffer '%s': %s", packet.Name, err)
 			return err
 		}
@@ -94,7 +95,7 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error
 		idx++
 
 		err = sender.Send(&pb.ReadDataPacket{
-			Message: data,
+			Message: data.Data,
 			Index:   actualIdx,
 		})
 

@@ -8,12 +8,13 @@ import (
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
 	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
+	"github.com/coreos/etcd/raft/raftpb"
 )
 
 type TT struct {
 	*testing.T
 	d              *ringbuffer.RingBuffer
-	valueA, valueB []byte
+	valueA, valueB *raftpb.Entry
 }
 
 func TestRingBuffer(t *testing.T) {
@@ -25,8 +26,12 @@ func TestRingBuffer(t *testing.T) {
 	o.BeforeEach(func(t *testing.T) TT {
 		d := ringbuffer.New(5)
 
-		valueA := []byte("some-value")
-		valueB := []byte("some-other-value")
+		valueA := &raftpb.Entry{
+			Data: []byte("some-value"),
+		}
+		valueB := &raftpb.Entry{
+			Data: []byte("some-other-value"),
+		}
 		d.WriteTo(valueA)
 		d.WriteTo(valueB)
 		return TT{
