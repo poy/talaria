@@ -140,32 +140,32 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 	for i, fi := range bufferInfos {
 		wg.Add(2)
 
-		go func(client pb.TalariaClient, info *pb.BufferInfo) {
+		go func(client pb.TalariaClient, info *pb.BufferInfo, n int) {
 			defer wg.Done()
 			randomData := randomDataBuilder()
 
 			writer, err := client.Write(context.Background())
 			Expect(b, err == nil).To(BeTrue())
 
-			for i := 0; i < b.N; i++ {
+			for i := 0; i < n; i++ {
 				writer.Send(&pb.WriteDataPacket{
 					Name:    info.Name,
 					Message: randomData(),
 				})
 			}
 
-		}(clients[i], fi)
+		}(clients[i], fi, b.N)
 
-		go func(client pb.TalariaClient, info *pb.BufferInfo) {
+		go func(client pb.TalariaClient, info *pb.BufferInfo, n int) {
 			defer wg.Done()
 
 			reader, err := client.Read(context.Background(), info)
 			Expect(b, err == nil).To(BeTrue())
 
-			for i := 0; i < b.N; i++ {
+			for i := 0; i < n; i++ {
 				reader.Recv()
 			}
-		}(clients[i], fi)
+		}(clients[i], fi, b.N)
 	}
 
 	wg.Wait()
