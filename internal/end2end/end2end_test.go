@@ -88,7 +88,10 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
 			return true
 		}
-		Expect(t, f).To(ViaPolling(BeTrue()))
+		Expect(t, f).To(ViaPollingMatcher{
+			Matcher:  BeTrue(),
+			Duration: 5 * time.Second,
+		})
 
 		return TC{
 			T:          t,
@@ -130,9 +133,10 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 
 			for i := 0; i < 10; i++ {
 				expectedData := []byte(fmt.Sprintf("some-data-%d", i))
-				Expect(t, data).To(ViaPolling(
-					Chain(Receive(), Equal(expectedData)),
-				))
+				Expect(t, data).To(ViaPollingMatcher{
+					Matcher:  Chain(Receive(), Equal(expectedData)),
+					Duration: 5 * time.Second,
+				})
 			}
 		})
 
@@ -205,7 +209,11 @@ func TestEnd2EndBufferHasNotBeenCreated(t *testing.T) {
 			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
 			return true
 		}
-		Expect(t, f).To(ViaPolling(BeTrue()))
+
+		Expect(t, f).To(ViaPollingMatcher{
+			Matcher:  BeTrue(),
+			Duration: 5 * time.Second,
+		})
 
 		return TC{
 			T:          t,

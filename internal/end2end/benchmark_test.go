@@ -4,6 +4,7 @@ import (
 	"math/rand"
 	"sync"
 	"testing"
+	"time"
 
 	"golang.org/x/net/context"
 
@@ -33,7 +34,10 @@ func BenchmarkSingleBufferWrite(b *testing.B) {
 		nodeClient = fetchNodeClient(resp.Uri, nodeClients)
 		return true
 	}
-	Expect(b, f).To(ViaPolling(BeTrue()))
+	Expect(b, f).To(ViaPollingMatcher{
+		Matcher:  BeTrue(),
+		Duration: 5 * time.Second,
+	})
 
 	writer, err := nodeClient.Write(context.Background())
 	Expect(b, err == nil).To(BeTrue())
@@ -68,7 +72,10 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 		nodeClient = fetchNodeClient(resp.Uri, nodeClients)
 		return true
 	}
-	Expect(b, f).To(ViaPolling(BeTrue()))
+	Expect(b, f).To(ViaPollingMatcher{
+		Matcher:  BeTrue(),
+		Duration: 5 * time.Second,
+	})
 
 	writer, err := nodeClient.Write(context.Background())
 	Expect(b, err == nil).To(BeTrue())
@@ -119,7 +126,10 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
 			return true
 		}
-		Expect(b, f).To(ViaPolling(BeTrue()))
+		Expect(b, f).To(ViaPollingMatcher{
+			Matcher:  BeTrue(),
+			Duration: 5 * time.Second,
+		})
 
 		bufferInfos = append(bufferInfos, bufferInfo)
 		createInfos = append(createInfos, createInfo)
