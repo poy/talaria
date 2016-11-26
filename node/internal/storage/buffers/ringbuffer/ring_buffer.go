@@ -8,6 +8,10 @@ import (
 	"github.com/coreos/etcd/raft/raftpb"
 )
 
+const (
+	NoData = 0xFFFFFFFFFFFFFFFF
+)
+
 type RingBuffer struct {
 	buffer     []unsafe.Pointer
 	writeIndex uint64
@@ -24,7 +28,7 @@ var New = func(size int) *RingBuffer {
 		Size:   size,
 		buffer: make([]unsafe.Pointer, size),
 	}
-	b.writeIndex = ^b.writeIndex
+	b.writeIndex = NoData
 	return b
 }
 

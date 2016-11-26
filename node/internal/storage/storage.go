@@ -9,12 +9,12 @@ import (
 )
 
 type Storage struct {
-	bufs map[string]*ringbuffer.RingBuffer
+	bufs map[string]*Raftifier
 }
 
 func New() *Storage {
 	return &Storage{
-		bufs: make(map[string]*ringbuffer.RingBuffer),
+		bufs: make(map[string]*Raftifier),
 	}
 }
 
@@ -25,7 +25,7 @@ func (f *Storage) Create(name string) error {
 		return nil
 	}
 
-	f.bufs[name] = ringbuffer.New(100)
+	f.bufs[name] = Raftify(ringbuffer.New(100))
 	return nil
 }
 
@@ -39,10 +39,10 @@ func (f *Storage) FetchWriter(name string) (server.Writer, error) {
 }
 
 func (f *Storage) FetchReader(name string) (server.Reader, error) {
-	reader, ok := f.bufs[name]
+	raftifier, ok := f.bufs[name]
 	if !ok {
 		return nil, fmt.Errorf("'%s' must be created before being fetched", name)
 	}
 
-	return reader, nil
+	return raftifier.Buffer, nil
 }
