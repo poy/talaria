@@ -32,7 +32,7 @@ var New = func(size int) *RingBuffer {
 	return b
 }
 
-func (b *RingBuffer) WriteTo(data *raftpb.Entry) (uint64, error) {
+func (b *RingBuffer) Write(data *raftpb.Entry) (uint64, error) {
 	writeIndex := atomic.AddUint64(&b.writeIndex, 1)
 	idx := writeIndex % uint64(len(b.buffer))
 	newBucket := &bucket{

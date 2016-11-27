@@ -32,8 +32,8 @@ func TestRingBufferWrite(t *testing.T) {
 		valueB := &raftpb.Entry{
 			Data: []byte("some-other-value"),
 		}
-		d.WriteTo(valueA)
-		d.WriteTo(valueB)
+		d.Write(valueA)
+		d.Write(valueB)
 		return TT{
 			T:      t,
 			d:      d,
@@ -43,7 +43,7 @@ func TestRingBufferWrite(t *testing.T) {
 	})
 
 	o.Spec("it returns the written index", func(t TT) {
-		idx, err := t.d.WriteTo(t.valueB)
+		idx, err := t.d.Write(t.valueB)
 		Expect(t, err == nil).To(Equal(true))
 		Expect(t, idx).To(Equal(uint64(2)))
 	})
@@ -64,8 +64,8 @@ func TestRingBufferReadAt(t *testing.T) {
 		valueB := &raftpb.Entry{
 			Data: []byte("some-other-value"),
 		}
-		d.WriteTo(valueA)
-		d.WriteTo(valueB)
+		d.Write(valueA)
+		d.Write(valueB)
 		return TT{
 			T:      t,
 			d:      d,
@@ -97,7 +97,7 @@ func TestRingBufferReadAt(t *testing.T) {
 	o.Group("when buffer size exceeded", func() {
 		o.BeforeEach(func(t TT) TT {
 			for i := 0; i < 4; i++ {
-				t.d.WriteTo(t.valueB)
+				t.d.Write(t.valueB)
 			}
 
 			return t
