@@ -32,11 +32,11 @@ var New = func(size int) *RingBuffer {
 	return b
 }
 
-func (b *RingBuffer) Write(data *raftpb.Entry) (uint64, error) {
+func (b *RingBuffer) Write(data raftpb.Entry) (uint64, error) {
 	writeIndex := atomic.AddUint64(&b.writeIndex, 1)
 	idx := writeIndex % uint64(len(b.buffer))
 	newBucket := &bucket{
-		data: data,
+		data: &data,
 		seq:  writeIndex,
 	}
 
@@ -44,15 +44,15 @@ func (b *RingBuffer) Write(data *raftpb.Entry) (uint64, error) {
 	return idx, nil
 }
 
-func (b *RingBuffer) ReadAt(readIndex uint64) (*raftpb.Entry, uint64, error) {
+func (b *RingBuffer) ReadAt(readIndex uint64) (raftpb.Entry, uint64, error) {
 	idx := readIndex % uint64(len(b.buffer))
 	result := (*bucket)(atomic.LoadPointer(&b.buffer[idx]))
 
 	if result == nil || result.seq < readIndex {
-		return nil, 0, io.EOF
+		return raftpb.Entry{}, 0, io.EOF
 	}
 
-	return result.data, result.seq, nil
+	return *result.data, result.seq, nil
 }
 
 func (b *RingBuffer) LastIndex() uint64 {

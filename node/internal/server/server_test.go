@@ -13,8 +13,8 @@ import (
 	"github.com/apoydence/eachers/testhelpers"
 	"github.com/apoydence/onpar"
 	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/apoydence/talaria/node/internal/storage/raftnode"
 	"github.com/apoydence/talaria/pb"
-	"github.com/coreos/etcd/raft/raftpb"
 	"google.golang.org/grpc"
 
 	. "github.com/apoydence/onpar/expect"
@@ -106,16 +106,15 @@ func TestServerWrite(t *testing.T) {
 			o.Spec("it writes to the given writer", func(t TW) {
 				t.writer.Send(t.packet)
 
-				Expect(t, t.mockWriter.WriteToInput.Data).To(ViaPolling(Chain(
-					Receive(), Equal(&raftpb.Entry{Data: t.packet.Message}))),
-				)
+				Expect(t, t.mockWriter.ProposeInput.Data).To(ViaPolling(Chain(
+					Receive(), Equal(t.packet.Message),
+				)))
 			})
 		})
 
 		o.Group("when writer returns an error", func() {
 			o.BeforeEach(func(t TW) TW {
-				t.mockWriter.WriteToOutput.Ret0 <- 0
-				t.mockWriter.WriteToOutput.Ret1 <- fmt.Errorf("some-error")
+				t.mockWriter.ProposeOutput.Ret0 <- fmt.Errorf("some-error")
 				t.mockIOFetcher.FetchWriterOutput.Ret0 <- t.mockWriter
 				t.mockIOFetcher.FetchWriterOutput.Ret1 <- nil
 
@@ -280,6 +279,16 @@ func TestServerRead(t *testing.T) {
 					Expect(t, t.mReader.ReadAtInput.Index).To(ViaPolling(
 						Chain(Receive(), Equal(uint64(1))),
 					))
+				})
+
+				o.Spec("it filters out the meta data", func(t TR) {
+					data, _, errs := startReading(t.reader, t.startReadingWg)
+					writeToReader(t.mReader, []byte("some-meta-data"), 0, raftnode.ErrMetaData)
+
+					Expect(t, data).To(Always(
+						Not(Chain(Receive(), Equal([]byte("some-meta-data")))),
+					))
+					Expect(t, errs).To(HaveLen(0))
 				})
 
 				o.Group("when tailing the reader", func() {
@@ -452,7 +461,7 @@ func startReading(reader pb.Talaria_ReadClient, wg *sync.WaitGroup) (chan []byte
 }
 
 func writeToReader(reader *mockReader, data []byte, idx uint64, err error) {
-	reader.ReadAtOutput.Ret0 <- &raftpb.Entry{Data: data}
+	reader.ReadAtOutput.Ret0 <- data
 	reader.ReadAtOutput.Ret1 <- idx
 	reader.ReadAtOutput.Ret2 <- err
 }

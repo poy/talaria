@@ -14,7 +14,7 @@ import (
 type TT struct {
 	*testing.T
 	d              *ringbuffer.RingBuffer
-	valueA, valueB *raftpb.Entry
+	valueA, valueB raftpb.Entry
 }
 
 func TestRingBufferWrite(t *testing.T) {
@@ -26,10 +26,10 @@ func TestRingBufferWrite(t *testing.T) {
 	o.BeforeEach(func(t *testing.T) TT {
 		d := ringbuffer.New(5)
 
-		valueA := &raftpb.Entry{
+		valueA := raftpb.Entry{
 			Data: []byte("some-value"),
 		}
-		valueB := &raftpb.Entry{
+		valueB := raftpb.Entry{
 			Data: []byte("some-other-value"),
 		}
 		d.Write(valueA)
@@ -58,10 +58,10 @@ func TestRingBufferReadAt(t *testing.T) {
 	o.BeforeEach(func(t *testing.T) TT {
 		d := ringbuffer.New(5)
 
-		valueA := &raftpb.Entry{
+		valueA := raftpb.Entry{
 			Data: []byte("some-value"),
 		}
-		valueB := &raftpb.Entry{
+		valueB := raftpb.Entry{
 			Data: []byte("some-other-value"),
 		}
 		d.Write(valueA)

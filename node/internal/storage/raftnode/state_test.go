@@ -1,5 +1,5 @@
 //go:generate hel
-package storage_test
+package raftnode_test
 
 import (
 	"testing"
@@ -7,8 +7,8 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/node/internal/storage"
 	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
+	"github.com/apoydence/talaria/node/internal/storage/raftnode"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
 )
@@ -16,7 +16,7 @@ import (
 type TRI struct {
 	*testing.T
 	ringBuffer  *ringbuffer.RingBuffer
-	raftStorage *storage.Raftifier
+	raftStorage *raftnode.State
 	hardState   raftpb.HardState
 	confState   raftpb.ConfState
 }
@@ -31,7 +31,7 @@ func TestRaftifyInitialState(t *testing.T) {
 		return TRI{
 			T:           t,
 			ringBuffer:  buffer,
-			raftStorage: storage.Raftify(buffer),
+			raftStorage: raftnode.NewState(buffer),
 		}
 	})
 
@@ -70,7 +70,7 @@ func TestRaftifyInitialState(t *testing.T) {
 type TRE struct {
 	*testing.T
 	ringBuffer  *ringbuffer.RingBuffer
-	raftStorage *storage.Raftifier
+	raftStorage *raftnode.State
 	entries     []raftpb.Entry
 }
 
@@ -84,7 +84,7 @@ func TestRaftifyEntries(t *testing.T) {
 		return TRE{
 			T:           t,
 			ringBuffer:  b,
-			raftStorage: storage.Raftify(b),
+			raftStorage: raftnode.NewState(b),
 		}
 	})
 
@@ -104,7 +104,7 @@ func TestRaftifyEntries(t *testing.T) {
 					Index: uint64(i),
 				}
 				t.entries = append(t.entries, entry)
-				t.raftStorage.WriteTo(&entry)
+				t.raftStorage.Write(entry)
 			}
 			return t
 		})
@@ -130,7 +130,7 @@ func TestRaftifyEntries(t *testing.T) {
 					Index: uint64(i),
 				}
 				t.entries = append(t.entries, entry)
-				t.raftStorage.WriteTo(&entry)
+				t.raftStorage.Write(entry)
 			}
 			return t
 		})
@@ -150,7 +150,7 @@ func TestRaftifyTerm(t *testing.T) {
 
 	o.BeforeEach(func(t *testing.T) TRE {
 		b := ringbuffer.New(5)
-		raftStorage := storage.Raftify(b)
+		raftStorage := raftnode.NewState(b)
 		var entries []raftpb.Entry
 
 		for i := 0; i < 8; i++ {
@@ -159,7 +159,7 @@ func TestRaftifyTerm(t *testing.T) {
 				Index: uint64(i),
 			}
 			entries = append(entries, entry)
-			raftStorage.WriteTo(&entry)
+			raftStorage.Write(entry)
 		}
 
 		return TRE{
@@ -183,9 +183,10 @@ func TestRaftifyTerm(t *testing.T) {
 	})
 
 	o.Group("when index is too high", func() {
-		o.Spec("it returns ErrCompacted", func(t TRE) {
-			_, err := t.raftStorage.Term(100)
-			Expect(t, err).To(Equal(raft.ErrUnavailable))
+		o.Spec("it returns term 0", func(t TRE) {
+			term, err := t.raftStorage.Term(100)
+			Expect(t, err == nil).To(BeTrue())
+			Expect(t, term).To(Equal(uint64(0)))
 		})
 	})
 }
@@ -197,17 +198,7 @@ func TestRaftifyLastIndex(t *testing.T) {
 
 	o.BeforeEach(func(t *testing.T) TRE {
 		b := ringbuffer.New(5)
-		raftStorage := storage.Raftify(b)
-		var entries []raftpb.Entry
-
-		for i := 0; i < 8; i++ {
-			entry := raftpb.Entry{
-				Term:  uint64(i),
-				Index: uint64(i),
-			}
-			entries = append(entries, entry)
-			raftStorage.WriteTo(&entry)
-		}
+		raftStorage := raftnode.NewState(b)
 
 		return TRE{
 			T:           t,
@@ -216,10 +207,32 @@ func TestRaftifyLastIndex(t *testing.T) {
 		}
 	})
 
-	o.Spec("it returns the last index", func(t TRE) {
+	o.Spec("it returns 0", func(t TRE) {
 		index, err := t.raftStorage.LastIndex()
 		Expect(t, err == nil).To(BeTrue())
-		Expect(t, index).To(Equal(uint64(7)))
+		Expect(t, index).To(Equal(uint64(0)))
+	})
+
+	o.Group("data has been added", func() {
+		o.BeforeEach(func(t TRE) TRE {
+			var entries []raftpb.Entry
+
+			for i := 0; i < 8; i++ {
+				entry := raftpb.Entry{
+					Term:  uint64(i),
+					Index: uint64(i),
+				}
+				entries = append(entries, entry)
+				t.raftStorage.Write(entry)
+			}
+			return t
+		})
+
+		o.Spec("it returns the last index", func(t TRE) {
+			index, err := t.raftStorage.LastIndex()
+			Expect(t, err == nil).To(BeTrue())
+			Expect(t, index).To(Equal(uint64(7)))
+		})
 	})
 }
 
@@ -230,17 +243,7 @@ func TestRaftifyFirstIndex(t *testing.T) {
 
 	o.BeforeEach(func(t *testing.T) TRE {
 		b := ringbuffer.New(5)
-		raftStorage := storage.Raftify(b)
-		var entries []raftpb.Entry
-
-		for i := 0; i < 8; i++ {
-			entry := raftpb.Entry{
-				Term:  uint64(i),
-				Index: uint64(i),
-			}
-			entries = append(entries, entry)
-			raftStorage.WriteTo(&entry)
-		}
+		raftStorage := raftnode.NewState(b)
 
 		return TRE{
 			T:           t,
@@ -249,11 +252,53 @@ func TestRaftifyFirstIndex(t *testing.T) {
 		}
 	})
 
-	o.Spec("it returns the first index", func(t TRE) {
+	o.Spec("it returns the 1 for the index", func(t TRE) {
 		index, err := t.raftStorage.FirstIndex()
 		Expect(t, err == nil).To(BeTrue())
+		Expect(t, index).To(Equal(uint64(1)))
+	})
 
-		// This is the last index that hasn't been overwritten
-		Expect(t, index).To(Equal(uint64(3)))
+	o.Group("data has been added", func() {
+		o.BeforeEach(func(t TRE) TRE {
+			var entries []raftpb.Entry
+
+			entry := raftpb.Entry{
+				Term:  uint64(0),
+				Index: uint64(0),
+			}
+			entries = append(entries, entry)
+			t.raftStorage.Write(entry)
+			return t
+		})
+
+		o.Spec("it returns the first index", func(t TRE) {
+			index, err := t.raftStorage.FirstIndex()
+			Expect(t, err == nil).To(BeTrue())
+			Expect(t, index).To(Equal(uint64(1)))
+		})
+	})
+
+	o.Group("buffer has wrapped", func() {
+		o.BeforeEach(func(t TRE) TRE {
+			var entries []raftpb.Entry
+
+			for i := 0; i < 8; i++ {
+				entry := raftpb.Entry{
+					Term:  uint64(i),
+					Index: uint64(i),
+				}
+				entries = append(entries, entry)
+				t.raftStorage.Write(entry)
+			}
+			return t
+		})
+
+		o.Spec("it returns the first index", func(t TRE) {
+			index, err := t.raftStorage.FirstIndex()
+			Expect(t, err == nil).To(BeTrue())
+
+			// This is the last index that hasn't been overwritten plus 1
+			Expect(t, index).To(Equal(uint64(4)))
+		})
 	})
 }

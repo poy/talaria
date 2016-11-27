@@ -12,7 +12,7 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/node/internal/intraserver"
+	"github.com/apoydence/talaria/node/internal/storage/intraserver"
 	"github.com/apoydence/talaria/pb/intra"
 )
 

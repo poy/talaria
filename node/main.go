@@ -6,9 +6,9 @@ import (
 	"net"
 
 	"github.com/apoydence/talaria/node/config"
-	"github.com/apoydence/talaria/node/internal/intraserver"
 	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/node/internal/storage"
+	"github.com/apoydence/talaria/node/internal/storage/intraserver"
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
 	"google.golang.org/grpc"

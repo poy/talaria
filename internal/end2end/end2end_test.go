@@ -108,18 +108,12 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 			writeTo(t.bufferInfo.Name, []byte("some-data-1"), writer)
 			writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 
-			data, indexes := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
 			Expect(t, data).To(ViaPolling(
 				Chain(Receive(), Equal([]byte("some-data-1"))),
 			))
-			Expect(t, indexes).To(ViaPolling(
-				Chain(Receive(), Equal(uint64(0))),
-			))
 			Expect(t, data).To(ViaPolling(
 				Chain(Receive(), Equal([]byte("some-data-2"))),
-			))
-			Expect(t, indexes).To(ViaPolling(
-				Chain(Receive(), Equal(uint64(1))),
 			))
 		})
 
@@ -148,11 +142,8 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 				writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 				writeTo(t.bufferInfo.Name, []byte("some-data-3"), writer)
 
-				data, indexes := fetchReaderWithIndex(t.bufferInfo.Name, 1, t.nodeClient)
+				data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 1, t.nodeClient)
 
-				Expect(t, indexes).To(ViaPolling(
-					Chain(Receive(), Equal(uint64(1))),
-				))
 				Expect(t, data).To(ViaPolling(
 					Chain(Receive(), Equal([]byte("some-data-2"))),
 				))
@@ -169,11 +160,8 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 				data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
 				Expect(t, data).To(ViaPolling(HaveLen(3)))
 
-				data, indexes := fetchReaderLastIndex(t.bufferInfo.Name, t.nodeClient)
+				data, _ = fetchReaderLastIndex(t.bufferInfo.Name, t.nodeClient)
 
-				Expect(t, indexes).To(ViaPolling(
-					Chain(Receive(), Equal(uint64(2))),
-				))
 				Expect(t, data).To(ViaPolling(
 					Chain(Receive(), Equal([]byte("some-data-3"))),
 				))

@@ -8,17 +8,17 @@ import (
 
 	"golang.org/x/net/context"
 
+	"github.com/apoydence/talaria/node/internal/storage/raftnode"
 	"github.com/apoydence/talaria/pb"
-	"github.com/coreos/etcd/raft/raftpb"
 )
 
 type Reader interface {
-	ReadAt(index uint64) (*raftpb.Entry, uint64, error)
+	ReadAt(index uint64) ([]byte, uint64, error)
 	LastIndex() uint64
 }
 
 type Writer interface {
-	WriteTo(data *raftpb.Entry) (uint64, error)
+	Propose(ctx context.Context, data []byte) error
 }
 
 type IOFetcher interface {
@@ -54,7 +54,7 @@ func (s *Server) Write(rx pb.Talaria_WriteServer) error {
 			return fmt.Errorf("unknown buffer: '%s'", packet.Name)
 		}
 
-		if _, err = writer.WriteTo(&raftpb.Entry{Data: packet.Message}); err != nil {
+		if err = writer.Propose(rx.Context(), packet.Message); err != nil {
 			log.Printf("error writing to buffer '%s': %s", packet.Name, err)
 			return err
 		}
@@ -88,14 +88,19 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error
 			continue
 		}
 
-		if err != nil {
+		if err != nil && err != raftnode.ErrMetaData {
 			log.Printf("failed to read from '%s': %s", buffer.Name, err)
 			return err
 		}
 		idx++
 
+		// We get empty data from raft that the user doesn't care about
+		if err == raftnode.ErrMetaData {
+			continue
+		}
+
 		err = sender.Send(&pb.ReadDataPacket{
-			Message: data.Data,
+			Message: data,
 			Index:   actualIdx,
 		})
 

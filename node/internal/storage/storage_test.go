@@ -8,7 +8,6 @@ import (
 	. "github.com/apoydence/onpar/matchers"
 	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/node/internal/storage"
-	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
 )
 
 type TT struct {
@@ -50,7 +49,6 @@ func TestStorageFetchReader(t *testing.T) {
 		o.Group("when Create() has been called twice for the same buffer", func() {
 			o.BeforeEach(func(t TT) TT {
 				readerA, _ := t.fetcher.FetchReader("some-buffer")
-				readerA.(*ringbuffer.RingBuffer).Size = 99
 				err := t.fetcher.Create("some-buffer")
 				Expect(t, err == nil).To(Equal(true))
 				t.readerA = readerA
