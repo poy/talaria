@@ -36,18 +36,21 @@ func BenchmarkSingleBufferWrite(b *testing.B) {
 	}
 	Expect(b, f).To(ViaPollingMatcher{
 		Matcher:  BeTrue(),
-		Duration: 5 * time.Second,
+		Duration: 1 * time.Second,
 	})
 
 	writer, err := nodeClient.Write(context.Background())
 	Expect(b, err == nil).To(BeTrue())
 	randomData := randomDataBuilder()
 
+	b.ResetTimer()
+
 	for i := 0; i < b.N; i++ {
-		writer.Send(&pb.WriteDataPacket{
+		err := writer.Send(&pb.WriteDataPacket{
 			Name:    bufferInfo.Name,
 			Message: randomData(),
 		})
+		Expect(b, err == nil).To(BeTrue())
 	}
 }
 
@@ -86,15 +89,20 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 
 	go func(n int) {
 		for i := 0; i < n; i++ {
-			writer.Send(&pb.WriteDataPacket{
+			err := writer.Send(&pb.WriteDataPacket{
 				Name:    bufferInfo.Name,
 				Message: randomData(),
 			})
+
+			if err != nil {
+				panic(err)
+			}
 		}
 	}(b.N)
 
 	for i := 0; i < b.N; i++ {
-		reader.Recv()
+		_, err := reader.Recv()
+		Expect(b, err == nil).To(BeTrue())
 	}
 }
 
@@ -119,7 +127,7 @@ func BenchmarkCreatingBuffers(b *testing.B) {
 		}
 		Expect(b, f).To(ViaPollingMatcher{
 			Matcher:  BeTrue(),
-			Duration: 5 * time.Second,
+			Duration: 1 * time.Second,
 		})
 	}
 }
@@ -162,6 +170,8 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 		clients = append(clients, nodeClient)
 	}
 
+	b.ResetTimer()
+
 	var wg sync.WaitGroup
 	for i, fi := range bufferInfos {
 		wg.Add(2)
@@ -174,10 +184,14 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 			Expect(b, err == nil).To(BeTrue())
 
 			for i := 0; i < n; i++ {
-				writer.Send(&pb.WriteDataPacket{
+				data := randomData()
+				err := writer.Send(&pb.WriteDataPacket{
 					Name:    info.Name,
-					Message: randomData(),
+					Message: data,
 				})
+				if err != nil {
+					panic(err)
+				}
 			}
 
 		}(clients[i], fi, b.N)
@@ -212,11 +226,12 @@ func randomDataBuilder() func() []byte {
 	}
 
 	return func() []byte {
-		result := make([]byte, 0, rand.Intn(3))
+		result := make([]byte, 0, rand.Intn(2)+1)
 		c := cap(result)
 		for i := 0; i < c; i++ {
 			result = append(result, segments[rand.Intn(len(segments))]...)
 		}
+
 		return result
 	}
 }

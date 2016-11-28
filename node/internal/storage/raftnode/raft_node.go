@@ -34,6 +34,7 @@ func Start(storage Storage) *RaftNode {
 		Storage:         storage,
 		MaxSizePerMsg:   1024 * 1024,
 		MaxInflightMsgs: 256,
+		Logger:          newLogger(),
 	}
 
 	rn := raft.StartNode(c, []raft.Peer{{ID: 0x1}})
@@ -52,7 +53,9 @@ func Start(storage Storage) *RaftNode {
 }
 
 func (r *RaftNode) Propose(ctx context.Context, data []byte) error {
-	return r.node.Propose(ctx, data)
+	d := make([]byte, len(data))
+	copy(d, data)
+	return r.node.Propose(ctx, d)
 }
 
 func (r *RaftNode) ReadAt(index uint64) ([]byte, uint64, error) {

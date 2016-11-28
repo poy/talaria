@@ -2,6 +2,7 @@ package end2end_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"log"
 	"math/rand"
 	"os"
@@ -43,6 +44,10 @@ func setup() []*os.Process {
 }
 
 func TestMain(m *testing.M) {
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+
 	ps := setup()
 
 	code := m.Run()
