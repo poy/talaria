@@ -39,6 +39,8 @@ func BenchmarkSingleBufferWrite(b *testing.B) {
 		Duration: 5 * time.Second,
 	})
 
+	b.ResetTimer()
+
 	writer, err := nodeClient.Write(context.Background())
 	Expect(b, err == nil).To(BeTrue())
 	randomData := randomDataBuilder()
@@ -92,6 +94,8 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 			})
 		}
 	}(b.N)
+
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		reader.Recv()
@@ -161,6 +165,8 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 		createInfos = append(createInfos, createInfo)
 		clients = append(clients, nodeClient)
 	}
+
+	b.ResetTimer()
 
 	var wg sync.WaitGroup
 	for i, fi := range bufferInfos {
