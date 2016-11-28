@@ -39,6 +39,8 @@ func BenchmarkSingleBufferWrite(b *testing.B) {
 		Duration: 1 * time.Second,
 	})
 
+	b.ResetTimer()
+
 	writer, err := nodeClient.Write(context.Background())
 	Expect(b, err == nil).To(BeTrue())
 	randomData := randomDataBuilder()
@@ -99,6 +101,8 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 			}
 		}
 	}(b.N)
+
+	b.ResetTimer()
 
 	for i := 0; i < b.N; i++ {
 		_, err := reader.Recv()
