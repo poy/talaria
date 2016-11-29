@@ -3,6 +3,7 @@ package server
 import (
 	"fmt"
 	"log"
+	"math/rand"
 
 	"golang.org/x/net/context"
 
@@ -11,7 +12,7 @@ import (
 )
 
 type NodeFetcher interface {
-	FetchNode() (client intra.NodeClient, URI string)
+	FetchNodes() (client []intra.NodeClient)
 }
 
 type Server struct {
@@ -34,17 +35,30 @@ func (s *Server) retryableCreate(ctx context.Context, info *intra.CreateInfo, co
 		return nil, err
 	}
 
-	node, URI := s.fetcher.FetchNode()
-	if node == nil {
+	nodes := s.fetcher.FetchNodes()
+	if len(nodes) == 0 {
 		return nil, fmt.Errorf("No nodes available")
 	}
 
-	if _, err = node.Create(ctx, info); err != nil {
-		log.Printf("Error scheduling %s", info.Name)
-		return s.retryableCreate(ctx, info, count+1, err)
+	for _, node := range nodes {
+		if _, err = node.Create(ctx, info); err != nil {
+			log.Printf("Error scheduling %s", info.Name)
+			return s.retryableCreate(ctx, info, count+1, err)
+		}
 	}
 
-	return &pb.CreateResponse{
-		Uri: URI,
-	}, nil
+	seed := rand.Intn(1000)
+	for i := range nodes {
+		leaderInfo, err := nodes[(i+seed)%len(nodes)].Leader(ctx, &intra.LeaderRequest{})
+		if err != nil {
+			log.Printf("Error fetching leader information: %s", err)
+			continue
+		}
+
+		return &pb.CreateResponse{
+			Uri: leaderInfo.Peer.Uri,
+		}, nil
+	}
+
+	return nil, fmt.Errorf("unable to fetch the leader")
 }

@@ -14,11 +14,20 @@ import (
 type mockIntraServer struct {
 	CreateCalled chan bool
 	CreateInput  struct {
-		Arg0 chan context.Context
-		Arg1 chan *intra.CreateInfo
+		Ctx chan context.Context
+		In  chan *intra.CreateInfo
 	}
 	CreateOutput struct {
 		Ret0 chan *intra.CreateResponse
+		Ret1 chan error
+	}
+	LeaderCalled chan bool
+	LeaderInput  struct {
+		Ctx chan context.Context
+		In  chan *intra.LeaderRequest
+	}
+	LeaderOutput struct {
+		Ret0 chan *intra.LeaderInfo
 		Ret1 chan error
 	}
 }
@@ -26,15 +35,26 @@ type mockIntraServer struct {
 func newMockIntraServer() *mockIntraServer {
 	m := &mockIntraServer{}
 	m.CreateCalled = make(chan bool, 100)
-	m.CreateInput.Arg0 = make(chan context.Context, 100)
-	m.CreateInput.Arg1 = make(chan *intra.CreateInfo, 100)
+	m.CreateInput.Ctx = make(chan context.Context, 100)
+	m.CreateInput.In = make(chan *intra.CreateInfo, 100)
 	m.CreateOutput.Ret0 = make(chan *intra.CreateResponse, 100)
 	m.CreateOutput.Ret1 = make(chan error, 100)
+	m.LeaderCalled = make(chan bool, 100)
+	m.LeaderInput.Ctx = make(chan context.Context, 100)
+	m.LeaderInput.In = make(chan *intra.LeaderRequest, 100)
+	m.LeaderOutput.Ret0 = make(chan *intra.LeaderInfo, 100)
+	m.LeaderOutput.Ret1 = make(chan error, 100)
 	return m
 }
-func (m *mockIntraServer) Create(arg0 context.Context, arg1 *intra.CreateInfo) (*intra.CreateResponse, error) {
+func (m *mockIntraServer) Create(ctx context.Context, in *intra.CreateInfo) (*intra.CreateResponse, error) {
 	m.CreateCalled <- true
-	m.CreateInput.Arg0 <- arg0
-	m.CreateInput.Arg1 <- arg1
+	m.CreateInput.Ctx <- ctx
+	m.CreateInput.In <- in
 	return <-m.CreateOutput.Ret0, <-m.CreateOutput.Ret1
+}
+func (m *mockIntraServer) Leader(ctx context.Context, in *intra.LeaderRequest) (*intra.LeaderInfo, error) {
+	m.LeaderCalled <- true
+	m.LeaderInput.Ctx <- ctx
+	m.LeaderInput.In <- in
+	return <-m.LeaderOutput.Ret0, <-m.LeaderOutput.Ret1
 }

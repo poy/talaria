@@ -36,7 +36,7 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 		var serverURIs []string
 		var mockNodes []*mockNode
 
-		for i := 0; i < 3; i++ {
+		for i := 0; i < 10; i++ {
 			URI, m := startGRPCServer()
 			serverURIs = append(serverURIs, URI)
 			mockNodes = append(mockNodes, m)
@@ -51,13 +51,19 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 		}
 	})
 
-	o.Spec("selects a random node each time", func(t TT) {
-		m := make(map[string]int)
+	o.Spec("selects 3 nodes", func(t TT) {
+		nodes := t.nodeFetcher.FetchNodes()
+		Expect(t, nodes).To(HaveLen(3))
+	})
+
+	o.Spec("selects random nodes each time", func(t TT) {
 		for i := 0; i < 100; i++ {
-			node, URI := t.nodeFetcher.FetchNode()
-			Expect(t, node == nil).To(BeFalse())
-			node.Create(context.Background(), t.createInfo)
-			m[URI]++
+			nodes := t.nodeFetcher.FetchNodes()
+			Expect(t, nodes).To(HaveLen(3))
+
+			for _, node := range nodes {
+				node.Create(context.Background(), t.createInfo)
+			}
 		}
 
 		Expect(t, float64(len(t.mockNodes[0].c))).To(Chain(
@@ -69,14 +75,6 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 			BeAbove(float64(len(t.mockNodes[2].c))-20),
 			BeBelow(float64(len(t.mockNodes[2].c))+20),
 		))
-
-		Expect(t, m).To(HaveLen(len(t.serverURIs)))
-		for _, URI := range t.serverURIs {
-			Expect(t, float64(m[URI])).To(Chain(
-				BeAbove(float64(100/len(t.serverURIs)-20)),
-				BeBelow(float64(100/len(t.serverURIs)+20)),
-			))
-		}
 	})
 
 }
@@ -88,8 +86,8 @@ func TestNodeFetcherNodesAreNotConfigured(t *testing.T) {
 
 	o.Spec("returns nil", func(t *testing.T) {
 		nodeFetcher := nodefetcher.New(nil)
-		node, _ := nodeFetcher.FetchNode()
-		Expect(t, node == nil).To(BeTrue())
+		nodes := nodeFetcher.FetchNodes()
+		Expect(t, nodes).To(HaveLen(0))
 	})
 }
 
@@ -100,6 +98,10 @@ type mockNode struct {
 func (m *mockNode) Create(ctx context.Context, info *intra.CreateInfo) (*intra.CreateResponse, error) {
 	m.c <- true
 	return new(intra.CreateResponse), nil
+}
+
+func (m *mockNode) Leader(ctx context.Context, req *intra.LeaderRequest) (*intra.LeaderInfo, error) {
+	return nil, nil
 }
 
 func startGRPCServer() (string, *mockNode) {

@@ -38,12 +38,15 @@ func New(URIs []string) *NodeFetcher {
 	}
 }
 
-func (f *NodeFetcher) FetchNode() (intra.NodeClient, string) {
-	if len(f.clients) == 0 {
-		return nil, ""
+func (f *NodeFetcher) FetchNodes() []intra.NodeClient {
+	if len(f.clients) < 3 {
+		return nil
 	}
 
-	info := f.clients[rand.Intn(len(f.clients))]
+	var infos []intra.NodeClient
+	for _, p := range rand.Perm(3) {
+		infos = append(infos, f.clients[p].client)
+	}
 
-	return info.client, info.URI
+	return infos
 }

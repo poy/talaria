@@ -7,6 +7,7 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -26,10 +27,12 @@ import (
 type TT struct {
 	*testing.T
 	createInfo       *pb.CreateInfo
+	leaderInfo       *intra.LeaderInfo
+	leaderRequest    *intra.LeaderRequest
 	schedulerProcess *os.Process
 	schedulerClient  pb.SchedulerClient
-	intraPort        int
-	mockServer       *mockIntraServer
+	intraPorts       []int
+	mockServers      []*mockIntraServer
 	closer           io.Closer
 }
 
@@ -43,21 +46,39 @@ func TestSchedulerEnd2End(t *testing.T) {
 			Name: createName(),
 		}
 
-		intraPort, mockServer := startMockIntraServer()
-		schedulerPort, schedulerProcess := startScheduler(intraPort)
+		leaderRequest := &intra.LeaderRequest{
+			Name: createInfo.Name,
+		}
+
+		leaderInfo := &intra.LeaderInfo{
+			Peer: &intra.PeerInfo{
+				Uri: "some-uri",
+				Id:  99,
+			},
+		}
+
+		intraPorts, mockServers := startMockIntraServer(3)
+		schedulerPort, schedulerProcess := startScheduler(intraPorts...)
 
 		schedulerClient, closer := connectToScheduler(schedulerPort)
 
-		testhelpers.AlwaysReturn(mockServer.CreateOutput.Ret0, new(intra.CreateResponse))
-		close(mockServer.CreateOutput.Ret1)
+		for _, mockServer := range mockServers {
+			testhelpers.AlwaysReturn(mockServer.CreateOutput.Ret0, new(intra.CreateResponse))
+			close(mockServer.CreateOutput.Ret1)
+
+			mockServer.LeaderOutput.Ret0 <- leaderInfo
+			close(mockServer.LeaderOutput.Ret1)
+		}
 
 		return TT{
 			T:                t,
 			createInfo:       createInfo,
+			leaderInfo:       leaderInfo,
+			leaderRequest:    leaderRequest,
 			schedulerProcess: schedulerProcess,
 			schedulerClient:  schedulerClient,
-			intraPort:        intraPort,
-			mockServer:       mockServer,
+			intraPorts:       intraPorts,
+			mockServers:      mockServers,
 			closer:           closer,
 		}
 	})
@@ -68,7 +89,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 		t.schedulerProcess.Wait()
 	})
 
-	o.Spec("it selects Node to create buffer via intra API", func(t TT) {
+	o.Spec("it selects 3 Nodes to create a buffer via intra API", func(t TT) {
 		var resp *pb.CreateResponse
 		f := func() bool {
 			var err error
@@ -77,14 +98,16 @@ func TestSchedulerEnd2End(t *testing.T) {
 		}
 
 		Expect(t, f).To(ViaPolling(BeTrue()))
+		Expect(t, resp.Uri).To(Equal(t.leaderInfo.Peer.Uri))
+
 		expected := &intra.CreateInfo{
 			Name: t.createInfo.Name,
 		}
-
-		Expect(t, resp.Uri).To(Equal(fmt.Sprintf("localhost:%d", t.intraPort)))
-		Expect(t, t.mockServer.CreateInput.Arg1).To(ViaPolling(
-			Chain(Receive(), Equal(expected)),
-		))
+		for _, mockServer := range t.mockServers {
+			Expect(t, mockServer.CreateInput.In).To(ViaPolling(
+				Chain(Receive(), Equal(expected)),
+			))
+		}
 	})
 }
 
@@ -101,7 +124,7 @@ func connectToScheduler(schedulerPort int) (pb.SchedulerClient, io.Closer) {
 	return pb.NewSchedulerClient(clientConn), clientConn
 }
 
-func startScheduler(intraPort int) (int, *os.Process) {
+func startScheduler(intraPorts ...int) (int, *os.Process) {
 	schedulerPort := end2end.AvailablePort()
 
 	path, err := gexec.Build("github.com/apoydence/talaria/scheduler")
@@ -111,7 +134,7 @@ func startScheduler(intraPort int) (int, *os.Process) {
 	command := exec.Command(path)
 	command.Env = []string{
 		fmt.Sprintf("PORT=%d", schedulerPort),
-		fmt.Sprintf("NODES=localhost:%d", intraPort),
+		fmt.Sprintf("NODES=%s", buildNodeURIs(intraPorts)),
 	}
 
 	if err := command.Start(); err != nil {
@@ -121,19 +144,37 @@ func startScheduler(intraPort int) (int, *os.Process) {
 	return schedulerPort, command.Process
 }
 
-func startMockIntraServer() (int, *mockIntraServer) {
-	intraPort := end2end.AvailablePort()
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", intraPort))
-	if err != nil {
-		panic(err)
+func startMockIntraServer(count int) ([]int, []*mockIntraServer) {
+	var (
+		ports       []int
+		mockServers []*mockIntraServer
+	)
+
+	for i := 0; i < count; i++ {
+		intraPort := end2end.AvailablePort()
+		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", intraPort))
+		if err != nil {
+			panic(err)
+		}
+
+		mockServer := newMockIntraServer()
+
+		grpcServer := grpc.NewServer()
+
+		intra.RegisterNodeServer(grpcServer, mockServer)
+		go grpcServer.Serve(lis)
+
+		ports = append(ports, intraPort)
+		mockServers = append(mockServers, mockServer)
 	}
 
-	mockServer := newMockIntraServer()
+	return ports, mockServers
+}
 
-	grpcServer := grpc.NewServer()
-
-	intra.RegisterNodeServer(grpcServer, mockServer)
-	go grpcServer.Serve(lis)
-
-	return intraPort, mockServer
+func buildNodeURIs(ports []int) string {
+	var URIs []string
+	for _, port := range ports {
+		URIs = append(URIs, fmt.Sprintf("localhost:%d", port))
+	}
+	return strings.Join(URIs, ",")
 }

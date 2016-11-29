@@ -11,6 +11,9 @@ It is generated from these files:
 It has these top-level messages:
 	CreateInfo
 	CreateResponse
+	PeerInfo
+	LeaderRequest
+	LeaderInfo
 */
 package intra
 
@@ -35,13 +38,22 @@ var _ = math.Inf
 const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
 
 type CreateInfo struct {
-	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Name  string      `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+	Id    uint64      `protobuf:"varint,2,opt,name=id" json:"id,omitempty"`
+	Peers []*PeerInfo `protobuf:"bytes,3,rep,name=peers" json:"peers,omitempty"`
 }
 
 func (m *CreateInfo) Reset()                    { *m = CreateInfo{} }
 func (m *CreateInfo) String() string            { return proto.CompactTextString(m) }
 func (*CreateInfo) ProtoMessage()               {}
 func (*CreateInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+
+func (m *CreateInfo) GetPeers() []*PeerInfo {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
 
 type CreateResponse struct {
 }
@@ -51,9 +63,47 @@ func (m *CreateResponse) String() string            { return proto.CompactTextSt
 func (*CreateResponse) ProtoMessage()               {}
 func (*CreateResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
 
+type PeerInfo struct {
+	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
+	Id  uint64 `protobuf:"varint,2,opt,name=id" json:"id,omitempty"`
+}
+
+func (m *PeerInfo) Reset()                    { *m = PeerInfo{} }
+func (m *PeerInfo) String() string            { return proto.CompactTextString(m) }
+func (*PeerInfo) ProtoMessage()               {}
+func (*PeerInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+
+type LeaderRequest struct {
+	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
+}
+
+func (m *LeaderRequest) Reset()                    { *m = LeaderRequest{} }
+func (m *LeaderRequest) String() string            { return proto.CompactTextString(m) }
+func (*LeaderRequest) ProtoMessage()               {}
+func (*LeaderRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+
+type LeaderInfo struct {
+	Peer *PeerInfo `protobuf:"bytes,1,opt,name=peer" json:"peer,omitempty"`
+}
+
+func (m *LeaderInfo) Reset()                    { *m = LeaderInfo{} }
+func (m *LeaderInfo) String() string            { return proto.CompactTextString(m) }
+func (*LeaderInfo) ProtoMessage()               {}
+func (*LeaderInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+func (m *LeaderInfo) GetPeer() *PeerInfo {
+	if m != nil {
+		return m.Peer
+	}
+	return nil
+}
+
 func init() {
 	proto.RegisterType((*CreateInfo)(nil), "intra.CreateInfo")
 	proto.RegisterType((*CreateResponse)(nil), "intra.CreateResponse")
+	proto.RegisterType((*PeerInfo)(nil), "intra.PeerInfo")
+	proto.RegisterType((*LeaderRequest)(nil), "intra.LeaderRequest")
+	proto.RegisterType((*LeaderInfo)(nil), "intra.LeaderInfo")
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -68,6 +118,7 @@ const _ = grpc.SupportPackageIsVersion3
 
 type NodeClient interface {
 	Create(ctx context.Context, in *CreateInfo, opts ...grpc.CallOption) (*CreateResponse, error)
+	Leader(ctx context.Context, in *LeaderRequest, opts ...grpc.CallOption) (*LeaderInfo, error)
 }
 
 type nodeClient struct {
@@ -87,10 +138,20 @@ func (c *nodeClient) Create(ctx context.Context, in *CreateInfo, opts ...grpc.Ca
 	return out, nil
 }
 
+func (c *nodeClient) Leader(ctx context.Context, in *LeaderRequest, opts ...grpc.CallOption) (*LeaderInfo, error) {
+	out := new(LeaderInfo)
+	err := grpc.Invoke(ctx, "/intra.Node/Leader", in, out, c.cc, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // Server API for Node service
 
 type NodeServer interface {
 	Create(context.Context, *CreateInfo) (*CreateResponse, error)
+	Leader(context.Context, *LeaderRequest) (*LeaderInfo, error)
 }
 
 func RegisterNodeServer(s *grpc.Server, srv NodeServer) {
@@ -115,6 +176,24 @@ func _Node_Create_Handler(srv interface{}, ctx context.Context, dec func(interfa
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Node_Leader_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(LeaderRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(NodeServer).Leader(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/intra.Node/Leader",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(NodeServer).Leader(ctx, req.(*LeaderRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Node_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "intra.Node",
 	HandlerType: (*NodeServer)(nil),
@@ -122,6 +201,10 @@ var _Node_serviceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "Create",
 			Handler:    _Node_Create_Handler,
+		},
+		{
+			MethodName: "Leader",
+			Handler:    _Node_Leader_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
@@ -131,13 +214,20 @@ var _Node_serviceDesc = grpc.ServiceDesc{
 func init() { proto.RegisterFile("intra.proto", fileDescriptor0) }
 
 var fileDescriptor0 = []byte{
-	// 120 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0xe2, 0xe2, 0xce, 0xcc, 0x2b, 0x29,
-	0x4a, 0xd4, 0x2b, 0x28, 0xca, 0x2f, 0xc9, 0x17, 0x62, 0x05, 0x73, 0x94, 0x14, 0xb8, 0xb8, 0x9c,
-	0x8b, 0x52, 0x13, 0x4b, 0x52, 0x3d, 0xf3, 0xd2, 0xf2, 0x85, 0x84, 0xb8, 0x58, 0xf2, 0x12, 0x73,
-	0x53, 0x25, 0x18, 0x15, 0x18, 0x35, 0x38, 0x83, 0xc0, 0x6c, 0x25, 0x01, 0x2e, 0x3e, 0x88, 0x8a,
-	0xa0, 0xd4, 0xe2, 0x82, 0xfc, 0xbc, 0xe2, 0x54, 0x23, 0x1b, 0x2e, 0x16, 0xbf, 0xfc, 0x94, 0x54,
-	0x21, 0x13, 0x2e, 0x36, 0x88, 0x8c, 0x90, 0xa0, 0x1e, 0xc4, 0x68, 0x84, 0x51, 0x52, 0xa2, 0x28,
-	0x42, 0x30, 0xbd, 0x4a, 0x0c, 0x49, 0x6c, 0x60, 0xfb, 0x8d, 0x01, 0x01, 0x00, 0x00, 0xff, 0xff,
-	0x5b, 0x0f, 0x86, 0xfc, 0x8e, 0x00, 0x00, 0x00,
+	// 236 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x6c, 0x90, 0x4f, 0x4b, 0x03, 0x31,
+	0x10, 0xc5, 0xbb, 0x7f, 0xba, 0xe8, 0x2b, 0xd6, 0x76, 0x50, 0x58, 0x7a, 0x5a, 0x52, 0x84, 0x3d,
+	0x48, 0xc1, 0xd6, 0x6f, 0xe0, 0x49, 0x10, 0x91, 0x5c, 0x3c, 0xaf, 0xec, 0x08, 0x39, 0x98, 0x6c,
+	0x93, 0xf4, 0xfb, 0x4b, 0x92, 0x55, 0x59, 0xe9, 0x6d, 0x32, 0xf3, 0xf8, 0xbd, 0x97, 0x87, 0x85,
+	0xd2, 0xde, 0x76, 0xbb, 0xc1, 0x1a, 0x6f, 0x68, 0x1e, 0x1f, 0xe2, 0x1d, 0x78, 0xb2, 0xdc, 0x79,
+	0x7e, 0xd6, 0x9f, 0x86, 0x08, 0xa5, 0xee, 0xbe, 0xb8, 0xce, 0x9a, 0xac, 0xbd, 0x94, 0x71, 0xa6,
+	0x25, 0x72, 0xd5, 0xd7, 0x79, 0x93, 0xb5, 0xa5, 0xcc, 0x55, 0x4f, 0x77, 0x98, 0x0f, 0xcc, 0xd6,
+	0xd5, 0x45, 0x53, 0xb4, 0x8b, 0xfd, 0xf5, 0x2e, 0x51, 0xdf, 0x98, 0x6d, 0x60, 0xc8, 0x74, 0x15,
+	0x2b, 0x2c, 0x13, 0x58, 0xb2, 0x1b, 0x8c, 0x76, 0x2c, 0xee, 0x71, 0xf1, 0x23, 0xa2, 0x15, 0x8a,
+	0x93, 0x55, 0xa3, 0x4f, 0x18, 0xff, 0xdb, 0x88, 0x2d, 0xae, 0x5e, 0xb8, 0xeb, 0xd9, 0x4a, 0x3e,
+	0x9e, 0xd8, 0xf9, 0x73, 0xd9, 0xc4, 0x03, 0x90, 0x44, 0x11, 0xba, 0x45, 0x19, 0xbc, 0xa3, 0xe2,
+	0x4c, 0xb0, 0x78, 0xdc, 0x1f, 0x51, 0xbe, 0x9a, 0x9e, 0xe9, 0x11, 0x55, 0xca, 0x47, 0xeb, 0x51,
+	0xf8, 0xd7, 0xc3, 0xe6, 0x76, 0xb2, 0xfa, 0xfd, 0xc1, 0x8c, 0x0e, 0xa8, 0x92, 0x21, 0xdd, 0x8c,
+	0x92, 0x49, 0xc8, 0xcd, 0x7a, 0xb2, 0x0d, 0x2c, 0x31, 0xfb, 0xa8, 0x62, 0xe3, 0x87, 0xef, 0x00,
+	0x00, 0x00, 0xff, 0xff, 0x62, 0x43, 0x5b, 0x67, 0x80, 0x01, 0x00, 0x00,
 }

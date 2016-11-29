@@ -6,30 +6,12 @@
 package server_test
 
 import (
+	"time"
+
 	"github.com/apoydence/talaria/pb/intra"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
-
-type mockNodeFetcher struct {
-	FetchNodeCalled chan bool
-	FetchNodeOutput struct {
-		Client chan intra.NodeClient
-		URI    chan string
-	}
-}
-
-func newMockNodeFetcher() *mockNodeFetcher {
-	m := &mockNodeFetcher{}
-	m.FetchNodeCalled = make(chan bool, 100)
-	m.FetchNodeOutput.Client = make(chan intra.NodeClient, 100)
-	m.FetchNodeOutput.URI = make(chan string, 100)
-	return m
-}
-func (m *mockNodeFetcher) FetchNode() (client intra.NodeClient, URI string) {
-	m.FetchNodeCalled <- true
-	return <-m.FetchNodeOutput.Client, <-m.FetchNodeOutput.URI
-}
 
 type mockNodeClient struct {
 	CreateCalled chan bool
@@ -42,6 +24,16 @@ type mockNodeClient struct {
 		Ret0 chan *intra.CreateResponse
 		Ret1 chan error
 	}
+	LeaderCalled chan bool
+	LeaderInput  struct {
+		Ctx  chan context.Context
+		In   chan *intra.LeaderRequest
+		Opts chan []grpc.CallOption
+	}
+	LeaderOutput struct {
+		Ret0 chan *intra.LeaderInfo
+		Ret1 chan error
+	}
 }
 
 func newMockNodeClient() *mockNodeClient {
@@ -52,6 +44,12 @@ func newMockNodeClient() *mockNodeClient {
 	m.CreateInput.Opts = make(chan []grpc.CallOption, 100)
 	m.CreateOutput.Ret0 = make(chan *intra.CreateResponse, 100)
 	m.CreateOutput.Ret1 = make(chan error, 100)
+	m.LeaderCalled = make(chan bool, 100)
+	m.LeaderInput.Ctx = make(chan context.Context, 100)
+	m.LeaderInput.In = make(chan *intra.LeaderRequest, 100)
+	m.LeaderInput.Opts = make(chan []grpc.CallOption, 100)
+	m.LeaderOutput.Ret0 = make(chan *intra.LeaderInfo, 100)
+	m.LeaderOutput.Ret1 = make(chan error, 100)
 	return m
 }
 func (m *mockNodeClient) Create(ctx context.Context, in *intra.CreateInfo, opts ...grpc.CallOption) (*intra.CreateResponse, error) {
@@ -60,4 +58,84 @@ func (m *mockNodeClient) Create(ctx context.Context, in *intra.CreateInfo, opts 
 	m.CreateInput.In <- in
 	m.CreateInput.Opts <- opts
 	return <-m.CreateOutput.Ret0, <-m.CreateOutput.Ret1
+}
+func (m *mockNodeClient) Leader(ctx context.Context, in *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderInfo, error) {
+	m.LeaderCalled <- true
+	m.LeaderInput.Ctx <- ctx
+	m.LeaderInput.In <- in
+	m.LeaderInput.Opts <- opts
+	return <-m.LeaderOutput.Ret0, <-m.LeaderOutput.Ret1
+}
+
+type mockNodeFetcher struct {
+	FetchNodesCalled chan bool
+	FetchNodesOutput struct {
+		Client chan []intra.NodeClient
+	}
+}
+
+func newMockNodeFetcher() *mockNodeFetcher {
+	m := &mockNodeFetcher{}
+	m.FetchNodesCalled = make(chan bool, 100)
+	m.FetchNodesOutput.Client = make(chan []intra.NodeClient, 100)
+	return m
+}
+func (m *mockNodeFetcher) FetchNodes() (client []intra.NodeClient) {
+	m.FetchNodesCalled <- true
+	return <-m.FetchNodesOutput.Client
+}
+
+type mockContext struct {
+	DeadlineCalled chan bool
+	DeadlineOutput struct {
+		Deadline chan time.Time
+		Ok       chan bool
+	}
+	DoneCalled chan bool
+	DoneOutput struct {
+		Ret0 chan (<-chan struct{})
+	}
+	ErrCalled chan bool
+	ErrOutput struct {
+		Ret0 chan error
+	}
+	ValueCalled chan bool
+	ValueInput  struct {
+		Key chan interface{}
+	}
+	ValueOutput struct {
+		Ret0 chan interface{}
+	}
+}
+
+func newMockContext() *mockContext {
+	m := &mockContext{}
+	m.DeadlineCalled = make(chan bool, 100)
+	m.DeadlineOutput.Deadline = make(chan time.Time, 100)
+	m.DeadlineOutput.Ok = make(chan bool, 100)
+	m.DoneCalled = make(chan bool, 100)
+	m.DoneOutput.Ret0 = make(chan (<-chan struct{}), 100)
+	m.ErrCalled = make(chan bool, 100)
+	m.ErrOutput.Ret0 = make(chan error, 100)
+	m.ValueCalled = make(chan bool, 100)
+	m.ValueInput.Key = make(chan interface{}, 100)
+	m.ValueOutput.Ret0 = make(chan interface{}, 100)
+	return m
+}
+func (m *mockContext) Deadline() (deadline time.Time, ok bool) {
+	m.DeadlineCalled <- true
+	return <-m.DeadlineOutput.Deadline, <-m.DeadlineOutput.Ok
+}
+func (m *mockContext) Done() <-chan struct{} {
+	m.DoneCalled <- true
+	return <-m.DoneOutput.Ret0
+}
+func (m *mockContext) Err() error {
+	m.ErrCalled <- true
+	return <-m.ErrOutput.Ret0
+}
+func (m *mockContext) Value(key interface{}) interface{} {
+	m.ValueCalled <- true
+	m.ValueInput.Key <- key
+	return <-m.ValueOutput.Ret0
 }
