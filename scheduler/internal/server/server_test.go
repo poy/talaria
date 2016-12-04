@@ -24,7 +24,7 @@ type TT struct {
 	s               *server.Server
 }
 
-func TestServerNodesAvailable(t *testing.T) {
+func TestCreateServerNodesAvailable(t *testing.T) {
 	t.Parallel()
 	o := onpar.New()
 	defer o.Run(t)
@@ -40,8 +40,14 @@ func TestServerNodesAvailable(t *testing.T) {
 			Name: "some-name",
 		}
 
-		mockNodeFetcher.FetchNodesOutput.Client <- []intra.NodeClient{mockNodeClient, mockNodeClient, mockNodeClient}
-		mockNodeFetcher.FetchNodesOutput.Client <- []intra.NodeClient{mockNodeClient, mockNodeClient, mockNodeClient}
+		info := server.NodeInfo{
+			Client: mockNodeClient,
+			ID:     99,
+			URI:    "some-leader-uri",
+		}
+
+		mockNodeFetcher.FetchNodesOutput.Client <- []server.NodeInfo{info, info, info}
+		mockNodeFetcher.FetchNodesOutput.Client <- []server.NodeInfo{info, info, info}
 
 		return TT{
 			T:               t,
@@ -65,10 +71,13 @@ func TestServerNodesAvailable(t *testing.T) {
 		o.Group("when fetching the Leader does not return an error", func() {
 			o.BeforeEach(func(t TT) TT {
 				leaderInfo := &intra.LeaderInfo{
-					Peer: &intra.PeerInfo{
-						Uri: "some-leader-uri",
-						Id:  99,
-					},
+					Id: 99,
+				}
+
+				for i := 0; i < 3; i++ {
+					t.mockNodeClient.StatusOutput.Ret0 <- &intra.StatusResponse{
+						Id: 99,
+					}
 				}
 
 				t.mockNodeClient.LeaderOutput.Ret0 <- leaderInfo
@@ -110,10 +119,7 @@ func TestServerNodesAvailable(t *testing.T) {
 				t.mockNodeClient.LeaderOutput.Ret1 <- fmt.Errorf("some-error")
 
 				t.mockNodeClient.LeaderOutput.Ret0 <- &intra.LeaderInfo{
-					Peer: &intra.PeerInfo{
-						Uri: "some-leader-uri",
-						Id:  99,
-					},
+					Id: 99,
 				}
 				t.mockNodeClient.LeaderOutput.Ret1 <- nil
 				return t
@@ -150,10 +156,7 @@ func TestServerNodesAvailable(t *testing.T) {
 			close(t.mockNodeClient.CreateOutput.Ret1)
 
 			leaderInfo := &intra.LeaderInfo{
-				Peer: &intra.PeerInfo{
-					Uri: "some-leader-uri",
-					Id:  99,
-				},
+				Id: 99,
 			}
 
 			t.mockNodeClient.LeaderOutput.Ret0 <- leaderInfo
@@ -174,9 +177,15 @@ func TestServerNodesAvailable(t *testing.T) {
 
 	o.Group("when nodes always return an error", func() {
 		o.BeforeEach(func(t TT) TT {
+			info := server.NodeInfo{
+				Client: t.mockNodeClient,
+				ID:     99,
+				URI:    "some-leader-uri",
+			}
+
 			for i := 0; i < 10; i++ {
 				t.mockNodeClient.CreateOutput.Ret1 <- fmt.Errorf("some-error")
-				t.mockNodeFetcher.FetchNodesOutput.Client <- []intra.NodeClient{t.mockNodeClient}
+				t.mockNodeFetcher.FetchNodesOutput.Client <- []server.NodeInfo{info}
 			}
 
 			close(t.mockNodeFetcher.FetchNodesOutput.Client)
@@ -197,7 +206,7 @@ func TestServerNodesAvailable(t *testing.T) {
 	})
 }
 
-func TestServerNodesNotAvailable(t *testing.T) {
+func TestCreateServerNodesNotAvailable(t *testing.T) {
 	t.Parallel()
 	o := onpar.New()
 	defer o.Run(t)

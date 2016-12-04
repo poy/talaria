@@ -2,10 +2,14 @@ package raftnode
 
 import (
 	"errors"
+	"fmt"
+	"log"
+	"sync/atomic"
 	"time"
 
 	"golang.org/x/net/context"
 
+	"github.com/apoydence/talaria/pb/intra"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
 )
@@ -21,14 +25,22 @@ type Storage interface {
 	ReadAt(index uint64) (raftpb.Entry, uint64, error)
 }
 
-type RaftNode struct {
-	storage Storage
-	node    raft.Node
+type Network interface {
+	Recv() (raftpb.Message, error)
+	Emit(msgs []raftpb.Message)
 }
 
-func Start(storage Storage) *RaftNode {
+type RaftNode struct {
+	storage   Storage
+	node      raft.Node
+	leaderId  uint64
+	network   Network
+	networkRx chan raftpb.Message
+}
+
+func Start(ID uint64, storage Storage, network Network, peers []*intra.PeerInfo) *RaftNode {
 	c := &raft.Config{
-		ID:              0x1,
+		ID:              ID,
 		ElectionTick:    10,
 		HeartbeatTick:   1,
 		Storage:         storage,
@@ -37,17 +49,21 @@ func Start(storage Storage) *RaftNode {
 		Logger:          newLogger(),
 	}
 
-	rn := raft.StartNode(c, []raft.Peer{{ID: 0x1}})
+	ps := append(convertPeers(peers), raft.Peer{ID: ID})
+	rn := raft.StartNode(c, ps)
 
 	// TODO: Figure out why we HAVE to have a dummmy entry
 	storage.Write(raftpb.Entry{})
 
 	node := &RaftNode{
-		storage: storage,
-		node:    rn,
+		storage:   storage,
+		node:      rn,
+		network:   network,
+		networkRx: make(chan raftpb.Message),
 	}
 
 	go node.run()
+	go node.readNetwork()
 
 	return node
 }
@@ -71,7 +87,24 @@ func (r *RaftNode) ReadAt(index uint64) ([]byte, uint64, error) {
 	return entry.Data, seq, nil
 }
 
-func (r *RaftNode) LastIndex() uint64 { return 0 }
+func (r *RaftNode) LastIndex() uint64 {
+	idx, err := r.storage.LastIndex()
+	if err != nil {
+		log.Panic(err)
+	}
+
+	return idx
+}
+
+func (r *RaftNode) Leader() (uint64, error) {
+	state := r.node.Status().SoftState
+	l := atomic.LoadUint64(&state.Lead)
+	if l == 0 {
+		return 0, fmt.Errorf("no leader set")
+	}
+
+	return l, nil
+}
 
 func (r *RaftNode) run() {
 	ticker := time.NewTicker(5 * time.Millisecond).C
@@ -86,7 +119,32 @@ func (r *RaftNode) run() {
 			for _, entry := range rd.Entries {
 				r.storage.Write(entry)
 			}
+
+			r.network.Emit(rd.Messages)
 			r.node.Advance()
+
+		case m := <-r.networkRx:
+			go r.node.Step(context.Background(), m)
 		}
 	}
+}
+
+func (r *RaftNode) readNetwork() {
+	for {
+		msg, err := r.network.Recv()
+		if err != nil {
+			log.Printf("error reading from network: %s", err)
+			return
+		}
+		r.networkRx <- msg
+	}
+}
+
+func convertPeers(ps []*intra.PeerInfo) []raft.Peer {
+	var peers []raft.Peer
+	for _, p := range ps {
+		peers = append(peers, raft.Peer{ID: p.Id})
+	}
+
+	return peers
 }

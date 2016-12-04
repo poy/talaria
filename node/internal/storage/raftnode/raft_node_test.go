@@ -16,8 +16,9 @@ import (
 
 type TR struct {
 	*testing.T
-	storage *raftnode.State
-	node    *raftnode.RaftNode
+	storage     *raftnode.State
+	node        *raftnode.RaftNode
+	mockNetwork *mockNetwork
 }
 
 func TestRaftNodeStart(t *testing.T) {
@@ -27,10 +28,13 @@ func TestRaftNodeStart(t *testing.T) {
 
 	o.BeforeEach(func(t *testing.T) TR {
 		storage := raftnode.NewState(ringbuffer.New(50))
+		mockNetwork := newMockNetwork()
+
 		return TR{
-			T:       t,
-			storage: storage,
-			node:    raftnode.Start(storage),
+			T:           t,
+			storage:     storage,
+			node:        raftnode.Start(99, storage, mockNetwork, nil),
+			mockNetwork: mockNetwork,
 		}
 	})
 
@@ -60,6 +64,7 @@ func TestRaftNodeStart(t *testing.T) {
 		}
 		for i := 0; i < 5; i++ {
 			Expect(t, f).To(ViaPolling(Equal(fmt.Sprintf("some-data-%d", i))))
+			Expect(t, t.mockNetwork.EmitInput.Msgs).To(ViaPolling(Not(HaveLen(0))))
 		}
 	})
 }

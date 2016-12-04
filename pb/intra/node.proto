@@ -1,0 +1,56 @@
+syntax = "proto3";
+
+import "github.com/coreos/etcd/raft/raftpb/raft.proto";
+
+package intra;
+
+service Node{
+  rpc Create(CreateInfo) returns (CreateResponse) {}
+  rpc Leader(LeaderRequest) returns (LeaderInfo) {}
+  rpc Update(UpdateMessage) returns (UpdateResponse) {}
+  rpc Status(StatusRequest) returns (StatusResponse) {}
+}
+
+message CreateInfo {
+  string name = 1;
+  uint64 id = 2;
+  repeated PeerInfo peers = 3;
+}
+
+message CreateResponse {
+}
+
+message PeerInfo {
+  string uri = 1;
+  uint64 id = 2;
+}
+
+message LeaderRequest {
+  string name = 1;
+}
+
+message LeaderInfo {
+  uint64 id = 1;
+}
+
+message UpdateMessage{
+  string name = 1;
+  repeated raftpb.Message messages = 2;
+}
+
+message UpdateResponse {
+  enum Code {
+      Success = 0;
+      InvalidID = 1;
+      InvalidBuffer = 2;
+      RetryFailure = 3;
+  }
+  Code code = 1;
+}
+
+message StatusRequest {
+}
+
+message StatusResponse {
+  uint64 id = 1;
+}

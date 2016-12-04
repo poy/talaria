@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package intra;
+
+service Scheduler{
+  rpc FromID(FromIdRequest) returns (FromIdResponse) {}
+}
+
+message FromIdRequest {
+  uint64 id = 1;
+}
+
+message FromIdResponse {
+  string uri = 1;
+}

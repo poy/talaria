@@ -9,9 +9,28 @@ import (
 	"time"
 
 	"github.com/apoydence/talaria/pb/intra"
+	"github.com/apoydence/talaria/scheduler/internal/server"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
+
+type mockNodeFetcher struct {
+	FetchNodesCalled chan bool
+	FetchNodesOutput struct {
+		Client chan []server.NodeInfo
+	}
+}
+
+func newMockNodeFetcher() *mockNodeFetcher {
+	m := &mockNodeFetcher{}
+	m.FetchNodesCalled = make(chan bool, 100)
+	m.FetchNodesOutput.Client = make(chan []server.NodeInfo, 100)
+	return m
+}
+func (m *mockNodeFetcher) FetchNodes() (client []server.NodeInfo) {
+	m.FetchNodesCalled <- true
+	return <-m.FetchNodesOutput.Client
+}
 
 type mockNodeClient struct {
 	CreateCalled chan bool
@@ -34,6 +53,26 @@ type mockNodeClient struct {
 		Ret0 chan *intra.LeaderInfo
 		Ret1 chan error
 	}
+	UpdateCalled chan bool
+	UpdateInput  struct {
+		Ctx  chan context.Context
+		In   chan *intra.UpdateMessage
+		Opts chan []grpc.CallOption
+	}
+	UpdateOutput struct {
+		Ret0 chan *intra.UpdateResponse
+		Ret1 chan error
+	}
+	StatusCalled chan bool
+	StatusInput  struct {
+		Ctx  chan context.Context
+		In   chan *intra.StatusRequest
+		Opts chan []grpc.CallOption
+	}
+	StatusOutput struct {
+		Ret0 chan *intra.StatusResponse
+		Ret1 chan error
+	}
 }
 
 func newMockNodeClient() *mockNodeClient {
@@ -50,6 +89,18 @@ func newMockNodeClient() *mockNodeClient {
 	m.LeaderInput.Opts = make(chan []grpc.CallOption, 100)
 	m.LeaderOutput.Ret0 = make(chan *intra.LeaderInfo, 100)
 	m.LeaderOutput.Ret1 = make(chan error, 100)
+	m.UpdateCalled = make(chan bool, 100)
+	m.UpdateInput.Ctx = make(chan context.Context, 100)
+	m.UpdateInput.In = make(chan *intra.UpdateMessage, 100)
+	m.UpdateInput.Opts = make(chan []grpc.CallOption, 100)
+	m.UpdateOutput.Ret0 = make(chan *intra.UpdateResponse, 100)
+	m.UpdateOutput.Ret1 = make(chan error, 100)
+	m.StatusCalled = make(chan bool, 100)
+	m.StatusInput.Ctx = make(chan context.Context, 100)
+	m.StatusInput.In = make(chan *intra.StatusRequest, 100)
+	m.StatusInput.Opts = make(chan []grpc.CallOption, 100)
+	m.StatusOutput.Ret0 = make(chan *intra.StatusResponse, 100)
+	m.StatusOutput.Ret1 = make(chan error, 100)
 	return m
 }
 func (m *mockNodeClient) Create(ctx context.Context, in *intra.CreateInfo, opts ...grpc.CallOption) (*intra.CreateResponse, error) {
@@ -66,23 +117,19 @@ func (m *mockNodeClient) Leader(ctx context.Context, in *intra.LeaderRequest, op
 	m.LeaderInput.Opts <- opts
 	return <-m.LeaderOutput.Ret0, <-m.LeaderOutput.Ret1
 }
-
-type mockNodeFetcher struct {
-	FetchNodesCalled chan bool
-	FetchNodesOutput struct {
-		Client chan []intra.NodeClient
-	}
+func (m *mockNodeClient) Update(ctx context.Context, in *intra.UpdateMessage, opts ...grpc.CallOption) (*intra.UpdateResponse, error) {
+	m.UpdateCalled <- true
+	m.UpdateInput.Ctx <- ctx
+	m.UpdateInput.In <- in
+	m.UpdateInput.Opts <- opts
+	return <-m.UpdateOutput.Ret0, <-m.UpdateOutput.Ret1
 }
-
-func newMockNodeFetcher() *mockNodeFetcher {
-	m := &mockNodeFetcher{}
-	m.FetchNodesCalled = make(chan bool, 100)
-	m.FetchNodesOutput.Client = make(chan []intra.NodeClient, 100)
-	return m
-}
-func (m *mockNodeFetcher) FetchNodes() (client []intra.NodeClient) {
-	m.FetchNodesCalled <- true
-	return <-m.FetchNodesOutput.Client
+func (m *mockNodeClient) Status(ctx context.Context, in *intra.StatusRequest, opts ...grpc.CallOption) (*intra.StatusResponse, error) {
+	m.StatusCalled <- true
+	m.StatusInput.Ctx <- ctx
+	m.StatusInput.In <- in
+	m.StatusInput.Opts <- opts
+	return <-m.StatusOutput.Ret0, <-m.StatusOutput.Ret1
 }
 
 type mockContext struct {

@@ -27,7 +27,6 @@ import (
 type TT struct {
 	*testing.T
 	createInfo       *pb.CreateInfo
-	leaderInfo       *intra.LeaderInfo
 	leaderRequest    *intra.LeaderRequest
 	schedulerProcess *os.Process
 	schedulerClient  pb.SchedulerClient
@@ -50,13 +49,6 @@ func TestSchedulerEnd2End(t *testing.T) {
 			Name: createInfo.Name,
 		}
 
-		leaderInfo := &intra.LeaderInfo{
-			Peer: &intra.PeerInfo{
-				Uri: "some-uri",
-				Id:  99,
-			},
-		}
-
 		intraPorts, mockServers := startMockIntraServer(3)
 		schedulerPort, schedulerProcess := startScheduler(intraPorts...)
 
@@ -65,15 +57,11 @@ func TestSchedulerEnd2End(t *testing.T) {
 		for _, mockServer := range mockServers {
 			testhelpers.AlwaysReturn(mockServer.CreateOutput.Ret0, new(intra.CreateResponse))
 			close(mockServer.CreateOutput.Ret1)
-
-			mockServer.LeaderOutput.Ret0 <- leaderInfo
-			close(mockServer.LeaderOutput.Ret1)
 		}
 
 		return TT{
 			T:                t,
 			createInfo:       createInfo,
-			leaderInfo:       leaderInfo,
 			leaderRequest:    leaderRequest,
 			schedulerProcess: schedulerProcess,
 			schedulerClient:  schedulerClient,
@@ -98,7 +86,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 		}
 
 		Expect(t, f).To(ViaPolling(BeTrue()))
-		Expect(t, resp.Uri).To(Equal(t.leaderInfo.Peer.Uri))
+		Expect(t, resp.Uri).To(Not(HaveLen(0)))
 
 		expected := &intra.CreateInfo{
 			Name: t.createInfo.Name,
@@ -137,6 +125,8 @@ func startScheduler(intraPorts ...int) (int, *os.Process) {
 		fmt.Sprintf("NODES=%s", buildNodeURIs(intraPorts)),
 	}
 
+	command.Stdout = os.Stdout
+	command.Stderr = os.Stderr
 	if err := command.Start(); err != nil {
 		panic(err)
 	}
@@ -158,6 +148,15 @@ func startMockIntraServer(count int) ([]int, []*mockIntraServer) {
 		}
 
 		mockServer := newMockIntraServer()
+		testhelpers.AlwaysReturn(mockServer.StatusOutput.Ret0, &intra.StatusResponse{
+			Id: uint64(i),
+		})
+		close(mockServer.StatusOutput.Ret1)
+
+		testhelpers.AlwaysReturn(mockServer.LeaderOutput.Ret0, &intra.LeaderInfo{
+			Id: 0,
+		})
+		close(mockServer.LeaderOutput.Ret1)
 
 		grpcServer := grpc.NewServer()
 

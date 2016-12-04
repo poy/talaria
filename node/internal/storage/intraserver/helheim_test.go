@@ -5,13 +5,27 @@
 
 package intraserver_test
 
+import (
+	"github.com/apoydence/talaria/pb/intra"
+	"github.com/coreos/etcd/raft/raftpb"
+)
+
 type mockIOFetcher struct {
 	CreateCalled chan bool
 	CreateInput  struct {
-		Name chan string
+		Name  chan string
+		Peers chan []*intra.PeerInfo
 	}
 	CreateOutput struct {
 		Ret0 chan error
+	}
+	LeaderCalled chan bool
+	LeaderInput  struct {
+		Name chan string
+	}
+	LeaderOutput struct {
+		Id  chan uint64
+		Err chan error
 	}
 }
 
@@ -19,11 +33,43 @@ func newMockIOFetcher() *mockIOFetcher {
 	m := &mockIOFetcher{}
 	m.CreateCalled = make(chan bool, 100)
 	m.CreateInput.Name = make(chan string, 100)
+	m.CreateInput.Peers = make(chan []*intra.PeerInfo, 100)
 	m.CreateOutput.Ret0 = make(chan error, 100)
+	m.LeaderCalled = make(chan bool, 100)
+	m.LeaderInput.Name = make(chan string, 100)
+	m.LeaderOutput.Id = make(chan uint64, 100)
+	m.LeaderOutput.Err = make(chan error, 100)
 	return m
 }
-func (m *mockIOFetcher) Create(name string) error {
+func (m *mockIOFetcher) Create(name string, peers []*intra.PeerInfo) error {
 	m.CreateCalled <- true
 	m.CreateInput.Name <- name
+	m.CreateInput.Peers <- peers
 	return <-m.CreateOutput.Ret0
+}
+func (m *mockIOFetcher) Leader(name string) (id uint64, err error) {
+	m.LeaderCalled <- true
+	m.LeaderInput.Name <- name
+	return <-m.LeaderOutput.Id, <-m.LeaderOutput.Err
+}
+
+type mockRouter struct {
+	RouteCalled chan bool
+	RouteInput  struct {
+		BufferName chan string
+		Msgs       chan []raftpb.Message
+	}
+}
+
+func newMockRouter() *mockRouter {
+	m := &mockRouter{}
+	m.RouteCalled = make(chan bool, 100)
+	m.RouteInput.BufferName = make(chan string, 100)
+	m.RouteInput.Msgs = make(chan []raftpb.Message, 100)
+	return m
+}
+func (m *mockRouter) Route(bufferName string, msgs []raftpb.Message) {
+	m.RouteCalled <- true
+	m.RouteInput.BufferName <- bufferName
+	m.RouteInput.Msgs <- msgs
 }

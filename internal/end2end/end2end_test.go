@@ -30,15 +30,18 @@ var (
 )
 
 func setup() []*os.Process {
-	nodePort1, nodeProcess1 := startNode()
-	nodePort2, nodeProcess2 := startNode()
-	nodePorts = []int{nodePort1, nodePort2}
+	schedulerPort = end2end.AvailablePort()
+	nodePort1, nodeProcess1 := startNode(schedulerPort)
+	nodePort2, nodeProcess2 := startNode(schedulerPort)
+	nodePort3, nodeProcess3 := startNode(schedulerPort)
+	nodePorts = []int{nodePort1, nodePort2, nodePort3}
 	var schedulerProcess *os.Process
-	schedulerPort, schedulerProcess = startScheduler(nodePorts)
+	schedulerProcess = startScheduler(schedulerPort, nodePorts)
 
 	return []*os.Process{
 		nodeProcess1,
 		nodeProcess2,
+		nodeProcess3,
 		schedulerProcess,
 	}
 }
@@ -344,7 +347,7 @@ func connectToScheduler(schedulerPort int) pb.SchedulerClient {
 	return pb.NewSchedulerClient(clientConn)
 }
 
-func startNode() (int, *os.Process) {
+func startNode(schedulerPort int) (int, *os.Process) {
 	nodePort := end2end.AvailablePort()
 	path, err := gexec.Build("github.com/apoydence/talaria/node")
 	if err != nil {
@@ -353,6 +356,7 @@ func startNode() (int, *os.Process) {
 	command := exec.Command(path)
 	command.Env = []string{
 		fmt.Sprintf("PORT=%d", nodePort),
+		fmt.Sprintf("SCHEDULER_URI=localhost:%d", schedulerPort),
 	}
 
 	err = command.Start()
@@ -363,8 +367,12 @@ func startNode() (int, *os.Process) {
 	return nodePort, command.Process
 }
 
-func startScheduler(nodePorts []int) (int, *os.Process) {
-	schedulerPort := end2end.AvailablePort()
+func startScheduler(schedulerPort int, nodePorts []int) *os.Process {
+	log.Printf("Scheduler Port = %d", schedulerPort)
+	for i, port := range nodePorts {
+		log.Printf("Node Port (%d) = %d", i, port)
+	}
+
 	path, err := gexec.Build("github.com/apoydence/talaria/scheduler")
 	if err != nil {
 		panic(err)
@@ -381,7 +389,7 @@ func startScheduler(nodePorts []int) (int, *os.Process) {
 		panic(err)
 	}
 
-	return schedulerPort, command.Process
+	return command.Process
 }
 
 func buildNodeURIs(ports []int) string {

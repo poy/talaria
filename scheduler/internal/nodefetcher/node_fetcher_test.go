@@ -62,7 +62,9 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 			Expect(t, nodes).To(HaveLen(3))
 
 			for _, node := range nodes {
-				node.Create(context.Background(), t.createInfo)
+				node.Client.Create(context.Background(), t.createInfo)
+				Expect(t, node.ID).To(Equal(uint64(99)))
+				Expect(t, node.URI).To(Not(HaveLen(0)))
 			}
 		}
 
@@ -93,6 +95,7 @@ func TestNodeFetcherNodesAreNotConfigured(t *testing.T) {
 
 type mockNode struct {
 	c chan bool
+	s chan bool
 }
 
 func (m *mockNode) Create(ctx context.Context, info *intra.CreateInfo) (*intra.CreateResponse, error) {
@@ -100,12 +103,27 @@ func (m *mockNode) Create(ctx context.Context, info *intra.CreateInfo) (*intra.C
 	return new(intra.CreateResponse), nil
 }
 
+func (m *mockNode) Update(ctx context.Context, in *intra.UpdateMessage) (*intra.UpdateResponse, error) {
+	return nil, nil
+}
+
 func (m *mockNode) Leader(ctx context.Context, req *intra.LeaderRequest) (*intra.LeaderInfo, error) {
 	return nil, nil
 }
 
+func (m *mockNode) Status(ctx context.Context, req *intra.StatusRequest) (*intra.StatusResponse, error) {
+	m.s <- true
+
+	return &intra.StatusResponse{
+		Id: 99,
+	}, nil
+}
+
 func startGRPCServer() (string, *mockNode) {
-	m := &mockNode{c: make(chan bool, 100)}
+	m := &mockNode{
+		c: make(chan bool, 100),
+		s: make(chan bool, 100),
+	}
 	lis, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic(err)

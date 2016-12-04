@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io"
 	"math/rand"
+	"net"
 	"os"
 	"os/exec"
 	"sync"
@@ -12,7 +13,9 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/reflection"
 
+	"github.com/apoydence/eachers/testhelpers"
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
@@ -24,13 +27,15 @@ import (
 
 type TC struct {
 	*testing.T
-	bufferInfo      *pb.BufferInfo
-	createInfo      *intra.CreateInfo
-	nodePort        int
-	nodeProcess     *os.Process
-	closers         []io.Closer
-	nodeClient      pb.TalariaClient
-	intraNodeClient intra.NodeClient
+	bufferInfo          *pb.BufferInfo
+	createInfo          *intra.CreateInfo
+	nodePort            int
+	nodeProcess         *os.Process
+	closers             []io.Closer
+	mockSchedulerServer *mockSchedulerServer
+	schedulerAddr       string
+	nodeClient          pb.TalariaClient
+	intraNodeClient     intra.NodeClient
 }
 
 func TestNodeEnd2EndBufferCreated(t *testing.T) {
@@ -39,7 +44,12 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 	defer o.Run(t)
 
 	o.BeforeEach(func(t *testing.T) TC {
-		nodePort, session := startNode(t)
+		schedulerAddr, mockSchedulerServer, schedulerCloser := startMockScheduler()
+
+		nodePort, session := startNode(t, schedulerAddr)
+		testhelpers.AlwaysReturn(mockSchedulerServer.FromIDOutput.Ret0, &intra.FromIdResponse{
+			Uri: fmt.Sprintf("localhost:%d", nodePort),
+		})
 
 		nodeClient, closer := connectToNode(t, nodePort)
 		intraNodeClient, closerIntra := connectToIntraNode(t, nodePort)
@@ -62,14 +72,16 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 		})
 
 		return TC{
-			T:               t,
-			bufferInfo:      bufferInfo,
-			createInfo:      createInfo,
-			nodePort:        nodePort,
-			nodeProcess:     session,
-			closers:         []io.Closer{closer, closerIntra},
-			nodeClient:      nodeClient,
-			intraNodeClient: intraNodeClient,
+			T:                   t,
+			schedulerAddr:       schedulerAddr,
+			mockSchedulerServer: mockSchedulerServer,
+			bufferInfo:          bufferInfo,
+			createInfo:          createInfo,
+			nodePort:            nodePort,
+			nodeProcess:         session,
+			closers:             []io.Closer{closer, closerIntra, schedulerCloser},
+			nodeClient:          nodeClient,
+			intraNodeClient:     intraNodeClient,
 		}
 	})
 
@@ -158,7 +170,9 @@ func TestNodeEnd2EndBufferNotCreated(t *testing.T) {
 	defer o.Run(t)
 
 	o.BeforeEach(func(t *testing.T) TC {
-		nodePort, session := startNode(t)
+		schedulerAddr, mockSchedulerServer, schedulerCloser := startMockScheduler()
+
+		nodePort, session := startNode(t, schedulerAddr)
 
 		nodeClient, closer := connectToNode(t, nodePort)
 		intraNodeClient, closerIntra := connectToIntraNode(t, nodePort)
@@ -172,14 +186,16 @@ func TestNodeEnd2EndBufferNotCreated(t *testing.T) {
 		}
 
 		return TC{
-			T:               t,
-			bufferInfo:      bufferInfo,
-			createInfo:      createInfo,
-			nodePort:        nodePort,
-			nodeProcess:     session,
-			closers:         []io.Closer{closer, closerIntra},
-			nodeClient:      nodeClient,
-			intraNodeClient: intraNodeClient,
+			T:                   t,
+			bufferInfo:          bufferInfo,
+			schedulerAddr:       schedulerAddr,
+			mockSchedulerServer: mockSchedulerServer,
+			createInfo:          createInfo,
+			nodePort:            nodePort,
+			nodeProcess:         session,
+			closers:             []io.Closer{closer, closerIntra, schedulerCloser},
+			nodeClient:          nodeClient,
+			intraNodeClient:     intraNodeClient,
 		}
 	})
 
@@ -276,7 +292,7 @@ func connectToIntraNode(t *testing.T, nodePort int) (intra.NodeClient, io.Closer
 	return intra.NewNodeClient(clientConn), clientConn
 }
 
-func startNode(t *testing.T) (int, *os.Process) {
+func startNode(t *testing.T, schedulerAddr string) (int, *os.Process) {
 	nodePort := end2end.AvailablePort()
 
 	path, err := gexec.Build("github.com/apoydence/talaria/node")
@@ -284,12 +300,27 @@ func startNode(t *testing.T) (int, *os.Process) {
 	command := exec.Command(path)
 	command.Env = []string{
 		fmt.Sprintf("PORT=%d", nodePort),
+		fmt.Sprintf("SCHEDULER_URI=%s", schedulerAddr),
 	}
 
 	err = command.Start()
 	Expect(t, err == nil).To(BeTrue())
 
 	return nodePort, command.Process
+}
+
+func startMockScheduler() (string, *mockSchedulerServer, io.Closer) {
+	mockSchedulerServer := newMockSchedulerServer()
+	lis, err := net.Listen("tcp", ":0")
+	if err != nil {
+		panic(err)
+	}
+	s := grpc.NewServer()
+	intra.RegisterSchedulerServer(s, mockSchedulerServer)
+	reflection.Register(s)
+	go s.Serve(lis)
+
+	return lis.Addr().String(), mockSchedulerServer, lis
 }
 
 func fetchReaderLastIndex(name string, client pb.TalariaClient) (chan []byte, chan uint64) {
