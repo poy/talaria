@@ -61,4 +61,5 @@ message StatusRequest {
 
 message StatusResponse {
   uint64 id = 1;
+  repeated string buffers = 2;
 }

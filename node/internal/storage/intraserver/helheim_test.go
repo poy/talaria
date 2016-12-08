@@ -10,6 +10,27 @@ import (
 	"github.com/coreos/etcd/raft/raftpb"
 )
 
+type mockRouter struct {
+	RouteCalled chan bool
+	RouteInput  struct {
+		BufferName chan string
+		Msgs       chan []raftpb.Message
+	}
+}
+
+func newMockRouter() *mockRouter {
+	m := &mockRouter{}
+	m.RouteCalled = make(chan bool, 100)
+	m.RouteInput.BufferName = make(chan string, 100)
+	m.RouteInput.Msgs = make(chan []raftpb.Message, 100)
+	return m
+}
+func (m *mockRouter) Route(bufferName string, msgs []raftpb.Message) {
+	m.RouteCalled <- true
+	m.RouteInput.BufferName <- bufferName
+	m.RouteInput.Msgs <- msgs
+}
+
 type mockIOFetcher struct {
 	CreateCalled chan bool
 	CreateInput  struct {
@@ -35,6 +56,10 @@ type mockIOFetcher struct {
 	UpdateConfigOutput struct {
 		Ret0 chan error
 	}
+	ListCalled chan bool
+	ListOutput struct {
+		Ret0 chan []string
+	}
 }
 
 func newMockIOFetcher() *mockIOFetcher {
@@ -51,6 +76,8 @@ func newMockIOFetcher() *mockIOFetcher {
 	m.UpdateConfigInput.Name = make(chan string, 100)
 	m.UpdateConfigInput.Change = make(chan raftpb.ConfChange, 100)
 	m.UpdateConfigOutput.Ret0 = make(chan error, 100)
+	m.ListCalled = make(chan bool, 100)
+	m.ListOutput.Ret0 = make(chan []string, 100)
 	return m
 }
 func (m *mockIOFetcher) Create(name string, peers []*intra.PeerInfo) error {
@@ -70,24 +97,7 @@ func (m *mockIOFetcher) UpdateConfig(name string, change raftpb.ConfChange) erro
 	m.UpdateConfigInput.Change <- change
 	return <-m.UpdateConfigOutput.Ret0
 }
-
-type mockRouter struct {
-	RouteCalled chan bool
-	RouteInput  struct {
-		BufferName chan string
-		Msgs       chan []raftpb.Message
-	}
-}
-
-func newMockRouter() *mockRouter {
-	m := &mockRouter{}
-	m.RouteCalled = make(chan bool, 100)
-	m.RouteInput.BufferName = make(chan string, 100)
-	m.RouteInput.Msgs = make(chan []raftpb.Message, 100)
-	return m
-}
-func (m *mockRouter) Route(bufferName string, msgs []raftpb.Message) {
-	m.RouteCalled <- true
-	m.RouteInput.BufferName <- bufferName
-	m.RouteInput.Msgs <- msgs
+func (m *mockIOFetcher) List() []string {
+	m.ListCalled <- true
+	return <-m.ListOutput.Ret0
 }

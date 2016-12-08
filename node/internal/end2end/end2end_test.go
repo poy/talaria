@@ -164,6 +164,20 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 		})
 	})
 
+	o.Group("when reporting status", func() {
+		o.Spec("it gives the ID", func(t TC) {
+			status, err := t.intraNodeClient.Status(context.Background(), new(intra.StatusRequest))
+			Expect(t, err == nil).To(BeTrue())
+			Expect(t, status.Id).To(Not(Equal(0)))
+		})
+
+		o.Spec("it gives the list of buffers", func(t TC) {
+			status, err := t.intraNodeClient.Status(context.Background(), new(intra.StatusRequest))
+			Expect(t, err == nil).To(BeTrue())
+			Expect(t, status.Buffers).To(Equal([]string{t.bufferInfo.Name}))
+		})
+	})
+
 	o.Group("when updating configuration", func() {
 		o.Spec("it asks the scheduler who to network with", func(t TC) {
 			newID := fetchRandomID(t.intraNodeClient)

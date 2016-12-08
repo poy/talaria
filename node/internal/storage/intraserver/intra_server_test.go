@@ -195,9 +195,13 @@ func TestIntraStatus(t *testing.T) {
 	})
 
 	o.Spec("it returns the given ID", func(t TC) {
+		values := []string{"A", "B"}
+		t.mockIOFetcher.ListOutput.Ret0 <- values
+
 		status, err := t.client.Status(context.Background(), new(intra.StatusRequest))
 		Expect(t, err == nil).To(BeTrue())
 		Expect(t, status.Id).To(Equal(uint64(103)))
+		Expect(t, status.Buffers).To(Equal(values))
 	})
 }
 

@@ -285,3 +285,44 @@ func TestStorageUpdateConfig(t *testing.T) {
 		})
 	})
 }
+
+func TestStorageList(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TT {
+		peers := []*intra.PeerInfo{
+			{
+				Id: 99,
+			},
+		}
+
+		mockURIFinder := newMockURIFinder()
+
+		mockReceiver := newMockReceiver()
+		callbackMsgs := make(chan raftpb.Message, 100)
+		callbackErrs := make(chan error, 100)
+		callback := func() (raftpb.Message, error) {
+			return <-callbackMsgs, <-callbackErrs
+		}
+		mockReceiver.ReceiverOutput.Ret0 <- callback
+
+		return TT{
+			T:             t,
+			mockURIFinder: mockURIFinder,
+			mockReceiver:  mockReceiver,
+			fetcher:       storage.New(99, mockReceiver, mockURIFinder),
+			peers:         peers,
+			callback:      callback,
+		}
+	})
+
+	o.Spec("it lists each buffer that has been created", func(t TT) {
+		err := t.fetcher.Create("some-buffer", t.peers)
+		Expect(t, err == nil).To(Equal(true))
+
+		buffers := t.fetcher.List()
+		Expect(t, buffers).To(Equal([]string{"some-buffer"}))
+	})
+}

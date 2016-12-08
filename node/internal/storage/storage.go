@@ -90,3 +90,11 @@ func (s *Storage) UpdateConfig(name string, conf raftpb.ConfChange) error {
 	}
 	return info.node.PropseConfChange(context.Background(), conf)
 }
+
+func (s *Storage) List() []string {
+	var buffers []string
+	for name, _ := range s.bufs {
+		buffers = append(buffers, name)
+	}
+	return buffers
+}
