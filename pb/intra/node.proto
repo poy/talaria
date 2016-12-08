@@ -8,6 +8,7 @@ service Node{
   rpc Create(CreateInfo) returns (CreateResponse) {}
   rpc Leader(LeaderRequest) returns (LeaderInfo) {}
   rpc Update(UpdateMessage) returns (UpdateResponse) {}
+  rpc UpdateConfig(UpdateConfigRequest) returns (UpdateConfigResponse) {}
   rpc Status(StatusRequest) returns (StatusResponse) {}
 }
 
@@ -21,8 +22,7 @@ message CreateResponse {
 }
 
 message PeerInfo {
-  string uri = 1;
-  uint64 id = 2;
+  uint64 id = 1;
 }
 
 message LeaderRequest {
@@ -46,6 +46,14 @@ message UpdateResponse {
       RetryFailure = 3;
   }
   Code code = 1;
+}
+
+message UpdateConfigRequest {
+  string name = 1;
+  raftpb.ConfChange change = 2;
+}
+
+message UpdateConfigResponse {
 }
 
 message StatusRequest {

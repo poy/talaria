@@ -27,6 +27,14 @@ type mockIOFetcher struct {
 		Id  chan uint64
 		Err chan error
 	}
+	UpdateConfigCalled chan bool
+	UpdateConfigInput  struct {
+		Name   chan string
+		Change chan raftpb.ConfChange
+	}
+	UpdateConfigOutput struct {
+		Ret0 chan error
+	}
 }
 
 func newMockIOFetcher() *mockIOFetcher {
@@ -39,6 +47,10 @@ func newMockIOFetcher() *mockIOFetcher {
 	m.LeaderInput.Name = make(chan string, 100)
 	m.LeaderOutput.Id = make(chan uint64, 100)
 	m.LeaderOutput.Err = make(chan error, 100)
+	m.UpdateConfigCalled = make(chan bool, 100)
+	m.UpdateConfigInput.Name = make(chan string, 100)
+	m.UpdateConfigInput.Change = make(chan raftpb.ConfChange, 100)
+	m.UpdateConfigOutput.Ret0 = make(chan error, 100)
 	return m
 }
 func (m *mockIOFetcher) Create(name string, peers []*intra.PeerInfo) error {
@@ -51,6 +63,12 @@ func (m *mockIOFetcher) Leader(name string) (id uint64, err error) {
 	m.LeaderCalled <- true
 	m.LeaderInput.Name <- name
 	return <-m.LeaderOutput.Id, <-m.LeaderOutput.Err
+}
+func (m *mockIOFetcher) UpdateConfig(name string, change raftpb.ConfChange) error {
+	m.UpdateConfigCalled <- true
+	m.UpdateConfigInput.Name <- name
+	m.UpdateConfigInput.Change <- change
+	return <-m.UpdateConfigOutput.Ret0
 }
 
 type mockRouter struct {

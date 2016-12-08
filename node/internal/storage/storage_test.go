@@ -3,6 +3,7 @@
 package storage_test
 
 import (
+	"context"
 	"testing"
 
 	"github.com/apoydence/onpar"
@@ -34,8 +35,7 @@ func TestStorageFetchReader(t *testing.T) {
 	o.BeforeEach(func(t *testing.T) TT {
 		peers := []*intra.PeerInfo{
 			{
-				Uri: "some-uri",
-				Id:  99,
+				Id: 99,
 			},
 		}
 
@@ -112,8 +112,7 @@ func TestStorageFetchWriter(t *testing.T) {
 	o.BeforeEach(func(t *testing.T) TT {
 		peers := []*intra.PeerInfo{
 			{
-				Uri: "some-uri",
-				Id:  99,
+				Id: 99,
 			},
 		}
 
@@ -173,8 +172,7 @@ func TestStorageLeader(t *testing.T) {
 	o.BeforeEach(func(t *testing.T) TT {
 		peers := []*intra.PeerInfo{
 			{
-				Uri: "some-uri",
-				Id:  99,
+				Id: 99,
 			},
 		}
 
@@ -205,8 +203,85 @@ func TestStorageLeader(t *testing.T) {
 			return t
 		})
 
-		o.Spec("", func(t TT) {
+		o.Spec("it returns the ID", func(t TT) {
+			var id uint64
+			f := func() bool {
+				var err error
+				id, err = t.fetcher.Leader("some-buffer")
+				return err == nil
+			}
+			Expect(t, f).To(ViaPolling(BeTrue()))
+			Expect(t, id).To(Equal(uint64(99)))
 		})
 	})
 
+	o.Group("when Create() has not been called", func() {
+		o.Spec("it returns an error", func(t TT) {
+			_, err := t.fetcher.Leader("some-buffer")
+			Expect(t, err == nil).To(BeFalse())
+		})
+	})
+}
+
+func TestStorageUpdateConfig(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TT {
+		peers := []*intra.PeerInfo{
+			{
+				Id: 99,
+			},
+		}
+
+		mockURIFinder := newMockURIFinder()
+
+		mockReceiver := newMockReceiver()
+		callbackMsgs := make(chan raftpb.Message, 100)
+		callbackErrs := make(chan error, 100)
+		callback := func() (raftpb.Message, error) {
+			return <-callbackMsgs, <-callbackErrs
+		}
+		mockReceiver.ReceiverOutput.Ret0 <- callback
+
+		return TT{
+			T:             t,
+			mockURIFinder: mockURIFinder,
+			mockReceiver:  mockReceiver,
+			fetcher:       storage.New(99, mockReceiver, mockURIFinder),
+			peers:         peers,
+			callback:      callback,
+		}
+	})
+
+	o.Group("when Create has been called", func() {
+		o.BeforeEach(func(t TT) TT {
+			err := t.fetcher.Create("some-buffer", t.peers)
+			Expect(t, err == nil).To(Equal(true))
+			return t
+		})
+
+		o.Spec("it does not return an error", func(t TT) {
+			err := t.fetcher.UpdateConfig("some-buffer", raftpb.ConfChange{
+				NodeID: 101,
+				Type:   raftpb.ConfChangeAddNode,
+			})
+			Expect(t, err == nil).To(BeTrue())
+			w, _ := t.fetcher.FetchWriter("some-buffer")
+			w.Propose(context.Background(), []byte("some-data"))
+			Expect(t, t.mockURIFinder.FromIDInput.ID).To(ViaPolling(
+				Chain(Receive(), Equal(uint64(101))),
+			))
+		})
+	})
+
+	o.Group("when Create() has not been called", func() {
+		o.Spec("it returns an error", func(t TT) {
+			err := t.fetcher.UpdateConfig("some-buffer", raftpb.ConfChange{
+				ID: 99,
+			})
+			Expect(t, err == nil).To(BeFalse())
+		})
+	})
 }

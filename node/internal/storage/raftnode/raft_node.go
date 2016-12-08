@@ -74,6 +74,10 @@ func (r *RaftNode) Propose(ctx context.Context, data []byte) error {
 	return r.node.Propose(ctx, d)
 }
 
+func (r *RaftNode) PropseConfChange(ctx context.Context, cc raftpb.ConfChange) error {
+	return r.node.ProposeConfChange(ctx, cc)
+}
+
 func (r *RaftNode) ReadAt(index uint64) ([]byte, uint64, error) {
 	entry, seq, err := r.storage.ReadAt(index)
 	if err != nil {
@@ -121,6 +125,16 @@ func (r *RaftNode) run() {
 			}
 
 			r.network.Emit(rd.Messages)
+
+			for _, entry := range rd.CommittedEntries {
+				if entry.Type == raftpb.EntryConfChange {
+					var cc raftpb.ConfChange
+					cc.Unmarshal(entry.Data)
+					state := r.node.ApplyConfChange(cc)
+					_ = state
+				}
+			}
+
 			r.node.Advance()
 
 		case m := <-r.networkRx:

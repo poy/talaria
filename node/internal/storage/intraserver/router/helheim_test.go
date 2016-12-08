@@ -67,6 +67,15 @@ type mockNodeServer struct {
 		Ret0 chan *intra.UpdateResponse
 		Ret1 chan error
 	}
+	UpdateConfigCalled chan bool
+	UpdateConfigInput  struct {
+		Arg0 chan context.Context
+		Arg1 chan *intra.UpdateConfigRequest
+	}
+	UpdateConfigOutput struct {
+		Ret0 chan *intra.UpdateConfigResponse
+		Ret1 chan error
+	}
 	StatusCalled chan bool
 	StatusInput  struct {
 		Arg0 chan context.Context
@@ -95,6 +104,12 @@ func newMockNodeServer() *mockNodeServer {
 	m.UpdateInput.Arg1 = make(chan *intra.UpdateMessage, 100)
 	m.UpdateOutput.Ret0 = make(chan *intra.UpdateResponse, 100)
 	m.UpdateOutput.Ret1 = make(chan error, 100)
+	m.UpdateConfigCalled = make(chan bool, 100)
+	m.UpdateConfigInput.Arg0 = make(chan context.Context, 100)
+	m.UpdateConfigInput.Arg1 = make(chan *intra.UpdateConfigRequest, 100)
+	m.UpdateConfigOutput.Ret0 = make(chan *intra.UpdateConfigResponse, 100)
+	m.UpdateConfigOutput.Ret1 = make(chan error, 100)
+
 	m.StatusCalled = make(chan bool, 100)
 	m.StatusInput.Arg0 = make(chan context.Context, 100)
 	m.StatusInput.Arg1 = make(chan *intra.StatusRequest, 100)
@@ -119,6 +134,12 @@ func (m *mockNodeServer) Update(arg0 context.Context, arg1 *intra.UpdateMessage)
 	m.UpdateInput.Arg0 <- arg0
 	m.UpdateInput.Arg1 <- arg1
 	return <-m.UpdateOutput.Ret0, <-m.UpdateOutput.Ret1
+}
+func (m *mockNodeServer) UpdateConfig(arg0 context.Context, arg1 *intra.UpdateConfigRequest) (*intra.UpdateConfigResponse, error) {
+	m.UpdateConfigCalled <- true
+	m.UpdateConfigInput.Arg0 <- arg0
+	m.UpdateConfigInput.Arg1 <- arg1
+	return <-m.UpdateConfigOutput.Ret0, <-m.UpdateConfigOutput.Ret1
 }
 func (m *mockNodeServer) Status(arg0 context.Context, arg1 *intra.StatusRequest) (*intra.StatusResponse, error) {
 	m.StatusCalled <- true

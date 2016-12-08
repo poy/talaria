@@ -1,6 +1,7 @@
 package storage
 
 import (
+	"context"
 	"fmt"
 	"log"
 
@@ -82,10 +83,10 @@ func (s *Storage) Leader(name string) (id uint64, err error) {
 	return info.node.Leader()
 }
 
-//func (s *Storage) Router(name string) (func([]raftpb.Message), error) {
-//	info, ok := s.bufs[name]
-//	if !ok {
-//		return nil, fmt.Errorf("'%s' must be created before being fetched", name)
-//	}
-//	return info.router.Send, nil
-//}
+func (s *Storage) UpdateConfig(name string, conf raftpb.ConfChange) error {
+	info, ok := s.bufs[name]
+	if !ok {
+		return fmt.Errorf("unknown buffer: %s", name)
+	}
+	return info.node.PropseConfChange(context.Background(), conf)
+}

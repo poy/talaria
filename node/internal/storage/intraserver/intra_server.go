@@ -12,6 +12,7 @@ import (
 type IOFetcher interface {
 	Create(name string, peers []*intra.PeerInfo) error
 	Leader(name string) (id uint64, err error)
+	UpdateConfig(name string, change raftpb.ConfChange) error
 }
 
 type Router interface {
@@ -59,6 +60,11 @@ func (s *IntraServer) Update(ctx context.Context, msg *intra.UpdateMessage) (*in
 	return &intra.UpdateResponse{
 		Code: intra.UpdateResponse_Success,
 	}, nil
+}
+
+func (s *IntraServer) UpdateConfig(ctx context.Context, msg *intra.UpdateConfigRequest) (*intra.UpdateConfigResponse, error) {
+	err := s.fetcher.UpdateConfig(msg.Name, *msg.Change)
+	return new(intra.UpdateConfigResponse), err
 }
 
 func (s *IntraServer) Status(ctx context.Context, req *intra.StatusRequest) (*intra.StatusResponse, error) {

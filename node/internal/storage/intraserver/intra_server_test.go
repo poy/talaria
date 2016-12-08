@@ -65,12 +65,10 @@ func TestIntraCreate(t *testing.T) {
 		o.Spec("it does not return an error", func(t TC) {
 			peers := []*intra.PeerInfo{
 				{
-					Uri: "some-uri",
-					Id:  99,
+					Id: 99,
 				},
 				{
-					Uri: "some-other-uri",
-					Id:  101,
+					Id: 101,
 				},
 			}
 
@@ -281,6 +279,91 @@ func TestIntraUpdate(t *testing.T) {
 			Expect(t, t.mockRouter.RouteCalled).To(Always(HaveLen(0)))
 		})
 	})
+}
+
+func TestIntraUpdateConfig(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TR {
+		mockIOFetcher := newMockIOFetcher()
+		mockRouter := newMockRouter()
+
+		s := intraserver.New(103, mockIOFetcher, mockRouter)
+		URI, lis := setupGrpcServer(s)
+		client, conn := establishClient(URI)
+
+		tc := TC{
+			T:             t,
+			client:        client,
+			s:             s,
+			mockIOFetcher: mockIOFetcher,
+			mockRouter:    mockRouter,
+			lis:           lis,
+			conn:          conn,
+		}
+
+		msg := &intra.UpdateMessage{
+			Name: "some-name",
+			Messages: []*raftpb.Message{{
+				To: 103,
+			}},
+		}
+
+		return TR{
+			TC:  tc,
+			msg: msg,
+		}
+	})
+
+	o.AfterEach(func(t TR) {
+		t.lis.Close()
+		t.conn.Close()
+	})
+
+	o.Group("when the IOFetcher does not return an error", func() {
+		o.BeforeEach(func(t TR) TR {
+			close(t.mockIOFetcher.UpdateConfigOutput.Ret0)
+			return t
+		})
+
+		o.Spec("it updates the config", func(t TR) {
+			change := raftpb.ConfChange{ID: 99}
+			req := intra.UpdateConfigRequest{
+				Name:   "some-name",
+				Change: &change,
+			}
+			_, err := t.client.UpdateConfig(context.Background(), &req)
+			Expect(t, err == nil).To(BeTrue())
+
+			Expect(t, t.mockIOFetcher.UpdateConfigInput.Name).To(ViaPolling(
+				Chain(Receive(), Equal(req.Name)),
+			))
+
+			Expect(t, t.mockIOFetcher.UpdateConfigInput.Change).To(ViaPolling(
+				Chain(Receive(), Equal(change)),
+			))
+		})
+	})
+
+	o.Group("when the IOFetcher returns an error", func() {
+		o.BeforeEach(func(t TR) TR {
+			t.mockIOFetcher.UpdateConfigOutput.Ret0 <- fmt.Errorf("some-error")
+			return t
+		})
+
+		o.Spec("it returns an error", func(t TR) {
+			_, err := t.client.UpdateConfig(context.Background(), &intra.UpdateConfigRequest{
+				Name: "some-name",
+				Change: &raftpb.ConfChange{
+					ID: 99,
+				},
+			})
+			Expect(t, err == nil).To(BeFalse())
+		})
+	})
+
 }
 
 func setupGrpcServer(handler *intraserver.IntraServer) (string, net.Listener) {

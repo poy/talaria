@@ -22,6 +22,7 @@ import (
 	"github.com/apoydence/talaria/internal/end2end"
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
+	"github.com/coreos/etcd/raft/raftpb"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -159,6 +160,24 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 
 			Expect(t, data).To(ViaPolling(
 				Chain(Receive(), Equal([]byte("some-data-3"))),
+			))
+		})
+	})
+
+	o.Group("when updating configuration", func() {
+		o.Spec("it asks the scheduler who to network with", func(t TC) {
+			newID := fetchRandomID(t.intraNodeClient)
+			_, err := t.intraNodeClient.UpdateConfig(context.Background(), &intra.UpdateConfigRequest{
+				Name: t.bufferInfo.Name,
+				Change: &raftpb.ConfChange{
+					Type:   raftpb.ConfChangeAddNode,
+					NodeID: newID,
+				},
+			})
+
+			Expect(t, err == nil).To(BeTrue())
+			Expect(t, t.mockSchedulerServer.FromIDInput.Arg1).To(ViaPolling(
+				Chain(Receive(), Equal(&intra.FromIdRequest{Id: newID})),
 			))
 		})
 	})
@@ -349,4 +368,18 @@ func fetchReaderLastIndex(name string, client pb.TalariaClient) (chan []byte, ch
 		}
 	}()
 	return c, idx
+}
+
+func fetchRandomID(client intra.NodeClient) uint64 {
+	resp, err := client.Status(context.Background(), new(intra.StatusRequest))
+	if err != nil {
+		panic(err)
+	}
+
+	for {
+		id := uint64(rand.Int63())
+		if id != resp.Id {
+			return id
+		}
+	}
 }
