@@ -34,6 +34,16 @@ type mockNode struct {
 		Ret0 chan *intra.CreateResponse
 		Ret1 chan error
 	}
+	UpdateConfigCalled chan bool
+	UpdateConfigInput  struct {
+		Ctx  chan context.Context
+		Req  chan *intra.UpdateConfigRequest
+		Opts chan []grpc.CallOption
+	}
+	UpdateConfigOutput struct {
+		Ret0 chan *intra.UpdateConfigResponse
+		Ret1 chan error
+	}
 }
 
 func newMockNode() *mockNode {
@@ -50,6 +60,12 @@ func newMockNode() *mockNode {
 	m.CreateInput.Opts = make(chan []grpc.CallOption, 100)
 	m.CreateOutput.Ret0 = make(chan *intra.CreateResponse, 100)
 	m.CreateOutput.Ret1 = make(chan error, 100)
+	m.UpdateConfigCalled = make(chan bool, 100)
+	m.UpdateConfigInput.Ctx = make(chan context.Context, 100)
+	m.UpdateConfigInput.Req = make(chan *intra.UpdateConfigRequest, 100)
+	m.UpdateConfigInput.Opts = make(chan []grpc.CallOption, 100)
+	m.UpdateConfigOutput.Ret0 = make(chan *intra.UpdateConfigResponse, 100)
+	m.UpdateConfigOutput.Ret1 = make(chan error, 100)
 	return m
 }
 func (m *mockNode) Status(ctx context.Context, req *intra.StatusRequest, opts ...grpc.CallOption) (*intra.StatusResponse, error) {
@@ -65,6 +81,13 @@ func (m *mockNode) Create(ctx context.Context, req *intra.CreateInfo, opts ...gr
 	m.CreateInput.Req <- req
 	m.CreateInput.Opts <- opts
 	return <-m.CreateOutput.Ret0, <-m.CreateOutput.Ret1
+}
+func (m *mockNode) UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequest, opts ...grpc.CallOption) (*intra.UpdateConfigResponse, error) {
+	m.UpdateConfigCalled <- true
+	m.UpdateConfigInput.Ctx <- ctx
+	m.UpdateConfigInput.Req <- req
+	m.UpdateConfigInput.Opts <- opts
+	return <-m.UpdateConfigOutput.Ret0, <-m.UpdateConfigOutput.Ret1
 }
 
 type mockContext struct {

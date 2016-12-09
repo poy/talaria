@@ -25,6 +25,7 @@ import (
 	"github.com/apoydence/talaria/internal/end2end"
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
+	"github.com/coreos/etcd/raft/raftpb"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -168,6 +169,15 @@ func TestSchedulerEnd2End(t *testing.T) {
 				Duration: 3 * time.Second,
 				Matcher:  Chain(Receive(), Equal("standalone")),
 			})
+
+			var req *intra.UpdateConfigRequest
+			Expect(t, t.mockServers[0].UpdateConfigInput.In).To(ViaPolling(
+				Chain(Receive(), Fetch(&req)),
+			))
+
+			Expect(t, req.Name).To(Equal("standalone"))
+			Expect(t, req.Change.Type).To(Equal(raftpb.ConfChangeAddNode))
+			Expect(t, req.Change.NodeID).To(Or(Equal(uint64(1)), Equal(uint64(2))))
 		})
 	})
 }

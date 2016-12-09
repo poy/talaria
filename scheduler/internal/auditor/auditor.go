@@ -1,7 +1,6 @@
 package auditor
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"time"
@@ -11,11 +10,13 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/apoydence/talaria/pb/intra"
+	"github.com/coreos/etcd/raft/raftpb"
 )
 
 type Node interface {
 	Status(ctx context.Context, req *intra.StatusRequest, opts ...grpc.CallOption) (*intra.StatusResponse, error)
 	Create(ctx context.Context, req *intra.CreateInfo, opts ...grpc.CallOption) (*intra.CreateResponse, error)
+	UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequest, opts ...grpc.CallOption) (*intra.UpdateConfigResponse, error)
 }
 
 type Auditor struct {
@@ -53,26 +54,43 @@ func (a *Auditor) run(poll time.Duration) {
 			}
 		}
 
-		fmt.Println(buffers, a.nodes)
-
 		for bufName, ids := range buffers {
 			if len(ids) == 3 {
 				continue
 			}
+			log.Printf("Buffer %s only has %d nodes...", bufName, len(ids))
 
-			id, ok := a.findRandExcluded(ids, allIDs)
+			newId, ok := a.findRandExcluded(ids, allIDs)
 			if !ok {
 				log.Printf("unable to find a new node for %s", bufName)
 				continue
 			}
 
-			_, err := nodes[id].Create(context.Background(), &intra.CreateInfo{
+			log.Printf("Adding %d to buffer %s...", newId, bufName)
+			_, err := nodes[newId].Create(context.Background(), &intra.CreateInfo{
 				Name:  bufName,
-				Peers: a.buildPeerInfos(id, ids),
+				Peers: a.buildPeerInfos(newId, ids),
 			})
 
 			if err != nil {
-				log.Printf("Failed to add node (%d) to buffer cluster (%s): %s", id, bufName, err)
+				log.Printf("Failed to add node (%d) to buffer cluster (%s): %s", newId, bufName, err)
+				continue
+			}
+
+			for _, id := range ids {
+				log.Printf("Updating %d with new node %d", id, newId)
+				_, err := nodes[id].UpdateConfig(context.Background(), &intra.UpdateConfigRequest{
+					Name: bufName,
+					Change: &raftpb.ConfChange{
+						NodeID: newId,
+						Type:   raftpb.ConfChangeAddNode,
+					},
+				})
+
+				if err != nil {
+					log.Printf("Failed to update node (%d) for buffer cluster (%s): %s", id, bufName, err)
+					continue
+				}
 			}
 		}
 

@@ -15,6 +15,7 @@ import (
 	. "github.com/apoydence/onpar/matchers"
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/apoydence/talaria/scheduler/internal/auditor"
+	"github.com/coreos/etcd/raft/raftpb"
 )
 
 func TestMain(m *testing.M) {
@@ -54,6 +55,12 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 		o.BeforeEach(func(t TT) TT {
 			for _, n := range t.mockNodes {
 				close(n.StatusOutput.Ret1)
+
+				testhelpers.AlwaysReturn(n.CreateOutput.Ret0, new(intra.CreateResponse))
+				close(n.CreateOutput.Ret1)
+
+				testhelpers.AlwaysReturn(n.UpdateConfigOutput.Ret0, new(intra.UpdateConfigResponse))
+				close(n.UpdateConfigOutput.Ret1)
 			}
 			return t
 		})
@@ -83,9 +90,21 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 						},
 					})),
 				))
+
+				Expect(t, t.mockNodes[1].UpdateConfigInput.Req).To(ViaPolling(
+					Chain(Receive(), Equal(&intra.UpdateConfigRequest{
+						Name: "standalone",
+						Change: &raftpb.ConfChange{
+							NodeID: 0,
+							Type:   raftpb.ConfChangeAddNode,
+						},
+					})),
+				))
+
 			})
 
 			o.Spec("a buffer is not created on attending nodes", func(t TT) {
+				Expect(t, t.mockNodes[0].UpdateConfigInput.Req).To(Always(Not(Receive())))
 				Expect(t, t.mockNodes[1].CreateInput.Req).To(Always(Not(Receive())))
 				Expect(t, t.mockNodes[2].CreateInput.Req).To(Always(Not(Receive())))
 			})
