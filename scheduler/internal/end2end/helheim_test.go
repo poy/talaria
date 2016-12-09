@@ -48,6 +48,15 @@ type mockIntraServer struct {
 		Ret0 chan *intra.UpdateResponse
 		Ret1 chan error
 	}
+	UpdateConfigCalled chan bool
+	UpdateConfigInput  struct {
+		Ctx chan context.Context
+		In  chan *intra.UpdateConfigRequest
+	}
+	UpdateConfigOutput struct {
+		Ret0 chan *intra.UpdateConfigResponse
+		Ret1 chan error
+	}
 }
 
 func newMockIntraServer() *mockIntraServer {
@@ -72,6 +81,11 @@ func newMockIntraServer() *mockIntraServer {
 	m.UpdateInput.In = make(chan *intra.UpdateMessage, 100)
 	m.UpdateOutput.Ret0 = make(chan *intra.UpdateResponse, 100)
 	m.UpdateOutput.Ret1 = make(chan error, 100)
+	m.UpdateConfigCalled = make(chan bool, 100)
+	m.UpdateConfigInput.Ctx = make(chan context.Context, 100)
+	m.UpdateConfigInput.In = make(chan *intra.UpdateConfigRequest, 100)
+	m.UpdateConfigOutput.Ret0 = make(chan *intra.UpdateConfigResponse, 100)
+	m.UpdateConfigOutput.Ret1 = make(chan error, 100)
 	return m
 }
 func (m *mockIntraServer) Create(ctx context.Context, in *intra.CreateInfo) (*intra.CreateResponse, error) {
@@ -97,4 +111,10 @@ func (m *mockIntraServer) Update(ctx context.Context, in *intra.UpdateMessage) (
 	m.UpdateInput.Ctx <- ctx
 	m.UpdateInput.In <- in
 	return <-m.UpdateOutput.Ret0, <-m.UpdateOutput.Ret1
+}
+func (m *mockIntraServer) UpdateConfig(ctx context.Context, in *intra.UpdateConfigRequest) (*intra.UpdateConfigResponse, error) {
+	m.UpdateConfigCalled <- true
+	m.UpdateConfigInput.Ctx <- ctx
+	m.UpdateConfigInput.In <- in
+	return <-m.UpdateConfigOutput.Ret0, <-m.UpdateConfigOutput.Ret1
 }

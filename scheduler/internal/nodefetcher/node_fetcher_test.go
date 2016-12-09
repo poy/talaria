@@ -1,7 +1,10 @@
 package nodefetcher_test
 
 import (
+	"io/ioutil"
+	"log"
 	"net"
+	"os"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -13,7 +16,16 @@ import (
 	. "github.com/apoydence/onpar/matchers"
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/apoydence/talaria/scheduler/internal/nodefetcher"
+	"github.com/apoydence/talaria/scheduler/internal/server"
 )
+
+func TestMain(m *testing.M) {
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+
+	os.Exit(m.Run())
+}
 
 type TT struct {
 	*testing.T
@@ -52,13 +64,13 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 	})
 
 	o.Spec("selects 3 nodes", func(t TT) {
-		nodes := t.nodeFetcher.FetchNodes()
+		nodes := t.nodeFetcher.FetchNodes(3)
 		Expect(t, nodes).To(HaveLen(3))
 	})
 
 	o.Spec("selects random nodes each time", func(t TT) {
 		for i := 0; i < 100; i++ {
-			nodes := t.nodeFetcher.FetchNodes()
+			nodes := t.nodeFetcher.FetchNodes(3)
 			Expect(t, nodes).To(HaveLen(3))
 
 			for _, node := range nodes {
@@ -79,6 +91,31 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 		))
 	})
 
+	o.Spec("excludes given nodes", func(t TT) {
+		exclude := t.nodeFetcher.FetchNodes(3)
+
+		nodes := t.nodeFetcher.FetchNodes(3, exclude...)
+		Expect(t, nodes).To(HaveLen(3))
+		Expect(t, nodes).To(Not(Contain(these(exclude)...)))
+	})
+
+	o.Spec("returns what it can when most the nodes are excluded", func(t TT) {
+		exclude := t.nodeFetcher.FetchNodes(9)
+		Expect(t, exclude).To(HaveLen(9))
+
+		nodes := t.nodeFetcher.FetchNodes(3, exclude...)
+		Expect(t, nodes).To(HaveLen(1))
+		Expect(t, nodes).To(Not(Contain(these(exclude)...)))
+	})
+
+}
+
+func these(ns []server.NodeInfo) []interface{} {
+	var result []interface{}
+	for _, n := range ns {
+		result = append(result, n)
+	}
+	return result
 }
 
 func TestNodeFetcherNodesAreNotConfigured(t *testing.T) {
@@ -88,7 +125,7 @@ func TestNodeFetcherNodesAreNotConfigured(t *testing.T) {
 
 	o.Spec("returns nil", func(t *testing.T) {
 		nodeFetcher := nodefetcher.New(nil)
-		nodes := nodeFetcher.FetchNodes()
+		nodes := nodeFetcher.FetchNodes(3)
 		Expect(t, nodes).To(HaveLen(0))
 	})
 }
@@ -117,6 +154,10 @@ func (m *mockNode) Status(ctx context.Context, req *intra.StatusRequest) (*intra
 	return &intra.StatusResponse{
 		Id: 99,
 	}, nil
+}
+
+func (m *mockNode) UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequest) (*intra.UpdateConfigResponse, error) {
+	return nil, nil
 }
 
 func startGRPCServer() (string, *mockNode) {

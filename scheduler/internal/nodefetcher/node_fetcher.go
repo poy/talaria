@@ -41,21 +41,53 @@ func New(URIs []string) *NodeFetcher {
 	}
 }
 
-func (f *NodeFetcher) FetchNodes() []server.NodeInfo {
-	if len(f.clients) < 3 {
+func (f *NodeFetcher) FetchNodes(count int, exclude ...server.NodeInfo) []server.NodeInfo {
+	if len(f.clients) < count {
 		return nil
 	}
 
+	clients := f.exclude(exclude)
+
+	num := f.permCount(len(clients), count)
+
 	var infos []server.NodeInfo
-	for _, p := range rand.Perm(3) {
+	for _, p := range rand.Perm(num) {
 		infos = append(infos, server.NodeInfo{
-			Client: f.clients[p].client,
-			URI:    f.clients[p].URI,
-			ID:     f.fetchID(f.clients[p], 0),
+			Client: clients[p].client,
+			URI:    clients[p].URI,
+			ID:     f.fetchID(clients[p], 0),
 		})
 	}
 
 	return infos
+}
+
+func (f *NodeFetcher) permCount(max, count int) int {
+	if max < count {
+		return max
+	}
+
+	return count
+}
+
+func (f *NodeFetcher) exclude(exclude []server.NodeInfo) []clientInfo {
+	var result []clientInfo
+	for _, n := range f.clients {
+		if !f.excluded(n, exclude) {
+			result = append(result, n)
+		}
+	}
+
+	return result
+}
+
+func (f *NodeFetcher) excluded(client clientInfo, exclude []server.NodeInfo) bool {
+	for _, ex := range exclude {
+		if ex.Client == client.client {
+			return true
+		}
+	}
+	return false
 }
 
 func (f *NodeFetcher) fetchID(c clientInfo, attempt int) uint64 {

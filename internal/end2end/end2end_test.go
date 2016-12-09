@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 
 	"golang.org/x/net/context"
 
@@ -49,6 +50,7 @@ func setup() []*os.Process {
 func TestMain(m *testing.M) {
 	if !testing.Verbose() {
 		log.SetOutput(ioutil.Discard)
+		grpclog.SetLogger(log.New(ioutil.Discard, "", log.LstdFlags))
 	}
 
 	ps := setup()

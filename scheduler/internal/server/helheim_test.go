@@ -6,31 +6,11 @@
 package server_test
 
 import (
-	"time"
-
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/apoydence/talaria/scheduler/internal/server"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )
-
-type mockNodeFetcher struct {
-	FetchNodesCalled chan bool
-	FetchNodesOutput struct {
-		Client chan []server.NodeInfo
-	}
-}
-
-func newMockNodeFetcher() *mockNodeFetcher {
-	m := &mockNodeFetcher{}
-	m.FetchNodesCalled = make(chan bool, 100)
-	m.FetchNodesOutput.Client = make(chan []server.NodeInfo, 100)
-	return m
-}
-func (m *mockNodeFetcher) FetchNodes() (client []server.NodeInfo) {
-	m.FetchNodesCalled <- true
-	return <-m.FetchNodesOutput.Client
-}
 
 type mockNodeClient struct {
 	CreateCalled chan bool
@@ -61,6 +41,16 @@ type mockNodeClient struct {
 	}
 	UpdateOutput struct {
 		Ret0 chan *intra.UpdateResponse
+		Ret1 chan error
+	}
+	UpdateConfigCalled chan bool
+	UpdateConfigInput  struct {
+		Ctx  chan context.Context
+		In   chan *intra.UpdateConfigRequest
+		Opts chan []grpc.CallOption
+	}
+	UpdateConfigOutput struct {
+		Ret0 chan *intra.UpdateConfigResponse
 		Ret1 chan error
 	}
 	StatusCalled chan bool
@@ -95,6 +85,12 @@ func newMockNodeClient() *mockNodeClient {
 	m.UpdateInput.Opts = make(chan []grpc.CallOption, 100)
 	m.UpdateOutput.Ret0 = make(chan *intra.UpdateResponse, 100)
 	m.UpdateOutput.Ret1 = make(chan error, 100)
+	m.UpdateConfigCalled = make(chan bool, 100)
+	m.UpdateConfigInput.Ctx = make(chan context.Context, 100)
+	m.UpdateConfigInput.In = make(chan *intra.UpdateConfigRequest, 100)
+	m.UpdateConfigInput.Opts = make(chan []grpc.CallOption, 100)
+	m.UpdateConfigOutput.Ret0 = make(chan *intra.UpdateConfigResponse, 100)
+	m.UpdateConfigOutput.Ret1 = make(chan error, 100)
 	m.StatusCalled = make(chan bool, 100)
 	m.StatusInput.Ctx = make(chan context.Context, 100)
 	m.StatusInput.In = make(chan *intra.StatusRequest, 100)
@@ -124,6 +120,13 @@ func (m *mockNodeClient) Update(ctx context.Context, in *intra.UpdateMessage, op
 	m.UpdateInput.Opts <- opts
 	return <-m.UpdateOutput.Ret0, <-m.UpdateOutput.Ret1
 }
+func (m *mockNodeClient) UpdateConfig(ctx context.Context, in *intra.UpdateConfigRequest, opts ...grpc.CallOption) (*intra.UpdateConfigResponse, error) {
+	m.UpdateConfigCalled <- true
+	m.UpdateConfigInput.Ctx <- ctx
+	m.UpdateConfigInput.In <- in
+	m.UpdateConfigInput.Opts <- opts
+	return <-m.UpdateConfigOutput.Ret0, <-m.UpdateConfigOutput.Ret1
+}
 func (m *mockNodeClient) Status(ctx context.Context, in *intra.StatusRequest, opts ...grpc.CallOption) (*intra.StatusResponse, error) {
 	m.StatusCalled <- true
 	m.StatusInput.Ctx <- ctx
@@ -132,57 +135,28 @@ func (m *mockNodeClient) Status(ctx context.Context, in *intra.StatusRequest, op
 	return <-m.StatusOutput.Ret0, <-m.StatusOutput.Ret1
 }
 
-type mockContext struct {
-	DeadlineCalled chan bool
-	DeadlineOutput struct {
-		Deadline chan time.Time
-		Ok       chan bool
+type mockNodeFetcher struct {
+	FetchNodesCalled chan bool
+	FetchNodesInput  struct {
+		Count   chan int
+		Exclude chan []server.NodeInfo
 	}
-	DoneCalled chan bool
-	DoneOutput struct {
-		Ret0 chan (<-chan struct{})
-	}
-	ErrCalled chan bool
-	ErrOutput struct {
-		Ret0 chan error
-	}
-	ValueCalled chan bool
-	ValueInput  struct {
-		Key chan interface{}
-	}
-	ValueOutput struct {
-		Ret0 chan interface{}
+	FetchNodesOutput struct {
+		Client chan []server.NodeInfo
 	}
 }
 
-func newMockContext() *mockContext {
-	m := &mockContext{}
-	m.DeadlineCalled = make(chan bool, 100)
-	m.DeadlineOutput.Deadline = make(chan time.Time, 100)
-	m.DeadlineOutput.Ok = make(chan bool, 100)
-	m.DoneCalled = make(chan bool, 100)
-	m.DoneOutput.Ret0 = make(chan (<-chan struct{}), 100)
-	m.ErrCalled = make(chan bool, 100)
-	m.ErrOutput.Ret0 = make(chan error, 100)
-	m.ValueCalled = make(chan bool, 100)
-	m.ValueInput.Key = make(chan interface{}, 100)
-	m.ValueOutput.Ret0 = make(chan interface{}, 100)
+func newMockNodeFetcher() *mockNodeFetcher {
+	m := &mockNodeFetcher{}
+	m.FetchNodesCalled = make(chan bool, 100)
+	m.FetchNodesInput.Count = make(chan int, 100)
+	m.FetchNodesInput.Exclude = make(chan []server.NodeInfo, 100)
+	m.FetchNodesOutput.Client = make(chan []server.NodeInfo, 100)
 	return m
 }
-func (m *mockContext) Deadline() (deadline time.Time, ok bool) {
-	m.DeadlineCalled <- true
-	return <-m.DeadlineOutput.Deadline, <-m.DeadlineOutput.Ok
-}
-func (m *mockContext) Done() <-chan struct{} {
-	m.DoneCalled <- true
-	return <-m.DoneOutput.Ret0
-}
-func (m *mockContext) Err() error {
-	m.ErrCalled <- true
-	return <-m.ErrOutput.Ret0
-}
-func (m *mockContext) Value(key interface{}) interface{} {
-	m.ValueCalled <- true
-	m.ValueInput.Key <- key
-	return <-m.ValueOutput.Ret0
+func (m *mockNodeFetcher) FetchNodes(count int, exclude ...server.NodeInfo) (client []server.NodeInfo) {
+	m.FetchNodesCalled <- true
+	m.FetchNodesInput.Count <- count
+	m.FetchNodesInput.Exclude <- exclude
+	return <-m.FetchNodesOutput.Client
 }

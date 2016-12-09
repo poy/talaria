@@ -4,9 +4,11 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"time"
 
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/scheduler/config"
+	"github.com/apoydence/talaria/scheduler/internal/auditor"
 	"github.com/apoydence/talaria/scheduler/internal/nodefetcher"
 	"github.com/apoydence/talaria/scheduler/internal/server"
 	"google.golang.org/grpc"
@@ -28,6 +30,8 @@ func main() {
 	scheduler := server.New(nodeFetcher)
 
 	grpcServer := grpc.NewServer()
+
+	auditor.Start(time.Second, auditor.Generate(conf.Nodes...)...)
 
 	pb.RegisterSchedulerServer(grpcServer, scheduler)
 	grpcServer.Serve(lis)

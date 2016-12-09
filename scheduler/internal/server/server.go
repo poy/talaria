@@ -5,20 +5,11 @@ import (
 	"log"
 	"math/rand"
 
-	"google.golang.org/grpc"
-
 	"golang.org/x/net/context"
 
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
 )
-
-type NodeClient interface {
-	Create(ctx context.Context, in *intra.CreateInfo, opts ...grpc.CallOption) (*intra.CreateResponse, error)
-	Leader(ctx context.Context, in *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderInfo, error)
-	Update(ctx context.Context, in *intra.UpdateMessage, opts ...grpc.CallOption) (*intra.UpdateResponse, error)
-	Status(ctx context.Context, in *intra.StatusRequest, opts ...grpc.CallOption) (*intra.StatusResponse, error)
-}
 
 type NodeInfo struct {
 	Client intra.NodeClient
@@ -27,7 +18,7 @@ type NodeInfo struct {
 }
 
 type NodeFetcher interface {
-	FetchNodes() (client []NodeInfo)
+	FetchNodes(count int, exclude ...NodeInfo) (client []NodeInfo)
 }
 
 type Server struct {
@@ -42,33 +33,36 @@ func New(fetcher NodeFetcher) *Server {
 
 func (s *Server) Create(ctx context.Context, info *pb.CreateInfo) (*pb.CreateResponse, error) {
 	log.Printf("Scheduling %s", info.Name)
-	return s.retryableCreate(ctx, &intra.CreateInfo{Name: info.Name}, 0, nil)
-}
-
-func (s *Server) retryableCreate(ctx context.Context, info *intra.CreateInfo, count int, err error) (*pb.CreateResponse, error) {
-	if count >= 5 {
-		return nil, err
-	}
-
-	// TODO: If some nodes fail and others don't, we don't need a full set of new
-	// nodes on next request
-	nodes := s.fetcher.FetchNodes()
+	nodes := s.fetcher.FetchNodes(3)
 	if len(nodes) == 0 {
 		return nil, fmt.Errorf("No nodes available")
 	}
 
+	var successfulNodes []NodeInfo
+
+	intraInfo := &intra.CreateInfo{
+		Name:  info.Name,
+		Peers: s.buildPeerList(nodes),
+	}
+
 	for _, node := range nodes {
 		log.Printf("Creating buffer %s on node %s (ID=%d)", info.Name, node.URI, node.ID)
-		if _, err = node.Client.Create(ctx, info); err != nil {
+		if _, err := node.Client.Create(ctx, intraInfo); err != nil {
 			log.Printf("Error scheduling %s on %s: %s", info.Name, node.URI, err)
-			return s.retryableCreate(ctx, info, count+1, err)
+			continue
 		}
+
+		successfulNodes = append(successfulNodes, node)
+	}
+
+	if len(successfulNodes) == 0 {
+		return nil, fmt.Errorf("failed to create buffer")
 	}
 
 	seed := rand.Intn(1000)
 	for i := range nodes {
 		log.Printf("Fetching leader for %s", info.Name)
-		leaderInfo, err := nodes[(i+seed)%len(nodes)].Client.Leader(ctx, &intra.LeaderRequest{
+		leaderInfo, err := successfulNodes[(i+seed)%len(successfulNodes)].Client.Leader(ctx, &intra.LeaderRequest{
 			Name: info.Name,
 		})
 		if err != nil {
@@ -88,6 +82,15 @@ func (s *Server) retryableCreate(ctx context.Context, info *intra.CreateInfo, co
 	}
 
 	return nil, fmt.Errorf("unable to fetch the leader")
+}
+
+func (s *Server) buildPeerList(nodes []NodeInfo) []*intra.PeerInfo {
+	var peers []*intra.PeerInfo
+	for _, node := range nodes {
+		peers = append(peers, &intra.PeerInfo{Id: node.ID})
+	}
+
+	return peers
 }
 
 func (s *Server) findViaID(ID uint64, nodes []NodeInfo) (NodeInfo, bool) {

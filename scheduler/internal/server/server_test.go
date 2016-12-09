@@ -3,6 +3,9 @@ package server_test
 
 import (
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/apoydence/eachers/testhelpers"
@@ -14,6 +17,14 @@ import (
 	"github.com/apoydence/talaria/scheduler/internal/server"
 	"golang.org/x/net/context"
 )
+
+func TestMain(m *testing.M) {
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+
+	os.Exit(m.Run())
+}
 
 type TT struct {
 	*testing.T
@@ -102,14 +113,15 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 			})
 
 			o.Spec("it writes to fetched node", func(t TT) {
-				expected := &intra.CreateInfo{
-					Name: t.createInfo.Name,
-				}
 				t.s.Create(context.Background(), t.createInfo)
 
+				var info *intra.CreateInfo
 				Expect(t, t.mockNodeClient.CreateInput.In).To(ViaPolling(
-					Chain(Receive(), Equal(expected)),
+					Chain(Receive(), Fetch(&info)),
 				))
+
+				Expect(t, info.Name).To(Equal(t.createInfo.Name))
+				Expect(t, info.Peers).To(Equal([]*intra.PeerInfo{{Id: 99}, {Id: 99}, {Id: 99}}))
 			})
 		})
 
@@ -165,17 +177,13 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 			return t
 		})
 
-		o.Spec("it tries a new node", func(t TT) {
+		o.Spec("it skips it", func(t TT) {
 			_, err := t.s.Create(context.Background(), t.createInfo)
 			Expect(t, err == nil).To(BeTrue())
-
-			Expect(t, t.mockNodeFetcher.FetchNodesCalled).To(ViaPolling(
-				HaveLen(2),
-			))
 		})
 	})
 
-	o.Group("when nodes always return an error", func() {
+	o.Group("when all the nodes return an error", func() {
 		o.BeforeEach(func(t TT) TT {
 			info := server.NodeInfo{
 				Client: t.mockNodeClient,
@@ -195,13 +203,9 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 			return t
 		})
 
-		o.Spec("it gives up after 5 tries and returns an error", func(t TT) {
+		o.Spec("it gives returns an error", func(t TT) {
 			_, err := t.s.Create(context.Background(), t.createInfo)
 			Expect(t, err == nil).To(BeFalse())
-
-			Expect(t, t.mockNodeFetcher.FetchNodesCalled).To(ViaPolling(
-				HaveLen(5),
-			))
 		})
 	})
 }
