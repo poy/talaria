@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"sync"
 
 	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
@@ -22,7 +23,9 @@ type URIFinder interface {
 }
 
 type Storage struct {
-	bufs      map[string]raftNodeInfo
+	mu   sync.RWMutex
+	bufs map[string]raftNodeInfo
+
 	id        uint64
 	receiver  Receiver
 	uriFinder URIFinder
@@ -42,6 +45,9 @@ type raftNodeInfo struct {
 }
 
 func (s *Storage) Create(name string, peers []*intra.PeerInfo) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
 	log.Printf("Creating '%s'", name)
 	if _, ok := s.bufs[name]; ok {
 		log.Printf("'%s' already exists...", name)
@@ -58,6 +64,9 @@ func (s *Storage) Create(name string, peers []*intra.PeerInfo) error {
 }
 
 func (s *Storage) FetchWriter(name string) (server.Writer, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	info, ok := s.bufs[name]
 	if !ok {
 		return nil, fmt.Errorf("'%s' must be created before being fetched", name)
@@ -67,6 +76,9 @@ func (s *Storage) FetchWriter(name string) (server.Writer, error) {
 }
 
 func (s *Storage) FetchReader(name string) (server.Reader, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	info, ok := s.bufs[name]
 	if !ok {
 		return nil, fmt.Errorf("'%s' must be created before being fetched", name)
@@ -76,6 +88,9 @@ func (s *Storage) FetchReader(name string) (server.Reader, error) {
 }
 
 func (s *Storage) Leader(name string) (id uint64, err error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	info, ok := s.bufs[name]
 	if !ok {
 		return 0, fmt.Errorf("unknown buffer: %s", name)
@@ -84,6 +99,9 @@ func (s *Storage) Leader(name string) (id uint64, err error) {
 }
 
 func (s *Storage) UpdateConfig(name string, conf raftpb.ConfChange) error {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	info, ok := s.bufs[name]
 	if !ok {
 		return fmt.Errorf("unknown buffer: %s", name)
@@ -92,6 +110,9 @@ func (s *Storage) UpdateConfig(name string, conf raftpb.ConfChange) error {
 }
 
 func (s *Storage) List() []string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
 	var buffers []string
 	for name, _ := range s.bufs {
 		buffers = append(buffers, name)

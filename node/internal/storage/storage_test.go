@@ -4,6 +4,9 @@ package storage_test
 
 import (
 	"context"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/apoydence/onpar"
@@ -14,6 +17,14 @@ import (
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/coreos/etcd/raft/raftpb"
 )
+
+func TestMain(m *testing.M) {
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+
+	os.Exit(m.Run())
+}
 
 type TT struct {
 	*testing.T
