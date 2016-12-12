@@ -77,11 +77,13 @@ func (a *Auditor) setClusterInfo(buffers map[string][]uint64, nodes map[uint64]N
 	var results []*pb.ClusterInfo
 	for bufferName, ids := range buffers {
 		log.Printf("Saving results for %s", bufferName)
-		results = append(results, &pb.ClusterInfo{
+		info := &pb.ClusterInfo{
 			Name:   bufferName,
 			Leader: a.fetchLeader(bufferName, ids, nodes),
 			Nodes:  a.buildIPList(ids, nodes),
-		})
+		}
+		results = append(results, info)
+		log.Printf("Results for %s: %v", bufferName, info)
 	}
 
 	a.mu.Lock()

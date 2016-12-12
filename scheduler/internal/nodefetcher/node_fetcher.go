@@ -41,6 +41,18 @@ func New(URIs []string) *NodeFetcher {
 	}
 }
 
+func (f *NodeFetcher) FetchAllNodes() []server.NodeInfo {
+	var results []server.NodeInfo
+	for _, client := range f.clients {
+		results = append(results, server.NodeInfo{
+			Client: client.client,
+			URI:    client.URI,
+			ID:     f.fetchID(client, 0),
+		})
+	}
+	return results
+}
+
 func (f *NodeFetcher) FetchNodes(count int, exclude ...server.NodeInfo) []server.NodeInfo {
 	if len(f.clients) < count {
 		return nil

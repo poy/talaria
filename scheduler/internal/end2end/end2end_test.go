@@ -46,6 +46,7 @@ type TT struct {
 	leaderRequest    *intra.LeaderRequest
 	schedulerProcess *os.Process
 	schedulerClient  pb.SchedulerClient
+	intraClient      intra.SchedulerClient
 	intraPorts       []int
 	mockServers      []*mockIntraServer
 	closer           io.Closer
@@ -68,7 +69,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 		intraPorts, mockServers := startMockIntraServer(3)
 		schedulerPort, schedulerProcess := startScheduler(intraPorts...)
 
-		schedulerClient, closer := connectToScheduler(schedulerPort)
+		schedulerClient, intraClient, closer := connectToScheduler(schedulerPort)
 
 		for _, mockServer := range mockServers {
 			testhelpers.AlwaysReturn(mockServer.CreateOutput.Ret0, new(intra.CreateResponse))
@@ -86,6 +87,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 			leaderRequest:    leaderRequest,
 			schedulerProcess: schedulerProcess,
 			schedulerClient:  schedulerClient,
+			intraClient:      intraClient,
 			intraPorts:       intraPorts,
 			mockServers:      mockServers,
 			closer:           closer,
@@ -187,7 +189,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 
 		o.Spec("it lists the buffers", func(t TT) {
 			var resp *pb.ListResponse
-			f2 := func() int {
+			f := func() int {
 				var err error
 				resp, err = t.schedulerClient.ListClusterInfo(context.Background(), new(pb.ListInfo))
 				if err != nil {
@@ -196,7 +198,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 
 				return len(resp.Info)
 			}
-			Expect(t, f2).To(ViaPollingMatcher{
+			Expect(t, f).To(ViaPollingMatcher{
 				Duration: 3 * time.Second,
 				Matcher:  Equal(1),
 			})
@@ -206,6 +208,20 @@ func TestSchedulerEnd2End(t *testing.T) {
 			Expect(t, resp.Info[0].Nodes).To(Contain(fmt.Sprintf("localhost:%d", t.intraPorts[0])))
 		})
 
+		o.Spec("it gives a URI from an ID", func(t TT) {
+			f := func() string {
+				resp, err := t.intraClient.FromID(context.Background(), &intra.FromIdRequest{Id: 0})
+				if err != nil {
+					return ""
+				}
+
+				return resp.Uri
+			}
+
+			expectedURI := fmt.Sprintf("localhost:%d", t.intraPorts[0])
+			Expect(t, f).To(ViaPolling(Equal(expectedURI)))
+		})
+
 	})
 }
 
@@ -213,13 +229,13 @@ func createName() string {
 	return fmt.Sprintf("some-buffer-%d", rand.Int63())
 }
 
-func connectToScheduler(schedulerPort int) (pb.SchedulerClient, io.Closer) {
+func connectToScheduler(schedulerPort int) (pb.SchedulerClient, intra.SchedulerClient, io.Closer) {
 	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", schedulerPort), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
 
-	return pb.NewSchedulerClient(clientConn), clientConn
+	return pb.NewSchedulerClient(clientConn), intra.NewSchedulerClient(clientConn), clientConn
 }
 
 func startScheduler(intraPorts ...int) (int, *os.Process) {

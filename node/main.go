@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"time"
 
 	"github.com/apoydence/talaria/node/config"
 	"github.com/apoydence/talaria/node/internal/server"
@@ -18,7 +19,9 @@ import (
 )
 
 func main() {
+	seed := time.Now().UnixNano()
 	log.Print("Starting Talaria Node...")
+	rand.Seed(seed)
 	defer log.Print("Closing Talaria Node")
 	conf := config.Load()
 

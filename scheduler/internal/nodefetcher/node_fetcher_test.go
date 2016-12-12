@@ -49,7 +49,7 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 		var mockNodes []*mockNode
 
 		for i := 0; i < 10; i++ {
-			URI, m := startGRPCServer()
+			URI, m := startGRPCServer(99)
 			serverURIs = append(serverURIs, URI)
 			mockNodes = append(mockNodes, m)
 		}
@@ -110,6 +110,41 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 
 }
 
+func TestNodeFetcherAllNodes(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TT {
+		createInfo := &intra.CreateInfo{
+			Name: "some-name",
+		}
+
+		var serverURIs []string
+		var mockNodes []*mockNode
+
+		for i := 0; i < 10; i++ {
+			URI, m := startGRPCServer(uint64(i))
+			serverURIs = append(serverURIs, URI)
+			mockNodes = append(mockNodes, m)
+		}
+
+		return TT{
+			T:           t,
+			nodeFetcher: nodefetcher.New(serverURIs),
+			serverURIs:  serverURIs,
+			mockNodes:   mockNodes,
+			createInfo:  createInfo,
+		}
+	})
+
+	o.Spec("it returns all the nodes", func(t TT) {
+		nodes := t.nodeFetcher.FetchAllNodes()
+		Expect(t, nodes).To(HaveLen(10))
+	})
+
+}
+
 func these(ns []server.NodeInfo) []interface{} {
 	var result []interface{}
 	for _, n := range ns {
@@ -131,8 +166,9 @@ func TestNodeFetcherNodesAreNotConfigured(t *testing.T) {
 }
 
 type mockNode struct {
-	c chan bool
-	s chan bool
+	c  chan bool
+	s  chan bool
+	id uint64
 }
 
 func (m *mockNode) Create(ctx context.Context, info *intra.CreateInfo) (*intra.CreateResponse, error) {
@@ -152,7 +188,7 @@ func (m *mockNode) Status(ctx context.Context, req *intra.StatusRequest) (*intra
 	m.s <- true
 
 	return &intra.StatusResponse{
-		Id: 99,
+		Id: m.id,
 	}, nil
 }
 
@@ -160,10 +196,11 @@ func (m *mockNode) UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequ
 	return nil, nil
 }
 
-func startGRPCServer() (string, *mockNode) {
+func startGRPCServer(mockID uint64) (string, *mockNode) {
 	m := &mockNode{
-		c: make(chan bool, 100),
-		s: make(chan bool, 100),
+		c:  make(chan bool, 100),
+		s:  make(chan bool, 100),
+		id: mockID,
 	}
 	lis, err := net.Listen("tcp", ":0")
 	if err != nil {
