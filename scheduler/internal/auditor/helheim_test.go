@@ -44,6 +44,16 @@ type mockNode struct {
 		Ret0 chan *intra.UpdateConfigResponse
 		Ret1 chan error
 	}
+	LeaderCalled chan bool
+	LeaderInput  struct {
+		Ctx  chan context.Context
+		Req  chan *intra.LeaderRequest
+		Opts chan []grpc.CallOption
+	}
+	LeaderOutput struct {
+		Ret0 chan *intra.LeaderInfo
+		Ret1 chan error
+	}
 }
 
 func newMockNode() *mockNode {
@@ -66,6 +76,12 @@ func newMockNode() *mockNode {
 	m.UpdateConfigInput.Opts = make(chan []grpc.CallOption, 100)
 	m.UpdateConfigOutput.Ret0 = make(chan *intra.UpdateConfigResponse, 100)
 	m.UpdateConfigOutput.Ret1 = make(chan error, 100)
+	m.LeaderCalled = make(chan bool, 100)
+	m.LeaderInput.Ctx = make(chan context.Context, 100)
+	m.LeaderInput.Req = make(chan *intra.LeaderRequest, 100)
+	m.LeaderInput.Opts = make(chan []grpc.CallOption, 100)
+	m.LeaderOutput.Ret0 = make(chan *intra.LeaderInfo, 100)
+	m.LeaderOutput.Ret1 = make(chan error, 100)
 	return m
 }
 func (m *mockNode) Status(ctx context.Context, req *intra.StatusRequest, opts ...grpc.CallOption) (*intra.StatusResponse, error) {
@@ -88,6 +104,13 @@ func (m *mockNode) UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequ
 	m.UpdateConfigInput.Req <- req
 	m.UpdateConfigInput.Opts <- opts
 	return <-m.UpdateConfigOutput.Ret0, <-m.UpdateConfigOutput.Ret1
+}
+func (m *mockNode) Leader(ctx context.Context, req *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderInfo, error) {
+	m.LeaderCalled <- true
+	m.LeaderInput.Ctx <- ctx
+	m.LeaderInput.Req <- req
+	m.LeaderInput.Opts <- opts
+	return <-m.LeaderOutput.Ret0, <-m.LeaderOutput.Ret1
 }
 
 type mockContext struct {

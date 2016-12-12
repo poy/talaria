@@ -1,6 +1,7 @@
 package end2end_test
 
 import (
+	"flag"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -30,6 +31,7 @@ import (
 )
 
 func TestMain(m *testing.M) {
+	flag.Parse()
 	if !testing.Verbose() {
 		log.SetOutput(ioutil.Discard)
 		grpclog.SetLogger(log.New(ioutil.Discard, "", log.LstdFlags))
@@ -109,15 +111,12 @@ func TestSchedulerEnd2End(t *testing.T) {
 		})
 
 		o.Spec("it selects 3 Nodes to create a buffer via intra API", func(t TT) {
-			var resp *pb.CreateResponse
 			f := func() bool {
-				var err error
-				resp, err = t.schedulerClient.Create(context.Background(), t.createInfo)
+				_, err := t.schedulerClient.Create(context.Background(), t.createInfo)
 				return err == nil
 			}
 
 			Expect(t, f).To(ViaPolling(BeTrue()))
-			Expect(t, resp.Uri).To(Not(HaveLen(0)))
 
 			var info *intra.CreateInfo
 			for _, mockServer := range t.mockServers {
@@ -137,16 +136,22 @@ func TestSchedulerEnd2End(t *testing.T) {
 	o.Group("when a buffer does not have 3 nodes", func() {
 		o.BeforeEach(func(t TT) TT {
 			testhelpers.AlwaysReturn(t.mockServers[0].StatusOutput.Ret0, &intra.StatusResponse{
-				Id:      99,
+				Id:      0,
 				Buffers: []string{"standalone"},
 			})
 			close(t.mockServers[0].StatusOutput.Ret1)
+
+			testhelpers.AlwaysReturn(t.mockServers[0].UpdateConfigOutput.Ret0, &intra.UpdateConfigResponse{})
+			close(t.mockServers[0].UpdateConfigOutput.Ret1)
 
 			for i, m := range t.mockServers[1:] {
 				testhelpers.AlwaysReturn(m.StatusOutput.Ret0, &intra.StatusResponse{
 					Id: uint64(i + 1),
 				})
 				close(m.StatusOutput.Ret1)
+
+				testhelpers.AlwaysReturn(m.UpdateConfigOutput.Ret0, &intra.UpdateConfigResponse{})
+				close(m.UpdateConfigOutput.Ret1)
 			}
 
 			return t
@@ -179,6 +184,28 @@ func TestSchedulerEnd2End(t *testing.T) {
 			Expect(t, req.Change.Type).To(Equal(raftpb.ConfChangeAddNode))
 			Expect(t, req.Change.NodeID).To(Or(Equal(uint64(1)), Equal(uint64(2))))
 		})
+
+		o.Spec("it lists the buffers", func(t TT) {
+			var resp *pb.ListResponse
+			f2 := func() int {
+				var err error
+				resp, err = t.schedulerClient.ListClusterInfo(context.Background(), new(pb.ListInfo))
+				if err != nil {
+					return 0
+				}
+
+				return len(resp.Info)
+			}
+			Expect(t, f2).To(ViaPollingMatcher{
+				Duration: 3 * time.Second,
+				Matcher:  Equal(1),
+			})
+
+			Expect(t, resp.Info[0].Name).To(Equal("standalone"))
+			Expect(t, resp.Info[0].Leader).To(Equal(fmt.Sprintf("localhost:%d", t.intraPorts[0])))
+			Expect(t, resp.Info[0].Nodes).To(Contain(fmt.Sprintf("localhost:%d", t.intraPorts[0])))
+		})
+
 	})
 }
 

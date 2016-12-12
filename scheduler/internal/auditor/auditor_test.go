@@ -3,6 +3,8 @@
 package auditor_test
 
 import (
+	"flag"
+	"fmt"
 	"io/ioutil"
 	"log"
 	"os"
@@ -13,12 +15,14 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
+	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/apoydence/talaria/scheduler/internal/auditor"
 	"github.com/coreos/etcd/raft/raftpb"
 )
 
 func TestMain(m *testing.M) {
+	flag.Parse()
 	if !testing.Verbose() {
 		log.SetOutput(ioutil.Discard)
 	}
@@ -46,7 +50,7 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 
 		return TT{
 			T:         t,
-			a:         auditor.Start(time.Millisecond, castMockNodes(mockNodes)...),
+			a:         auditor.Start(time.Millisecond, castMockNodes(mockNodes)),
 			mockNodes: mockNodes,
 		}
 	})
@@ -58,6 +62,9 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 
 				testhelpers.AlwaysReturn(n.CreateOutput.Ret0, new(intra.CreateResponse))
 				close(n.CreateOutput.Ret1)
+
+				testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, &intra.LeaderInfo{Id: 0})
+				close(n.LeaderOutput.Ret1)
 
 				testhelpers.AlwaysReturn(n.UpdateConfigOutput.Ret0, new(intra.UpdateConfigResponse))
 				close(n.UpdateConfigOutput.Ret1)
@@ -125,7 +132,7 @@ func TestAuditorWithoutEnoughNodes(t *testing.T) {
 
 		return TT{
 			T:         t,
-			a:         auditor.Start(time.Millisecond, castMockNodes(mockNodes)...),
+			a:         auditor.Start(time.Millisecond, castMockNodes(mockNodes)),
 			mockNodes: mockNodes,
 		}
 	})
@@ -152,10 +159,58 @@ func TestAuditorWithoutEnoughNodes(t *testing.T) {
 	})
 }
 
-func castMockNodes(n []*mockNode) []auditor.Node {
-	var ns []auditor.Node
-	for _, nn := range n {
-		ns = append(ns, nn)
+func TestAuditorList(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TT {
+		mockNodes := []*mockNode{
+			newMockNode(),
+			newMockNode(),
+			newMockNode(),
+		}
+
+		for i, n := range mockNodes {
+			testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, &intra.LeaderInfo{Id: 0})
+			close(n.LeaderOutput.Ret1)
+			testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
+				Id:      uint64(i),
+				Buffers: []string{"good", "standalone"},
+			})
+			close(n.StatusOutput.Ret1)
+		}
+
+		return TT{
+			T:         t,
+			a:         auditor.Start(time.Millisecond, castMockNodes(mockNodes)),
+			mockNodes: mockNodes,
+		}
+	})
+
+	o.Spec("it reports its last result set", func(t TT) {
+		var list pb.ListResponse
+
+		f := func() int {
+			list = t.a.List()
+			return len(list.Info)
+		}
+		Expect(t, f).To(ViaPolling(Equal(2)))
+
+		Expect(t, list.Info[0].Name).To(Or(Equal("good"), Equal("standalone")))
+		Expect(t, list.Info[1].Name).To(Or(Equal("good"), Equal("standalone")))
+		Expect(t, list.Info[0].Name).To(Not(Equal(list.Info[1].Name)))
+		Expect(t, list.Info[0].Leader).To(Equal("0"))
+		Expect(t, list.Info[0].Leader).To(Equal("0"))
+		Expect(t, list.Info[0].Nodes).To(Contain("0", "1", "2"))
+		Expect(t, list.Info[1].Nodes).To(Contain("0", "1", "2"))
+	})
+}
+
+func castMockNodes(n []*mockNode) map[auditor.Node]string {
+	ns := make(map[auditor.Node]string)
+	for i, nn := range n {
+		ns[nn] = fmt.Sprintf("%d", i)
 	}
 	return ns
 }

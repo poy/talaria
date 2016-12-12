@@ -8,8 +8,8 @@ import (
 	"google.golang.org/grpc"
 )
 
-func Generate(URIs ...string) []Node {
-	var nodes []Node
+func Generate(URIs ...string) map[Node]string {
+	nodes := make(map[Node]string)
 	for _, URI := range URIs {
 		c, err := grpc.Dial(URI, grpc.WithInsecure())
 		if err != nil {
@@ -17,7 +17,7 @@ func Generate(URIs ...string) []Node {
 			continue
 		}
 		client := intra.NewNodeClient(c)
-		nodes = append(nodes, client)
+		nodes[client] = URI
 	}
 
 	return nodes

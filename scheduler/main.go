@@ -26,12 +26,12 @@ func main() {
 	}
 	log.Printf("Listening on port %d", conf.Port)
 
+	auditor := auditor.Start(time.Second, auditor.Generate(conf.Nodes...))
+
 	nodeFetcher := nodefetcher.New(conf.Nodes)
-	scheduler := server.New(nodeFetcher)
+	scheduler := server.New(nodeFetcher, auditor)
 
 	grpcServer := grpc.NewServer()
-
-	auditor.Start(time.Second, auditor.Generate(conf.Nodes...)...)
 
 	pb.RegisterSchedulerServer(grpcServer, scheduler)
 	grpcServer.Serve(lis)

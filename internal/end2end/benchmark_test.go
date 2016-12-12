@@ -27,16 +27,34 @@ func BenchmarkSingleBufferWrite(b *testing.B) {
 
 	var nodeClient pb.TalariaClient
 	f := func() bool {
-		resp, err := schedulerClient.Create(context.Background(), createInfo)
-		if err != nil {
-			return false
-		}
-		nodeClient = fetchNodeClient(resp.Uri, nodeClients)
-		return true
+		_, err := schedulerClient.Create(context.Background(), createInfo)
+		return err == nil
 	}
 	Expect(b, f).To(ViaPollingMatcher{
 		Matcher:  BeTrue(),
-		Duration: 1 * time.Second,
+		Duration: 5 * time.Second,
+	})
+
+	f = func() bool {
+		resp, err := schedulerClient.ListClusterInfo(context.Background(), &pb.ListInfo{
+			Names: []string{createInfo.Name},
+		})
+
+		if err != nil {
+			return false
+		}
+
+		if len(resp.Info) == 0 || resp.Info[0].Leader == "" {
+			return false
+		}
+
+		nodeClient = fetchNodeClient(resp.Info[0].Leader, nodeClients)
+		return true
+	}
+
+	Expect(b, f).To(ViaPollingMatcher{
+		Matcher:  BeTrue(),
+		Duration: 5 * time.Second,
 	})
 
 	b.ResetTimer()
@@ -70,13 +88,31 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 
 	var nodeClient pb.TalariaClient
 	f := func() bool {
-		resp, err := schedulerClient.Create(context.Background(), createInfo)
+		_, err := schedulerClient.Create(context.Background(), createInfo)
+		return err == nil
+	}
+	Expect(b, f).To(ViaPollingMatcher{
+		Matcher:  BeTrue(),
+		Duration: 5 * time.Second,
+	})
+
+	f = func() bool {
+		resp, err := schedulerClient.ListClusterInfo(context.Background(), &pb.ListInfo{
+			Names: []string{createInfo.Name},
+		})
+
 		if err != nil {
 			return false
 		}
-		nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+
+		if len(resp.Info) == 0 || resp.Info[0].Leader == "" {
+			return false
+		}
+
+		nodeClient = fetchNodeClient(resp.Info[0].Leader, nodeClients)
 		return true
 	}
+
 	Expect(b, f).To(ViaPollingMatcher{
 		Matcher:  BeTrue(),
 		Duration: 5 * time.Second,
@@ -157,13 +193,31 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 
 		var nodeClient pb.TalariaClient
 		f := func() bool {
-			resp, err := schedulerClient.Create(context.Background(), createInfo)
+			_, err := schedulerClient.Create(context.Background(), createInfo)
+			return err == nil
+		}
+		Expect(b, f).To(ViaPollingMatcher{
+			Matcher:  BeTrue(),
+			Duration: 5 * time.Second,
+		})
+
+		f = func() bool {
+			resp, err := schedulerClient.ListClusterInfo(context.Background(), &pb.ListInfo{
+				Names: []string{createInfo.Name},
+			})
+
 			if err != nil {
 				return false
 			}
-			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+
+			if len(resp.Info) == 0 || resp.Info[0].Leader == "" {
+				return false
+			}
+
+			nodeClient = fetchNodeClient(resp.Info[0].Leader, nodeClients)
 			return true
 		}
+
 		Expect(b, f).To(ViaPollingMatcher{
 			Matcher:  BeTrue(),
 			Duration: 5 * time.Second,

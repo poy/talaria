@@ -3,7 +3,6 @@ package server
 import (
 	"fmt"
 	"log"
-	"math/rand"
 
 	"golang.org/x/net/context"
 
@@ -17,17 +16,23 @@ type NodeInfo struct {
 	ID     uint64
 }
 
+type Auditor interface {
+	List() pb.ListResponse
+}
+
 type NodeFetcher interface {
 	FetchNodes(count int, exclude ...NodeInfo) (client []NodeInfo)
 }
 
 type Server struct {
 	fetcher NodeFetcher
+	auditor Auditor
 }
 
-func New(fetcher NodeFetcher) *Server {
+func New(fetcher NodeFetcher, auditor Auditor) *Server {
 	return &Server{
 		fetcher: fetcher,
+		auditor: auditor,
 	}
 }
 
@@ -59,29 +64,34 @@ func (s *Server) Create(ctx context.Context, info *pb.CreateInfo) (*pb.CreateRes
 		return nil, fmt.Errorf("failed to create buffer")
 	}
 
-	seed := rand.Intn(1000)
-	for i := range nodes {
-		log.Printf("Fetching leader for %s", info.Name)
-		leaderInfo, err := successfulNodes[(i+seed)%len(successfulNodes)].Client.Leader(ctx, &intra.LeaderRequest{
-			Name: info.Name,
-		})
-		if err != nil {
-			log.Printf("Error fetching leader information: %s", err)
-			continue
-		}
+	return new(pb.CreateResponse), nil
+}
 
-		leader, found := s.findViaID(leaderInfo.Id, nodes)
-		if !found {
-			return nil, fmt.Errorf("unknown leader ID: %d", leaderInfo.Id)
-		}
-		log.Printf("Found leader for %s: %s (ID=%d)", info.Name, leader.URI, leader.ID)
-
-		return &pb.CreateResponse{
-			Uri: leader.URI,
-		}, nil
+func (s *Server) ListClusterInfo(ctx context.Context, info *pb.ListInfo) (*pb.ListResponse, error) {
+	list := s.auditor.List()
+	if len(info.Names) == 0 {
+		return &list, nil
 	}
 
-	return nil, fmt.Errorf("unable to fetch the leader")
+	var results []*pb.ClusterInfo
+	for _, c := range list.Info {
+		if s.contains(c.Name, info.Names) {
+			results = append(results, c)
+		}
+	}
+
+	return &pb.ListResponse{
+		Info: results,
+	}, nil
+}
+
+func (s *Server) contains(str string, values []string) bool {
+	for _, v := range values {
+		if v == str {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) buildPeerList(nodes []NodeInfo) []*intra.PeerInfo {

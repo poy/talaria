@@ -6,6 +6,7 @@
 package server_test
 
 import (
+	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/apoydence/talaria/scheduler/internal/server"
 	"golang.org/x/net/context"
@@ -133,6 +134,24 @@ func (m *mockNodeClient) Status(ctx context.Context, in *intra.StatusRequest, op
 	m.StatusInput.In <- in
 	m.StatusInput.Opts <- opts
 	return <-m.StatusOutput.Ret0, <-m.StatusOutput.Ret1
+}
+
+type mockAuditor struct {
+	ListCalled chan bool
+	ListOutput struct {
+		Ret0 chan pb.ListResponse
+	}
+}
+
+func newMockAuditor() *mockAuditor {
+	m := &mockAuditor{}
+	m.ListCalled = make(chan bool, 100)
+	m.ListOutput.Ret0 = make(chan pb.ListResponse, 100)
+	return m
+}
+func (m *mockAuditor) List() pb.ListResponse {
+	m.ListCalled <- true
+	return <-m.ListOutput.Ret0
 }
 
 type mockNodeFetcher struct {

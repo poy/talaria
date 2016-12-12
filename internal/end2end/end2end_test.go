@@ -1,6 +1,7 @@
 package end2end_test
 
 import (
+	"flag"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -48,6 +49,7 @@ func setup() []*os.Process {
 }
 
 func TestMain(m *testing.M) {
+	flag.Parse()
 	if !testing.Verbose() {
 		log.SetOutput(ioutil.Discard)
 		grpclog.SetLogger(log.New(ioutil.Discard, "", log.LstdFlags))
@@ -91,13 +93,31 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 
 		var nodeClient pb.TalariaClient
 		f := func() bool {
-			resp, err := schedulerClient.Create(context.Background(), createInfo)
+			_, err := schedulerClient.Create(context.Background(), createInfo)
+			return err == nil
+		}
+		Expect(t, f).To(ViaPollingMatcher{
+			Matcher:  BeTrue(),
+			Duration: 5 * time.Second,
+		})
+
+		f = func() bool {
+			resp, err := schedulerClient.ListClusterInfo(context.Background(), &pb.ListInfo{
+				Names: []string{createInfo.Name},
+			})
+
 			if err != nil {
 				return false
 			}
-			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+
+			if len(resp.Info) == 0 || resp.Info[0].Leader == "" {
+				return false
+			}
+
+			nodeClient = fetchNodeClient(resp.Info[0].Leader, nodeClients)
 			return true
 		}
+
 		Expect(t, f).To(ViaPollingMatcher{
 			Matcher:  BeTrue(),
 			Duration: 5 * time.Second,
@@ -127,7 +147,7 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 			))
 		})
 
-		o.Spec("it tails via Read()", func(t TC) {
+		o.Spec("it tails via Read", func(t TC) {
 			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
 			writer, err := t.nodeClient.Write(context.Background())
 			Expect(t, err == nil).To(BeTrue())
@@ -200,11 +220,28 @@ func TestEnd2EndBufferHasNotBeenCreated(t *testing.T) {
 
 		var nodeClient pb.TalariaClient
 		f := func() bool {
-			resp, err := schedulerClient.Create(context.Background(), createInfo)
+			_, err := schedulerClient.Create(context.Background(), createInfo)
+			return err == nil
+		}
+		Expect(t, f).To(ViaPollingMatcher{
+			Matcher:  BeTrue(),
+			Duration: 5 * time.Second,
+		})
+
+		f = func() bool {
+			resp, err := schedulerClient.ListClusterInfo(context.Background(), &pb.ListInfo{
+				Names: []string{createInfo.Name},
+			})
+
 			if err != nil {
 				return false
 			}
-			nodeClient = fetchNodeClient(resp.Uri, nodeClients)
+
+			if len(resp.Info) == 0 || resp.Info[0].Leader == "" {
+				return false
+			}
+
+			nodeClient = fetchNodeClient(resp.Info[0].Leader, nodeClients)
 			return true
 		}
 
@@ -212,7 +249,6 @@ func TestEnd2EndBufferHasNotBeenCreated(t *testing.T) {
 			Matcher:  BeTrue(),
 			Duration: 5 * time.Second,
 		})
-
 		return TC{
 			T:          t,
 			bufferInfo: bufferInfo,
