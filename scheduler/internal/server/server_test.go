@@ -208,15 +208,15 @@ func TestListClusterInfo(t *testing.T) {
 			Info: []*pb.ClusterInfo{
 				{
 					Name:  "A",
-					Nodes: []string{"i", "j"},
+					Nodes: []*pb.NodeInfo{{"i", 0}, {"j", 1}},
 				},
 				{
 					Name:  "B",
-					Nodes: []string{"k", "l"},
+					Nodes: []*pb.NodeInfo{{"k", 2}, {"l", 3}},
 				},
 				{
 					Name:  "C",
-					Nodes: []string{"m", "n"},
+					Nodes: []*pb.NodeInfo{{"m", 4}, {"n", 5}},
 				},
 			},
 		}

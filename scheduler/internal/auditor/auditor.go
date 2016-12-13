@@ -80,7 +80,7 @@ func (a *Auditor) setClusterInfo(buffers map[string][]uint64, nodes map[uint64]N
 		info := &pb.ClusterInfo{
 			Name:   bufferName,
 			Leader: a.fetchLeader(bufferName, ids, nodes),
-			Nodes:  a.buildIPList(ids, nodes),
+			Nodes:  a.buildNodeInfoList(ids, nodes),
 		}
 		results = append(results, info)
 		log.Printf("Results for %s: %v", bufferName, info)
@@ -110,10 +110,13 @@ func (a *Auditor) fetchLeader(name string, ids []uint64, nodes map[uint64]Node) 
 	return a.nodes[nodes[resp.Id]]
 }
 
-func (a *Auditor) buildIPList(ids []uint64, nodes map[uint64]Node) []string {
-	var results []string
+func (a *Auditor) buildNodeInfoList(ids []uint64, nodes map[uint64]Node) []*pb.NodeInfo {
+	var results []*pb.NodeInfo
 	for _, id := range ids {
-		results = append(results, a.nodes[nodes[id]])
+		results = append(results, &pb.NodeInfo{
+			URI: a.nodes[nodes[id]],
+			ID:  id,
+		})
 	}
 	return results
 }

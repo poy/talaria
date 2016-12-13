@@ -202,8 +202,16 @@ func TestAuditorList(t *testing.T) {
 		Expect(t, list.Info[0].Name).To(Not(Equal(list.Info[1].Name)))
 		Expect(t, list.Info[0].Leader).To(Equal("0"))
 		Expect(t, list.Info[0].Leader).To(Equal("0"))
-		Expect(t, list.Info[0].Nodes).To(Contain("0", "1", "2"))
-		Expect(t, list.Info[1].Nodes).To(Contain("0", "1", "2"))
+		Expect(t, list.Info[0].Nodes).To(Contain(
+			&pb.NodeInfo{URI: "0", ID: 0},
+			&pb.NodeInfo{URI: "1", ID: 1},
+			&pb.NodeInfo{URI: "2", ID: 2},
+		))
+		Expect(t, list.Info[1].Nodes).To(Contain(
+			&pb.NodeInfo{URI: "0", ID: 0},
+			&pb.NodeInfo{URI: "1", ID: 1},
+			&pb.NodeInfo{URI: "2", ID: 2},
+		))
 	})
 }
 

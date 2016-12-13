@@ -205,7 +205,9 @@ func TestSchedulerEnd2End(t *testing.T) {
 
 			Expect(t, resp.Info[0].Name).To(Equal("standalone"))
 			Expect(t, resp.Info[0].Leader).To(Equal(fmt.Sprintf("localhost:%d", t.intraPorts[0])))
-			Expect(t, resp.Info[0].Nodes).To(Contain(fmt.Sprintf("localhost:%d", t.intraPorts[0])))
+			Expect(t, resp.Info[0].Nodes).To(Contain(
+				&pb.NodeInfo{URI: fmt.Sprintf("localhost:%d", t.intraPorts[0]), ID: 0},
+			))
 		})
 
 		o.Spec("it gives a URI from an ID", func(t TT) {

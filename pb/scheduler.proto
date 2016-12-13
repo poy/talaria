@@ -25,5 +25,10 @@ message ListResponse {
 message ClusterInfo {
   string name = 1;
   string leader = 2;
-  repeated string nodes = 3;
+  repeated NodeInfo nodes = 3;
+}
+
+message NodeInfo {
+  string URI = 1;
+  uint64 ID = 2;
 }
