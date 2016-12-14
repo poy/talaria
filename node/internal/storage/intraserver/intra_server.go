@@ -2,6 +2,7 @@ package intraserver
 
 import (
 	"fmt"
+	"log"
 
 	"golang.org/x/net/context"
 
@@ -35,6 +36,8 @@ func New(ID uint64, fetcher IOFetcher, router Router) *IntraServer {
 }
 
 func (s *IntraServer) Create(ctx context.Context, info *intra.CreateInfo) (*intra.CreateResponse, error) {
+	log.Printf("Creating buffer %s (peers=%v)...", info.Name, info.Peers)
+	defer log.Printf("Done reating buffer %s (peers=%v)", info.Name, info.Peers)
 	return new(intra.CreateResponse), s.fetcher.Create(info.Name, info.Peers)
 }
 
@@ -64,6 +67,8 @@ func (s *IntraServer) Update(ctx context.Context, msg *intra.UpdateMessage) (*in
 }
 
 func (s *IntraServer) UpdateConfig(ctx context.Context, msg *intra.UpdateConfigRequest) (*intra.UpdateConfigResponse, error) {
+	log.Printf("Updating config for %s (change=%v)...", msg.Name, msg.Change)
+	defer log.Printf("Done updating config for %s (change=%v)", msg.Name, msg.Change)
 	err := s.fetcher.UpdateConfig(msg.Name, *msg.Change)
 	return new(intra.UpdateConfigResponse), err
 }

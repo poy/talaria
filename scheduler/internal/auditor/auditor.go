@@ -175,19 +175,20 @@ func (a *Auditor) fixBuffers(buffers map[string][]uint64, allIDs []uint64, nodes
 
 		for _, id := range ids {
 			log.Printf("Updating %d with new node %d", id, newId)
-			_, err := nodes[id].UpdateConfig(context.Background(), &intra.UpdateConfigRequest{
+			ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(3*time.Second))
+			_, err := nodes[id].UpdateConfig(ctx, &intra.UpdateConfigRequest{
 				Name: bufName,
 				Change: &raftpb.ConfChange{
 					NodeID: newId,
 					Type:   raftpb.ConfChangeAddNode,
 				},
 			})
-			log.Printf("Updated %d with new node %d", id, newId)
 
 			if err != nil {
 				log.Printf("Failed to update node (%d) for buffer cluster (%s): %s", id, bufName, err)
 				continue
 			}
+			log.Printf("Updated %d with new node %d", id, newId)
 		}
 	}
 
