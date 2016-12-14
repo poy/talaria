@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"os"
 	"time"
 
 	"github.com/apoydence/talaria/node/config"
@@ -16,6 +17,7 @@ import (
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 )
 
 func main() {
@@ -24,6 +26,8 @@ func main() {
 	rand.Seed(seed)
 	defer log.Print("Closing Talaria Node")
 	conf := config.Load()
+
+	grpclog.SetLogger(log.New(os.Stderr, "[GRPC]", log.LstdFlags))
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.Port))
 	if err != nil {

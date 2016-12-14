@@ -39,13 +39,6 @@ message UpdateMessage{
 }
 
 message UpdateResponse {
-  enum Code {
-      Success = 0;
-      InvalidID = 1;
-      InvalidBuffer = 2;
-      RetryFailure = 3;
-  }
-  Code code = 1;
 }
 
 message UpdateConfigRequest {
@@ -61,5 +54,10 @@ message StatusRequest {
 
 message StatusResponse {
   uint64 id = 1;
-  repeated string buffers = 2;
+  repeated StatusBufferInfo buffers = 2;
+}
+
+message StatusBufferInfo {
+  string name = 1;
+  repeated uint64 ids = 2;
 }

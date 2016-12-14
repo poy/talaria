@@ -58,7 +58,7 @@ func (s *Storage) Create(name string, peers []*intra.PeerInfo) error {
 	storage := raftnode.NewState(ringbuffer.New(100))
 	network := raftnode.NewNetworkWrapper(name, s.receiver, emitter)
 	s.bufs[name] = raftNodeInfo{
-		node: raftnode.Start(s.id, storage, network, peers),
+		node: raftnode.Start(name, s.id, storage, network, peers),
 	}
 	return nil
 }
@@ -99,6 +99,8 @@ func (s *Storage) Leader(name string) (id uint64, err error) {
 }
 
 func (s *Storage) UpdateConfig(name string, conf raftpb.ConfChange) error {
+	log.Printf("Update config for %s: %+v", name, conf)
+	defer log.Printf("Done Updating config for %s: %+v", name, conf)
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -109,13 +111,16 @@ func (s *Storage) UpdateConfig(name string, conf raftpb.ConfChange) error {
 	return info.node.PropseConfChange(context.Background(), conf)
 }
 
-func (s *Storage) List() []string {
+func (s *Storage) List() []*intra.StatusBufferInfo {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	var buffers []string
-	for name, _ := range s.bufs {
-		buffers = append(buffers, name)
+	var buffers []*intra.StatusBufferInfo
+	for name, node := range s.bufs {
+		buffers = append(buffers, &intra.StatusBufferInfo{
+			Name: name,
+			Ids:  node.node.IDs(),
+		})
 	}
 	return buffers
 }

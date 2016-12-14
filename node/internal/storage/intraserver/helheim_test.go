@@ -58,7 +58,7 @@ type mockIOFetcher struct {
 	}
 	ListCalled chan bool
 	ListOutput struct {
-		Ret0 chan []string
+		Ret0 chan []*intra.StatusBufferInfo
 	}
 }
 
@@ -77,7 +77,7 @@ func newMockIOFetcher() *mockIOFetcher {
 	m.UpdateConfigInput.Change = make(chan raftpb.ConfChange, 100)
 	m.UpdateConfigOutput.Ret0 = make(chan error, 100)
 	m.ListCalled = make(chan bool, 100)
-	m.ListOutput.Ret0 = make(chan []string, 100)
+	m.ListOutput.Ret0 = make(chan []*intra.StatusBufferInfo, 100)
 	return m
 }
 func (m *mockIOFetcher) Create(name string, peers []*intra.PeerInfo) error {
@@ -97,7 +97,7 @@ func (m *mockIOFetcher) UpdateConfig(name string, change raftpb.ConfChange) erro
 	m.UpdateConfigInput.Change <- change
 	return <-m.UpdateConfigOutput.Ret0
 }
-func (m *mockIOFetcher) List() []string {
+func (m *mockIOFetcher) List() []*intra.StatusBufferInfo {
 	m.ListCalled <- true
 	return <-m.ListOutput.Ret0
 }

@@ -174,7 +174,8 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 		o.Spec("it gives the list of buffers", func(t TC) {
 			status, err := t.intraNodeClient.Status(context.Background(), new(intra.StatusRequest))
 			Expect(t, err == nil).To(BeTrue())
-			Expect(t, status.Buffers).To(Equal([]string{t.bufferInfo.Name}))
+			Expect(t, status.Buffers).To(HaveLen(1))
+			Expect(t, status.Buffers[0].Name).To(Equal(t.bufferInfo.Name))
 		})
 	})
 

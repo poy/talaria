@@ -195,7 +195,10 @@ func TestIntraStatus(t *testing.T) {
 	})
 
 	o.Spec("it returns the given ID", func(t TC) {
-		values := []string{"A", "B"}
+		values := []*intra.StatusBufferInfo{
+			{Name: "A", Ids: []uint64{1, 2}},
+			{Name: "B", Ids: []uint64{3, 4}},
+		}
 		t.mockIOFetcher.ListOutput.Ret0 <- values
 
 		status, err := t.client.Status(context.Background(), new(intra.StatusRequest))

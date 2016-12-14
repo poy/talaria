@@ -4,6 +4,7 @@ import (
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -157,6 +158,10 @@ func writeDataCommand() {
 	buffer := make([]byte, 1024)
 	for {
 		n, err := os.Stdin.Read(buffer)
+		if err == io.EOF {
+			os.Exit(0)
+		}
+
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -209,7 +214,7 @@ func listCommand() {
 
 	fmt.Println("\nNODES:")
 	for _, n := range resp.Info[0].Nodes {
-		fmt.Println(n)
+		fmt.Printf("URI: %s -> ID:%x\n", n.URI, n.ID)
 	}
 }
 

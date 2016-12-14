@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"log"
+	"os"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -31,14 +33,18 @@ type Network interface {
 }
 
 type RaftNode struct {
-	storage   Storage
-	node      raft.Node
-	leaderId  uint64
-	network   Network
-	networkRx chan raftpb.Message
+	storage    Storage
+	node       raft.Node
+	bufferName string
+	leaderId   uint64
+	network    Network
+	networkRx  chan raftpb.Message
+
+	mu  sync.RWMutex
+	ids []uint64
 }
 
-func Start(ID uint64, storage Storage, network Network, peers []*intra.PeerInfo) *RaftNode {
+func Start(bufferName string, ID uint64, storage Storage, network Network, peers []*intra.PeerInfo) *RaftNode {
 	c := &raft.Config{
 		ID:              ID,
 		ElectionTick:    10,
@@ -46,7 +52,7 @@ func Start(ID uint64, storage Storage, network Network, peers []*intra.PeerInfo)
 		Storage:         storage,
 		MaxSizePerMsg:   1024 * 1024,
 		MaxInflightMsgs: 256,
-		Logger:          newLogger(),
+		Logger:          newLogger(log.New(os.Stderr, "[RAFT]", log.LstdFlags)),
 	}
 
 	ps := append(convertPeers(peers), raft.Peer{ID: ID})
@@ -56,10 +62,11 @@ func Start(ID uint64, storage Storage, network Network, peers []*intra.PeerInfo)
 	storage.Write(raftpb.Entry{})
 
 	node := &RaftNode{
-		storage:   storage,
-		node:      rn,
-		network:   network,
-		networkRx: make(chan raftpb.Message),
+		bufferName: bufferName,
+		storage:    storage,
+		node:       rn,
+		network:    network,
+		networkRx:  make(chan raftpb.Message),
 	}
 
 	go node.run()
@@ -110,6 +117,12 @@ func (r *RaftNode) Leader() (uint64, error) {
 	return l, nil
 }
 
+func (r *RaftNode) IDs() []uint64 {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	return r.ids
+}
+
 func (r *RaftNode) run() {
 	ticker := time.NewTicker(5 * time.Millisecond).C
 	for {
@@ -130,8 +143,12 @@ func (r *RaftNode) run() {
 				if entry.Type == raftpb.EntryConfChange {
 					var cc raftpb.ConfChange
 					cc.Unmarshal(entry.Data)
+					log.Printf("Applying Config Update to %s: %v", r.bufferName, cc)
 					state := r.node.ApplyConfChange(cc)
-					_ = state
+					r.mu.Lock()
+					r.ids = state.Nodes
+					r.mu.Unlock()
+					log.Printf("Done applying Config Update to %s: %v", r.bufferName, state)
 				}
 			}
 

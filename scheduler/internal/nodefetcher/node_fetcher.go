@@ -44,10 +44,15 @@ func New(URIs []string) *NodeFetcher {
 func (f *NodeFetcher) FetchAllNodes() []server.NodeInfo {
 	var results []server.NodeInfo
 	for _, client := range f.clients {
+		id, ok := f.fetchID(client, 0)
+		if !ok {
+			continue
+		}
+
 		results = append(results, server.NodeInfo{
 			Client: client.client,
 			URI:    client.URI,
-			ID:     f.fetchID(client, 0),
+			ID:     id,
 		})
 	}
 	return results
@@ -64,10 +69,15 @@ func (f *NodeFetcher) FetchNodes(count int, exclude ...server.NodeInfo) []server
 
 	var infos []server.NodeInfo
 	for _, p := range rand.Perm(num) {
+		id, ok := f.fetchID(clients[p], 0)
+		if !ok {
+			continue
+		}
+
 		infos = append(infos, server.NodeInfo{
 			Client: clients[p].client,
 			URI:    clients[p].URI,
-			ID:     f.fetchID(clients[p], 0),
+			ID:     id,
 		})
 	}
 
@@ -102,17 +112,16 @@ func (f *NodeFetcher) excluded(client clientInfo, exclude []server.NodeInfo) boo
 	return false
 }
 
-func (f *NodeFetcher) fetchID(c clientInfo, attempt int) uint64 {
+func (f *NodeFetcher) fetchID(c clientInfo, attempt int) (uint64, bool) {
 	if attempt >= 5 {
-		log.Panicf("unable to fetch ID for %s", c.URI)
+		log.Printf("Unable to fetch ID for %s", c.URI)
+		return 0, false
 	}
 
-	log.Printf("Fetchig status for node %s...", c.URI)
 	resp, err := c.client.Status(context.Background(), new(intra.StatusRequest))
 	if err != nil {
 		time.Sleep(5 * time.Second)
 		return f.fetchID(c, attempt+1)
 	}
-	log.Printf("Found ID (%d) for %s...", resp.Id, c.URI)
-	return resp.Id
+	return resp.Id, true
 }

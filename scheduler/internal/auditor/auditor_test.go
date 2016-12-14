@@ -76,13 +76,13 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 			o.BeforeEach(func(t TT) TT {
 				testhelpers.AlwaysReturn(t.mockNodes[0].StatusOutput.Ret0, &intra.StatusResponse{
 					Id:      uint64(0),
-					Buffers: []string{"good"},
+					Buffers: []*intra.StatusBufferInfo{{Name: "good"}},
 				})
 
 				for i, n := range t.mockNodes[1:] {
 					testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
 						Id:      uint64(i + 1),
-						Buffers: []string{"good", "standalone"},
+						Buffers: []*intra.StatusBufferInfo{{Name: "good"}, {Name: "standalone"}},
 					})
 				}
 				return t
@@ -119,7 +119,7 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 	})
 }
 
-func TestAuditorWithoutEnoughNodes(t *testing.T) {
+func TestAuditorWithDeadNodes(t *testing.T) {
 	t.Parallel()
 	o := onpar.New()
 	defer o.Run(t)
@@ -137,24 +137,36 @@ func TestAuditorWithoutEnoughNodes(t *testing.T) {
 		}
 	})
 
-	o.Group("when a buffer does not have 3 nodes", func() {
+	o.Group("when a buffer has a dead ID", func() {
 		o.BeforeEach(func(t TT) TT {
 			for i, n := range t.mockNodes {
 				testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
-					Id:      uint64(i),
-					Buffers: []string{"standalone"},
+					Id: uint64(i),
+					Buffers: []*intra.StatusBufferInfo{
+						{Name: "standalone", Ids: []uint64{99}},
+					},
 				})
 				close(n.StatusOutput.Ret1)
 
-				testhelpers.AlwaysReturn(n.CreateOutput.Ret0, new(intra.CreateResponse))
-				close(n.CreateOutput.Ret1)
+				testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, new(intra.LeaderInfo))
+				close(n.LeaderOutput.Ret1)
+
+				testhelpers.AlwaysReturn(n.UpdateConfigOutput.Ret0, new(intra.UpdateConfigResponse))
+				close(n.UpdateConfigOutput.Ret1)
 			}
 			return t
 		})
 
-		o.Spec("a buffer is not created on attending nodes", func(t TT) {
-			Expect(t, t.mockNodes[0].CreateCalled).To(Always(HaveLen(0)))
-			Expect(t, t.mockNodes[1].CreateCalled).To(Always(HaveLen(0)))
+		o.Spec("remove the dead ID", func(t TT) {
+			Expect(t, t.mockNodes[0].UpdateConfigInput.Req).To(ViaPolling(
+				Chain(Receive(), Equal(&intra.UpdateConfigRequest{
+					Name: "standalone",
+					Change: &raftpb.ConfChange{
+						NodeID: 99,
+						Type:   raftpb.ConfChangeRemoveNode,
+					},
+				})),
+			))
 		})
 	})
 }
@@ -176,7 +188,7 @@ func TestAuditorList(t *testing.T) {
 			close(n.LeaderOutput.Ret1)
 			testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
 				Id:      uint64(i),
-				Buffers: []string{"good", "standalone"},
+				Buffers: []*intra.StatusBufferInfo{{Name: "good"}, {Name: "standalone"}},
 			})
 			close(n.StatusOutput.Ret1)
 		}

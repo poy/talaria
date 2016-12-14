@@ -2,9 +2,9 @@ package router
 
 import (
 	"context"
-	"fmt"
 	"io"
 	"log"
+	"sync"
 
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/coreos/etcd/raft/raftpb"
@@ -18,12 +18,15 @@ type URIFinder interface {
 type Emitter struct {
 	bufferName string
 	uriFinder  URIFinder
-	clients    map[uint64]connInfo
+
+	mu      sync.Mutex
+	clients map[uint64]connInfo
 }
 
 type connInfo struct {
 	client intra.NodeClient
 	closer io.Closer
+	diode  *OneToOne
 }
 
 func NewEmitter(bufferName string, uriFinder URIFinder) *Emitter {
@@ -39,7 +42,7 @@ func (e *Emitter) Emit(msgs ...raftpb.Message) error {
 		err := e.sendUpdate(id, &intra.UpdateMessage{
 			Name:     e.bufferName,
 			Messages: msgs,
-		}, 0)
+		})
 
 		if err != nil {
 			return err
@@ -49,32 +52,13 @@ func (e *Emitter) Emit(msgs ...raftpb.Message) error {
 	return nil
 }
 
-func (e *Emitter) sendUpdate(id uint64, msg *intra.UpdateMessage, attempt int) error {
-	if attempt >= 5 {
-		return fmt.Errorf("failed to send update")
-	}
-
+func (e *Emitter) sendUpdate(id uint64, msg *intra.UpdateMessage) error {
 	client, err := e.fetchClient(id)
 	if err != nil {
 		return err
 	}
 
-	resp, err := client.Update(context.Background(), msg)
-
-	if err != nil || resp.Code == intra.UpdateResponse_RetryFailure {
-		log.Printf("Error sending message: %s", err)
-		delete(e.clients, id)
-		return e.sendUpdate(id, msg, attempt+1)
-	}
-
-	if resp.Code == intra.UpdateResponse_InvalidID {
-		return fmt.Errorf("invalid ID")
-	}
-
-	if resp.Code == intra.UpdateResponse_InvalidBuffer {
-		return fmt.Errorf("invalid buffer")
-	}
-
+	client.Set(msg)
 	return nil
 }
 
@@ -89,10 +73,13 @@ func (e *Emitter) organizeMessages(msgs []raftpb.Message) map[uint64][]*raftpb.M
 	return m
 }
 
-func (e *Emitter) fetchClient(id uint64) (intra.NodeClient, error) {
+func (e *Emitter) fetchClient(id uint64) (*OneToOne, error) {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
 	client, ok := e.clients[id]
 	if ok {
-		return client.client, nil
+		return client.diode, nil
 	}
 
 	uri, err := e.uriFinder.FromID(id)
@@ -107,11 +94,37 @@ func (e *Emitter) fetchClient(id uint64) (intra.NodeClient, error) {
 		log.Panic(err)
 	}
 
+	diode := NewOneToOne(100, AlerterFunc(func(missed int) {
+		log.Printf("Emitting to %d has missed %d messages", id, missed)
+	}))
 	c := intra.NewNodeClient(conn)
+
+	go e.serveDiode(id, diode, c)
+
 	e.clients[id] = connInfo{
 		client: c,
 		closer: conn,
+		diode:  diode,
 	}
 
-	return c, nil
+	return diode, nil
+}
+
+func (e *Emitter) serveDiode(id uint64, diode *OneToOne, c intra.NodeClient) {
+	defer func() {
+		e.mu.Lock()
+		delete(e.clients, id)
+		e.mu.Unlock()
+	}()
+
+	for {
+		msg := diode.Next()
+
+		_, err := c.Update(context.Background(), msg)
+
+		if err != nil {
+			log.Printf("Error sending message: %s", err)
+			return
+		}
+	}
 }

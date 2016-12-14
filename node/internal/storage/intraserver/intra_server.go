@@ -13,7 +13,7 @@ type IOFetcher interface {
 	Create(name string, peers []*intra.PeerInfo) error
 	Leader(name string) (id uint64, err error)
 	UpdateConfig(name string, change raftpb.ConfChange) error
-	List() []string
+	List() []*intra.StatusBufferInfo
 }
 
 type Router interface {

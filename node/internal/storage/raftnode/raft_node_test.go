@@ -33,7 +33,7 @@ func TestRaftNodeStart(t *testing.T) {
 		return TR{
 			T:           t,
 			storage:     storage,
-			node:        raftnode.Start(99, storage, mockNetwork, nil),
+			node:        raftnode.Start("some-name", 99, storage, mockNetwork, nil),
 			mockNetwork: mockNetwork,
 		}
 	})

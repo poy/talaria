@@ -334,6 +334,6 @@ func TestStorageList(t *testing.T) {
 		Expect(t, err == nil).To(Equal(true))
 
 		buffers := t.fetcher.List()
-		Expect(t, buffers).To(Equal([]string{"some-buffer"}))
+		Expect(t, buffers).To(Equal([]*intra.StatusBufferInfo{{Name: "some-buffer"}}))
 	})
 }

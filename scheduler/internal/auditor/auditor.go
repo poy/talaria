@@ -51,6 +51,7 @@ func (a *Auditor) run(poll time.Duration) {
 		var allIDs []uint64
 		buffers := make(map[string][]uint64)
 		nodes := make(map[uint64]Node)
+		nodePeers := make(map[Node][]*intra.StatusBufferInfo)
 
 		for node, _ := range a.nodes {
 			resp, err := node.Status(context.Background(), new(intra.StatusRequest))
@@ -62,12 +63,14 @@ func (a *Auditor) run(poll time.Duration) {
 			allIDs = append(allIDs, resp.Id)
 			nodes[resp.Id] = node
 
+			nodePeers[node] = resp.Buffers
 			for _, bufName := range resp.Buffers {
-				buffers[bufName] = append(buffers[bufName], resp.Id)
+				buffers[bufName.Name] = append(buffers[bufName.Name], resp.Id)
 			}
 		}
 
 		a.setClusterInfo(buffers, nodes)
+		a.removeDead(nodePeers, allIDs)
 		a.fixBuffers(buffers, allIDs, nodes)
 	}
 }
@@ -90,6 +93,31 @@ func (a *Auditor) setClusterInfo(buffers map[string][]uint64, nodes map[uint64]N
 	defer a.mu.Unlock()
 	a.listResp = pb.ListResponse{
 		Info: results,
+	}
+}
+
+func (a *Auditor) removeDead(peers map[Node][]*intra.StatusBufferInfo, allIDs []uint64) {
+	for node, infos := range peers {
+		for _, info := range infos {
+			for _, id := range info.Ids {
+				if !a.contains(id, allIDs) {
+					log.Printf("Updating config to remove dead ID (%d) for %s", id, info.Name)
+					ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(3*time.Second))
+					_, err := node.UpdateConfig(ctx, &intra.UpdateConfigRequest{
+						Name: info.Name,
+						Change: &raftpb.ConfChange{
+							NodeID: id,
+							Type:   raftpb.ConfChangeRemoveNode,
+						},
+					}, grpc.FailFast(true))
+
+					if err != nil {
+						log.Printf("Failed to update config (buffer=%s, ID=%d): %s", info.Name, id, err)
+					}
+					log.Printf("Done updating config to remove dead ID (%d) for %s", id, info.Name)
+				}
+			}
+		}
 	}
 }
 
@@ -154,6 +182,7 @@ func (a *Auditor) fixBuffers(buffers map[string][]uint64, allIDs []uint64, nodes
 					Type:   raftpb.ConfChangeAddNode,
 				},
 			})
+			log.Printf("Updated %d with new node %d", id, newId)
 
 			if err != nil {
 				log.Printf("Failed to update node (%d) for buffer cluster (%s): %s", id, bufName, err)

@@ -139,7 +139,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 		o.BeforeEach(func(t TT) TT {
 			testhelpers.AlwaysReturn(t.mockServers[0].StatusOutput.Ret0, &intra.StatusResponse{
 				Id:      0,
-				Buffers: []string{"standalone"},
+				Buffers: []*intra.StatusBufferInfo{{Name: "standalone"}},
 			})
 			close(t.mockServers[0].StatusOutput.Ret1)
 
