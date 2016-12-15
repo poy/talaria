@@ -61,3 +61,12 @@ message StatusBufferInfo {
   string name = 1;
   repeated uint64 ids = 2;
 }
+
+message SnapshotData {
+  repeated SnapshotEntry entries = 1;
+}
+
+message SnapshotEntry {
+  uint64 seq = 1;
+  raftpb.Entry entry = 2;
+}

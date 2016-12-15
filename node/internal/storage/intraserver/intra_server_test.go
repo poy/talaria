@@ -3,11 +3,16 @@ package intraserver_test
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
 	"net"
+	"os"
 	"testing"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
@@ -16,6 +21,16 @@ import (
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/coreos/etcd/raft/raftpb"
 )
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+		grpclog.SetLogger(log.New(ioutil.Discard, "", log.LstdFlags))
+	}
+
+	os.Exit(m.Run())
+}
 
 type TC struct {
 	*testing.T
@@ -256,9 +271,8 @@ func TestIntraUpdate(t *testing.T) {
 
 	o.Group("when messages have correct ID", func() {
 		o.Spec("it sends the messages to the router", func(t TR) {
-			resp, err := t.client.Update(context.Background(), t.msg)
+			_, err := t.client.Update(context.Background(), t.msg)
 			Expect(t, err == nil).To(BeTrue())
-			Expect(t, resp.Code).To(Equal(intra.UpdateResponse_Success))
 
 			Expect(t, t.mockRouter.RouteInput.BufferName).To(ViaPolling(
 				Chain(Receive(), Equal("some-name")),
@@ -280,9 +294,8 @@ func TestIntraUpdate(t *testing.T) {
 		})
 
 		o.Spec("it returns an InvalidID response", func(t TR) {
-			resp, err := t.client.Update(context.Background(), t.msg)
-			Expect(t, err == nil).To(BeTrue())
-			Expect(t, resp.Code).To(Equal(intra.UpdateResponse_InvalidID))
+			_, err := t.client.Update(context.Background(), t.msg)
+			Expect(t, err == nil).To(BeFalse())
 			Expect(t, t.mockRouter.RouteCalled).To(Always(HaveLen(0)))
 		})
 	})

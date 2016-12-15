@@ -1,25 +1,33 @@
 package raftnode
 
 import (
+	"io"
 	"log"
 	"sync"
+	"sync/atomic"
 
 	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
+	"github.com/apoydence/talaria/pb/intra"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
+	"github.com/gogo/protobuf/proto"
 )
 
 type State struct {
-	mu        sync.Mutex
-	hardState raftpb.HardState
-	confState raftpb.ConfState
+	mu           sync.Mutex
+	hardState    raftpb.HardState
+	confState    raftpb.ConfState
+	lastSnapshot *raftpb.Snapshot
+
+	writeCount uint64
 
 	Buffer *ringbuffer.RingBuffer
 }
 
 func NewState(b *ringbuffer.RingBuffer) *State {
 	return &State{
-		Buffer: b,
+		Buffer:       b,
+		lastSnapshot: &raftpb.Snapshot{Metadata: raftpb.SnapshotMetadata{Term: 1}},
 	}
 }
 
@@ -31,8 +39,10 @@ func (s *State) HardState(h raftpb.HardState) {
 
 func (s *State) ConfState(c raftpb.ConfState) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
 	s.confState = c
+	s.mu.Unlock()
+
+	s.createSnapshot()
 }
 
 func (s *State) InitialState() (raftpb.HardState, raftpb.ConfState, error) {
@@ -40,6 +50,12 @@ func (s *State) InitialState() (raftpb.HardState, raftpb.ConfState, error) {
 }
 
 func (s *State) Write(data raftpb.Entry) (uint64, error) {
+	defer func() {
+		if atomic.AddUint64(&s.writeCount, 1)%uint64(s.Buffer.Size) == 0 {
+			s.createSnapshot()
+		}
+	}()
+
 	return s.Buffer.Write(data)
 }
 
@@ -124,6 +140,50 @@ func (s *State) FirstIndex() (uint64, error) {
 // so raft state machine could know that Storage needs some time to prepare
 // snapshot and call Snapshot later.
 func (s *State) Snapshot() (raftpb.Snapshot, error) {
-	log.Panic("Not implemented")
-	return raftpb.Snapshot{}, nil
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return *s.lastSnapshot, nil
+}
+
+func (s *State) createSnapshot() {
+	log.Printf("Creating snapshot...")
+	defer log.Printf("Done creating snapshot.")
+
+	var snapshotData intra.SnapshotData
+	var term uint64
+	for i := 0; i < s.Buffer.Size; i++ {
+		entry, seq, err := s.Buffer.ReadAt(uint64(i))
+
+		if err == io.EOF {
+			break
+		}
+
+		if err != nil {
+			log.Panic(err)
+		}
+
+		if i == 0 {
+			term = entry.Term
+		}
+
+		snapshotData.Entries = append(snapshotData.Entries, &intra.SnapshotEntry{
+			Seq:   seq,
+			Entry: &entry,
+		})
+	}
+
+	data, err := proto.Marshal(&snapshotData)
+	if err != nil {
+		log.Panic(err)
+	}
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.lastSnapshot = &raftpb.Snapshot{
+		Data: data,
+		Metadata: raftpb.SnapshotMetadata{
+			ConfState: s.confState,
+			Term:      term,
+		},
+	}
 }

@@ -2,6 +2,7 @@
 package raftnode_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/apoydence/onpar"
@@ -9,8 +10,10 @@ import (
 	. "github.com/apoydence/onpar/matchers"
 	"github.com/apoydence/talaria/node/internal/storage/buffers/ringbuffer"
 	"github.com/apoydence/talaria/node/internal/storage/raftnode"
+	"github.com/apoydence/talaria/pb/intra"
 	"github.com/coreos/etcd/raft"
 	"github.com/coreos/etcd/raft/raftpb"
+	"github.com/gogo/protobuf/proto"
 )
 
 type TRI struct {
@@ -299,6 +302,83 @@ func TestRaftifyFirstIndex(t *testing.T) {
 
 			// This is the last index that hasn't been overwritten plus 1
 			Expect(t, index).To(Equal(uint64(4)))
+		})
+	})
+}
+
+type TRS struct {
+	*testing.T
+	ringBuffer  *ringbuffer.RingBuffer
+	raftStorage *raftnode.State
+}
+
+func TestRaftifySnapshot(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TRS {
+		b := ringbuffer.New(5)
+		raftStorage := raftnode.NewState(b)
+
+		h := raftpb.HardState{Term: 99}
+		raftStorage.HardState(h)
+
+		return TRS{
+			T:           t,
+			ringBuffer:  b,
+			raftStorage: raftStorage,
+		}
+	})
+
+	o.Spec("it returns empty Snapshot", func(t TRS) {
+		_, err := t.raftStorage.Snapshot()
+		Expect(t, err == nil).To(BeTrue())
+	})
+
+	o.Group("when the ring buffer has rounded a few times", func() {
+		o.BeforeEach(func(t TRS) TRS {
+			for i := 0; i < 11; i++ {
+				t.raftStorage.Write(raftpb.Entry{
+					Term: uint64(i),
+					Data: []byte(fmt.Sprintf("some-data-%d", i)),
+				})
+			}
+			return t
+		})
+
+		o.Spec("it returns the last full set of data", func(t TRS) {
+			snap, err := t.raftStorage.Snapshot()
+			Expect(t, err == nil).To(BeTrue())
+
+			Expect(t, snap.Metadata.Term).To(Equal(uint64(5)))
+
+			snapData := new(intra.SnapshotData)
+			err = proto.Unmarshal(snap.Data, snapData)
+			Expect(t, err == nil).To(BeTrue())
+
+			Expect(t, snapData.Entries).To(HaveLen(5))
+			for i := 5; i < 10; i++ {
+				Expect(t, snapData.Entries[i-5]).To(Equal(&intra.SnapshotEntry{
+					Seq: uint64(i),
+					Entry: &raftpb.Entry{
+						Term: uint64(i),
+						Data: []byte(fmt.Sprintf("some-data-%d", i)),
+					}}))
+			}
+		})
+
+		o.Group("when ConfState is invoked", func() {
+			o.Spec("it returns a Snapshot with the ConfState", func(t TRS) {
+				cs := raftpb.ConfState{
+					Nodes: []uint64{1, 2, 3},
+				}
+				t.raftStorage.ConfState(cs)
+
+				snap, err := t.raftStorage.Snapshot()
+				Expect(t, err == nil).To(BeTrue())
+				Expect(t, snap.Metadata.ConfState).To(Equal(cs))
+			})
 		})
 	})
 }

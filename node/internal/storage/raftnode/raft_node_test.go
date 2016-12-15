@@ -3,7 +3,11 @@ package raftnode_test
 
 import (
 	"context"
+	"flag"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 
 	"github.com/apoydence/onpar"
@@ -19,6 +23,15 @@ type TR struct {
 	storage     *raftnode.State
 	node        *raftnode.RaftNode
 	mockNetwork *mockNetwork
+}
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+
+	os.Exit(m.Run())
 }
 
 func TestRaftNodeStart(t *testing.T) {

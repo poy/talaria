@@ -54,16 +54,13 @@ func (s *IntraServer) Leader(ctx context.Context, request *intra.LeaderRequest) 
 
 func (s *IntraServer) Update(ctx context.Context, msg *intra.UpdateMessage) (*intra.UpdateResponse, error) {
 	msgs, err := s.validateMessages(msg.Messages)
+
 	if err != nil {
-		return &intra.UpdateResponse{
-			Code: intra.UpdateResponse_InvalidID,
-		}, nil
+		return nil, err
 	}
 
 	s.router.Route(msg.Name, msgs)
-	return &intra.UpdateResponse{
-		Code: intra.UpdateResponse_Success,
-	}, nil
+	return new(intra.UpdateResponse), nil
 }
 
 func (s *IntraServer) UpdateConfig(ctx context.Context, msg *intra.UpdateConfigRequest) (*intra.UpdateConfigResponse, error) {

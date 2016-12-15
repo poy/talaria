@@ -25,6 +25,7 @@ type Storage interface {
 	HardState(raftpb.HardState)
 	Write(data raftpb.Entry) (uint64, error)
 	ReadAt(index uint64) (raftpb.Entry, uint64, error)
+	ConfState(c raftpb.ConfState)
 }
 
 type Network interface {
@@ -124,7 +125,7 @@ func (r *RaftNode) IDs() []uint64 {
 }
 
 func (r *RaftNode) run() {
-	ticker := time.NewTicker(5 * time.Millisecond).C
+	ticker := time.NewTicker(100 * time.Millisecond).C
 	for {
 		select {
 		case <-ticker:
@@ -145,6 +146,10 @@ func (r *RaftNode) run() {
 					cc.Unmarshal(entry.Data)
 					log.Printf("Applying Config Update to %s: %v", r.bufferName, cc)
 					state := r.node.ApplyConfChange(cc)
+					if state != nil {
+						r.storage.ConfState(*state)
+					}
+
 					r.mu.Lock()
 					r.ids = state.Nodes
 					r.mu.Unlock()
