@@ -70,7 +70,7 @@ func (a *Auditor) run(poll time.Duration) {
 		}
 
 		a.setClusterInfo(buffers, nodes)
-		a.removeDead(nodePeers, allIDs)
+		a.repairBufferIDs(nodePeers, allIDs)
 		a.fixBuffers(buffers, allIDs, nodes)
 	}
 }
@@ -96,28 +96,90 @@ func (a *Auditor) setClusterInfo(buffers map[string][]uint64, nodes map[uint64]N
 	}
 }
 
-func (a *Auditor) removeDead(peers map[Node][]*intra.StatusBufferInfo, allIDs []uint64) {
+func (a *Auditor) repairBufferIDs(peers map[Node][]*intra.StatusBufferInfo, allIDs []uint64) {
+	m := a.fetchAllBufferIDs(peers)
 	for node, infos := range peers {
 		for _, info := range infos {
+			a.addMissingID(node, info, infos, allIDs, m)
 			for _, id := range info.Ids {
-				if !a.contains(id, allIDs) {
-					log.Printf("Updating config to remove dead ID (%d) for %s", id, info.Name)
-					ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(3*time.Second))
-					_, err := node.UpdateConfig(ctx, &intra.UpdateConfigRequest{
-						Name: info.Name,
-						Change: &raftpb.ConfChange{
-							NodeID: id,
-							Type:   raftpb.ConfChangeRemoveNode,
-						},
-					}, grpc.FailFast(true))
-
-					if err != nil {
-						log.Printf("Failed to update config (buffer=%s, ID=%d): %s", info.Name, id, err)
-					}
-					log.Printf("Done updating config to remove dead ID (%d) for %s", id, info.Name)
-				}
+				a.removeDeadID(id, allIDs, info.Name, node)
 			}
 		}
+	}
+}
+
+func (a *Auditor) fetchAllBufferIDs(peers map[Node][]*intra.StatusBufferInfo) map[string][]uint64 {
+	m := make(map[string][]uint64)
+	for _, infos := range peers {
+		for _, info := range infos {
+			m[info.Name] = append(m[info.Name], info.Ids...)
+		}
+	}
+
+	return m
+}
+
+func (a *Auditor) addMissingID(
+	node Node,
+	info *intra.StatusBufferInfo,
+	peerInfos []*intra.StatusBufferInfo,
+	allIDs []uint64,
+	bufferIDs map[string][]uint64,
+) {
+	if len(info.Ids) == 3 {
+		return
+	}
+
+	m := make(map[uint64]bool)
+	for _, id := range bufferIDs[info.Name] {
+		if !a.contains(id, allIDs) {
+			continue
+		}
+		m[id] = true
+	}
+
+	for _, id := range info.Ids {
+		delete(m, id)
+	}
+
+	if len(m) == 0 {
+		return
+	}
+
+	for id, _ := range m {
+		log.Printf("Updating config to add ID (%d) for %s", id, info.Name)
+		defer log.Printf("Done updating config to add ID (%d) for %s", id, info.Name)
+		a.updateConf(node, info.Name, raftpb.ConfChange{
+			NodeID: id,
+			Type:   raftpb.ConfChangeAddNode,
+		})
+		return
+	}
+}
+
+func (a *Auditor) removeDeadID(id uint64, allIDs []uint64, name string, node Node) {
+	if a.contains(id, allIDs) {
+		return
+	}
+
+	log.Printf("Updating config to remove dead ID (%d) for %s", id, name)
+	defer log.Printf("Done updating config to remove dead ID (%d) for %s", id, name)
+	a.updateConf(node, name, raftpb.ConfChange{
+		NodeID: id,
+		Type:   raftpb.ConfChangeRemoveNode,
+	})
+}
+
+func (a *Auditor) updateConf(node Node, name string, change raftpb.ConfChange) {
+	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(3*time.Second))
+	_, err := node.UpdateConfig(ctx, &intra.UpdateConfigRequest{
+		Name:   name,
+		Change: &change,
+	}, grpc.FailFast(true))
+
+	if err != nil {
+		log.Printf("Failed to update config (buffer=%s, ID=%d): %s", name, change.NodeID, err)
+		return
 	}
 }
 

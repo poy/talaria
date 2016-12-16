@@ -116,6 +116,42 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 				Expect(t, t.mockNodes[2].CreateInput.Req).To(Always(Not(Receive())))
 			})
 		})
+
+		o.Group("when the buffer has 3 nodes", func() {
+			o.BeforeEach(func(t TT) TT {
+				testhelpers.AlwaysReturn(t.mockNodes[0].StatusOutput.Ret0, &intra.StatusResponse{
+					Id: uint64(0),
+					Buffers: []*intra.StatusBufferInfo{
+						{Name: "good", Ids: []uint64{0, 1, 2}},
+						{Name: "missing", Ids: []uint64{0, 1}},
+					},
+				})
+
+				for i, n := range t.mockNodes[1:] {
+					testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
+						Id: uint64(i + 1),
+						Buffers: []*intra.StatusBufferInfo{
+							{Name: "missing", Ids: []uint64{0, 1, 2}},
+							{Name: "good", Ids: []uint64{0, 1, 2}},
+						},
+					})
+				}
+				return t
+			})
+
+			o.Spec("it updates the buffer to add the missing ID", func(t TT) {
+				Expect(t, t.mockNodes[0].UpdateConfigInput.Req).To(ViaPolling(
+					Chain(Receive(), Equal(&intra.UpdateConfigRequest{
+						Name: "missing",
+						Change: &raftpb.ConfChange{
+							NodeID: 2,
+							Type:   raftpb.ConfChangeAddNode,
+						},
+					})),
+				))
+			})
+
+		})
 	})
 }
 

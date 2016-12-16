@@ -2,8 +2,11 @@ package end2end_test
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"math/rand"
 	"net"
 	"os"
@@ -13,6 +16,7 @@ import (
 	"time"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 	"google.golang.org/grpc/reflection"
 
 	"github.com/apoydence/eachers/testhelpers"
@@ -25,6 +29,16 @@ import (
 	"github.com/coreos/etcd/raft/raftpb"
 	"github.com/onsi/gomega/gexec"
 )
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+		grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
+	}
+
+	os.Exit(m.Run())
+}
 
 type TC struct {
 	*testing.T
@@ -103,9 +117,10 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 			writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 
 			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
-			Expect(t, data).To(ViaPolling(
-				Chain(Receive(), Equal([]byte("some-data-1"))),
-			))
+			Expect(t, data).To(ViaPollingMatcher{
+				Duration: 3 * time.Second,
+				Matcher:  Chain(Receive(), Equal([]byte("some-data-1"))),
+			})
 
 			Expect(t, data).To(ViaPolling(
 				Chain(Receive(), Equal([]byte("some-data-2"))),
@@ -122,9 +137,10 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 
 			for i := 0; i < 10; i++ {
 				expectedData := []byte(fmt.Sprintf("some-data-%d", i))
-				Expect(t, data).To(ViaPolling(
-					Chain(Receive(), Equal(expectedData)),
-				))
+				Expect(t, data).To(ViaPollingMatcher{
+					Duration: 3 * time.Second,
+					Matcher:  Chain(Receive(), Equal(expectedData)),
+				})
 			}
 		})
 	})
@@ -154,7 +170,10 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 			writeTo(t.bufferInfo.Name, []byte("some-data-3"), writer)
 
 			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
-			Expect(t, data).To(ViaPolling(HaveLen(3)))
+			Expect(t, data).To(ViaPollingMatcher{
+				Duration: 3 * time.Second,
+				Matcher:  HaveLen(3),
+			})
 
 			data, _ = fetchReaderLastIndex(t.bufferInfo.Name, t.nodeClient)
 

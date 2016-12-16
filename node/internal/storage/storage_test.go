@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
@@ -207,7 +208,7 @@ func TestStorageLeader(t *testing.T) {
 		}
 	})
 
-	o.Group("when Create() has been called", func() {
+	o.Group("when Create has been called", func() {
 		o.BeforeEach(func(t TT) TT {
 			err := t.fetcher.Create("some-buffer", t.peers)
 			Expect(t, err == nil).To(Equal(true))
@@ -221,7 +222,10 @@ func TestStorageLeader(t *testing.T) {
 				id, err = t.fetcher.Leader("some-buffer")
 				return err == nil
 			}
-			Expect(t, f).To(ViaPolling(BeTrue()))
+			Expect(t, f).To(ViaPollingMatcher{
+				Duration: 3 * time.Second,
+				Matcher:  BeTrue(),
+			})
 			Expect(t, id).To(Equal(uint64(99)))
 		})
 	})

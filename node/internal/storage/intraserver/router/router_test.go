@@ -1,7 +1,13 @@
 package router_test
 
 import (
+	"flag"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
+
+	"google.golang.org/grpc/grpclog"
 
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
@@ -9,6 +15,16 @@ import (
 	"github.com/apoydence/talaria/node/internal/storage/intraserver/router"
 	"github.com/coreos/etcd/raft/raftpb"
 )
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+		grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
+	}
+
+	os.Exit(m.Run())
+}
 
 type TR struct {
 	*testing.T

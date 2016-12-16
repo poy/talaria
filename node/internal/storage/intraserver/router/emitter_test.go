@@ -76,9 +76,7 @@ func TestEmitterEmit(t *testing.T) {
 		o.Group("when node does not return an error", func() {
 			o.BeforeEach(func(t TE) TE {
 				for _, nodeServer := range t.mockNodeServers {
-					nodeServer.UpdateOutput.Ret0 <- &intra.UpdateResponse{
-						Code: intra.UpdateResponse_Success,
-					}
+					nodeServer.UpdateOutput.Ret0 <- new(intra.UpdateResponse)
 					close(nodeServer.UpdateOutput.Ret1)
 				}
 				return t
