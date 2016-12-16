@@ -125,7 +125,7 @@ func (r *RaftNode) IDs() []uint64 {
 }
 
 func (r *RaftNode) run() {
-	ticker := time.NewTicker(100 * time.Millisecond).C
+	ticker := time.NewTicker(5 * time.Millisecond).C
 	for {
 		select {
 		case <-ticker:

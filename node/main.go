@@ -5,6 +5,7 @@ import (
 	"log"
 	"math/rand"
 	"net"
+	"net/http"
 	"os"
 	"time"
 
@@ -18,6 +19,8 @@ import (
 	"github.com/apoydence/talaria/pb/intra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
+
+	_ "net/http/pprof"
 )
 
 func main() {
@@ -37,6 +40,10 @@ func main() {
 
 	ID := uint64(rand.Int63())
 	log.Printf("Node ID=%d", ID)
+
+	go func() {
+		log.Println(http.ListenAndServe("localhost:6060", nil))
+	}()
 
 	uriFinder := urifinder.New(conf.SchedulerURI)
 	router := router.New()

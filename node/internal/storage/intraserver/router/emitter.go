@@ -5,6 +5,7 @@ import (
 	"io"
 	"log"
 	"sync"
+	"time"
 
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/coreos/etcd/raft/raftpb"
@@ -120,7 +121,8 @@ func (e *Emitter) serveDiode(id uint64, diode *OneToOne, c intra.NodeClient) {
 	for {
 		msg := diode.Next()
 
-		_, err := c.Update(context.Background(), msg)
+		ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(3*time.Second))
+		_, err := c.Update(ctx, msg, grpc.FailFast(true))
 
 		if err != nil {
 			log.Printf("Error sending message: %s", err)
