@@ -7,9 +7,8 @@ import (
 )
 
 type Talaria struct {
-	Port         uint16 `env:"port"`
-	IntraPort    uint16 `env:"intra_port"`
-	SchedulerURI string `env:"scheduler_uri,required"`
+	Port      uint16 `env:"port"`
+	IntraPort uint16 `env:"intra_port"`
 }
 
 func Load() Talaria {

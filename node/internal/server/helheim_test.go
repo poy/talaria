@@ -9,7 +9,6 @@ import (
 	"time"
 
 	"github.com/apoydence/talaria/node/internal/server"
-	"golang.org/x/net/context"
 )
 
 type mockReader struct {
@@ -50,29 +49,29 @@ func (m *mockReader) LastIndex() uint64 {
 }
 
 type mockWriter struct {
-	ProposeCalled chan bool
-	ProposeInput  struct {
-		Ctx  chan context.Context
-		Data chan []byte
+	WriteCalled chan bool
+	WriteInput  struct {
+		Data    chan []byte
+		Timeout chan time.Duration
 	}
-	ProposeOutput struct {
+	WriteOutput struct {
 		Ret0 chan error
 	}
 }
 
 func newMockWriter() *mockWriter {
 	m := &mockWriter{}
-	m.ProposeCalled = make(chan bool, 100)
-	m.ProposeInput.Ctx = make(chan context.Context, 100)
-	m.ProposeInput.Data = make(chan []byte, 100)
-	m.ProposeOutput.Ret0 = make(chan error, 100)
+	m.WriteCalled = make(chan bool, 100)
+	m.WriteInput.Data = make(chan []byte, 100)
+	m.WriteInput.Timeout = make(chan time.Duration, 100)
+	m.WriteOutput.Ret0 = make(chan error, 100)
 	return m
 }
-func (m *mockWriter) Propose(ctx context.Context, data []byte) error {
-	m.ProposeCalled <- true
-	m.ProposeInput.Ctx <- ctx
-	m.ProposeInput.Data <- data
-	return <-m.ProposeOutput.Ret0
+func (m *mockWriter) Write(data []byte, timeout time.Duration) error {
+	m.WriteCalled <- true
+	m.WriteInput.Data <- data
+	m.WriteInput.Timeout <- timeout
+	return <-m.WriteOutput.Ret0
 }
 
 type mockIOFetcher struct {
@@ -115,59 +114,4 @@ func (m *mockIOFetcher) FetchReader(name string) (server.Reader, error) {
 	m.FetchReaderCalled <- true
 	m.FetchReaderInput.Name <- name
 	return <-m.FetchReaderOutput.Ret0, <-m.FetchReaderOutput.Ret1
-}
-
-type mockContext struct {
-	DeadlineCalled chan bool
-	DeadlineOutput struct {
-		Deadline chan time.Time
-		Ok       chan bool
-	}
-	DoneCalled chan bool
-	DoneOutput struct {
-		Ret0 chan (<-chan struct{})
-	}
-	ErrCalled chan bool
-	ErrOutput struct {
-		Ret0 chan error
-	}
-	ValueCalled chan bool
-	ValueInput  struct {
-		Key chan interface{}
-	}
-	ValueOutput struct {
-		Ret0 chan interface{}
-	}
-}
-
-func newMockContext() *mockContext {
-	m := &mockContext{}
-	m.DeadlineCalled = make(chan bool, 100)
-	m.DeadlineOutput.Deadline = make(chan time.Time, 100)
-	m.DeadlineOutput.Ok = make(chan bool, 100)
-	m.DoneCalled = make(chan bool, 100)
-	m.DoneOutput.Ret0 = make(chan (<-chan struct{}), 100)
-	m.ErrCalled = make(chan bool, 100)
-	m.ErrOutput.Ret0 = make(chan error, 100)
-	m.ValueCalled = make(chan bool, 100)
-	m.ValueInput.Key = make(chan interface{}, 100)
-	m.ValueOutput.Ret0 = make(chan interface{}, 100)
-	return m
-}
-func (m *mockContext) Deadline() (deadline time.Time, ok bool) {
-	m.DeadlineCalled <- true
-	return <-m.DeadlineOutput.Deadline, <-m.DeadlineOutput.Ok
-}
-func (m *mockContext) Done() <-chan struct{} {
-	m.DoneCalled <- true
-	return <-m.DoneOutput.Ret0
-}
-func (m *mockContext) Err() error {
-	m.ErrCalled <- true
-	return <-m.ErrOutput.Ret0
-}
-func (m *mockContext) Value(key interface{}) interface{} {
-	m.ValueCalled <- true
-	m.ValueInput.Key <- key
-	return <-m.ValueOutput.Ret0
 }

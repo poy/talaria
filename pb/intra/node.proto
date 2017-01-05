@@ -1,49 +1,94 @@
 syntax = "proto3";
 
-import "github.com/coreos/etcd/raft/raftpb/raft.proto";
-
 package intra;
 
 service Node{
   rpc Create(CreateInfo) returns (CreateResponse) {}
-  rpc Leader(LeaderRequest) returns (LeaderInfo) {}
-  rpc Update(UpdateMessage) returns (UpdateResponse) {}
   rpc UpdateConfig(UpdateConfigRequest) returns (UpdateConfigResponse) {}
+
   rpc Status(StatusRequest) returns (StatusResponse) {}
+  rpc Leader(LeaderRequest) returns (LeaderResponse) {}
+}
+
+service NodeRaft {
+  rpc AppendEntries(AppendEntriesRequest) returns (AppendEntriesResponse) {}
+  rpc RequestVote(RequestVoteRequest) returns (RequestVoteResponse) {}
 }
 
 message CreateInfo {
   string name = 1;
-  uint64 id = 2;
-  repeated PeerInfo peers = 3;
+  repeated PeerInfo peers = 2;
 }
 
 message CreateResponse {
 }
 
 message PeerInfo {
-  uint64 id = 1;
+  string addr = 1;
 }
 
 message LeaderRequest {
   string name = 1;
 }
 
-message LeaderInfo {
-  uint64 id = 1;
+message LeaderResponse {
+  string addr = 1;
 }
 
-message UpdateMessage{
-  string name = 1;
-  repeated raftpb.Message messages = 2;
+message AppendEntriesRequest {
+  string BufferName = 1;
+
+  uint64 Term = 2;
+  bytes Leader = 3;
+  uint64 PrevLogEntry = 4;
+  uint64 PrevLogTerm = 5;
+  repeated RaftLog Entries = 6;
+  uint64 LeaderCommitIndex = 7;
+}
+
+message AppendEntriesResponse {
+  uint64 Term = 1;
+  uint64 LastLog = 2;
+  bool Success = 3;
+  bool NoRetryBackoff = 4;
+}
+
+message RaftLog {
+  enum LogType {
+    LogCommand = 0;
+    LogNoop = 1;
+    LogAddPeer = 2;
+    LogRemovePeer = 3;
+    LogBarrier = 4;
+  }
+
+  uint64 Index = 1;
+  uint64 Term = 2;
+  LogType Type = 3;
+  bytes Data = 4;
+}
+
+message RequestVoteRequest {
+  string BufferName = 1;
+  uint64 Term = 2;
+  bytes Candidate = 3;
+  uint64 LastLogIndex = 4;
+  uint64 LastLogTerm = 5;
+}
+
+message RequestVoteResponse {
+  uint64 Term = 1;
+  bytes Peers = 2;
+  bool Granted = 3;
 }
 
 message UpdateResponse {
+  bool dropped = 1;
 }
 
 message UpdateConfigRequest {
   string name = 1;
-  raftpb.ConfChange change = 2;
+  repeated string expectedNodes = 2;
 }
 
 message UpdateConfigResponse {
@@ -53,20 +98,11 @@ message StatusRequest {
 }
 
 message StatusResponse {
-  uint64 id = 1;
+  string externalAddr = 1;
   repeated StatusBufferInfo buffers = 2;
 }
 
 message StatusBufferInfo {
   string name = 1;
-  repeated uint64 ids = 2;
-}
-
-message SnapshotData {
-  repeated SnapshotEntry entries = 1;
-}
-
-message SnapshotEntry {
-  uint64 seq = 1;
-  raftpb.Entry entry = 2;
+  repeated string expectedNodes = 2;
 }

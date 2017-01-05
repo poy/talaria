@@ -27,18 +27,20 @@ import (
 )
 
 var (
-	nodePorts     []int
-	schedulerPort int
+	nodePorts      []int
+	intraNodePorts []int
+	schedulerPort  int
 )
 
 func setup() []*os.Process {
 	schedulerPort = end2end.AvailablePort()
-	nodePort1, nodeProcess1 := startNode(schedulerPort)
-	nodePort2, nodeProcess2 := startNode(schedulerPort)
-	nodePort3, nodeProcess3 := startNode(schedulerPort)
+	nodePort1, intraNodePort1, nodeProcess1 := startNode()
+	nodePort2, intraNodePort2, nodeProcess2 := startNode()
+	nodePort3, intraNodePort3, nodeProcess3 := startNode()
 	nodePorts = []int{nodePort1, nodePort2, nodePort3}
+	intraNodePorts = []int{intraNodePort1, intraNodePort2, intraNodePort3}
 	var schedulerProcess *os.Process
-	schedulerProcess = startScheduler(schedulerPort, nodePorts)
+	schedulerProcess = startScheduler(schedulerPort, intraNodePorts)
 
 	return []*os.Process{
 		nodeProcess1,
@@ -80,7 +82,7 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 	defer o.Run(t)
 
 	o.BeforeEach(func(t *testing.T) TC {
-		nodeClients := setupNodeClients(nodePorts)
+		nodeClients := setupNodeClients(intraNodePorts, nodePorts)
 		schedulerClient := connectToScheduler(schedulerPort)
 
 		bufferInfo := &pb.BufferInfo{
@@ -207,52 +209,11 @@ func TestEnd2EndBufferHasNotBeenCreated(t *testing.T) {
 	defer o.Run(t)
 
 	o.BeforeEach(func(t *testing.T) TC {
-		nodeClients := setupNodeClients(nodePorts)
-		schedulerClient := connectToScheduler(schedulerPort)
+		nodeClients := setupNodeClients(intraNodePorts, nodePorts)
+		nodeClient := fetchNodeClient(fmt.Sprintf("[::]:%d", nodePorts[0]), nodeClients)
 
-		bufferInfo := &pb.BufferInfo{
-			Name: createName(),
-		}
-
-		createInfo := &pb.CreateInfo{
-			Name: bufferInfo.Name,
-		}
-
-		var nodeClient pb.TalariaClient
-		f := func() bool {
-			_, err := schedulerClient.Create(context.Background(), createInfo)
-			return err == nil
-		}
-		Expect(t, f).To(ViaPollingMatcher{
-			Matcher:  BeTrue(),
-			Duration: 5 * time.Second,
-		})
-
-		f = func() bool {
-			resp, err := schedulerClient.ListClusterInfo(context.Background(), &pb.ListInfo{
-				Names: []string{createInfo.Name},
-			})
-
-			if err != nil {
-				return false
-			}
-
-			if len(resp.Info) == 0 || resp.Info[0].Leader == "" {
-				return false
-			}
-
-			nodeClient = fetchNodeClient(resp.Info[0].Leader, nodeClients)
-			return true
-		}
-
-		Expect(t, f).To(ViaPollingMatcher{
-			Matcher:  BeTrue(),
-			Duration: 5 * time.Second,
-		})
 		return TC{
 			T:          t,
-			bufferInfo: bufferInfo,
-			createInfo: createInfo,
 			nodeClient: nodeClient,
 		}
 	})
@@ -358,17 +319,17 @@ func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteCl
 	return &wg
 }
 
-func setupNodeClients(ports []int) map[string]pb.TalariaClient {
+func setupNodeClients(intraPorts, ports []int) map[string]pb.TalariaClient {
 	clients := make(map[string]pb.TalariaClient)
 	for _, port := range ports {
-		URI := fmt.Sprintf("localhost:%d", port)
+		URI := fmt.Sprintf("[::]:%d", port)
 		clients[URI] = connectToNode(port)
 	}
 	return clients
 }
 
 func connectToNode(nodePort int) pb.TalariaClient {
-	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", nodePort), grpc.WithInsecure())
+	clientConn, err := grpc.Dial(fmt.Sprintf("[::]:%d", nodePort), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
@@ -377,7 +338,7 @@ func connectToNode(nodePort int) pb.TalariaClient {
 }
 
 func connectToScheduler(schedulerPort int) pb.SchedulerClient {
-	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", schedulerPort), grpc.WithInsecure())
+	clientConn, err := grpc.Dial(fmt.Sprintf("[::]:%d", schedulerPort), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
@@ -385,8 +346,9 @@ func connectToScheduler(schedulerPort int) pb.SchedulerClient {
 	return pb.NewSchedulerClient(clientConn)
 }
 
-func startNode(schedulerPort int) (int, *os.Process) {
+func startNode() (int, int, *os.Process) {
 	nodePort := end2end.AvailablePort()
+	intraNodePort := end2end.AvailablePort()
 	path, err := gexec.Build("github.com/apoydence/talaria/node")
 	if err != nil {
 		panic(err)
@@ -394,7 +356,7 @@ func startNode(schedulerPort int) (int, *os.Process) {
 	command := exec.Command(path)
 	command.Env = []string{
 		fmt.Sprintf("PORT=%d", nodePort),
-		fmt.Sprintf("SCHEDULER_URI=localhost:%d", schedulerPort),
+		fmt.Sprintf("INTRA_PORT=%d", intraNodePort),
 	}
 
 	err = command.Start()
@@ -402,7 +364,7 @@ func startNode(schedulerPort int) (int, *os.Process) {
 		panic(err)
 	}
 
-	return nodePort, command.Process
+	return nodePort, intraNodePort, command.Process
 }
 
 func startScheduler(schedulerPort int, nodePorts []int) *os.Process {
@@ -433,7 +395,7 @@ func startScheduler(schedulerPort int, nodePorts []int) *os.Process {
 func buildNodeURIs(ports []int) string {
 	var URIs []string
 	for _, port := range ports {
-		URIs = append(URIs, fmt.Sprintf("localhost:%d", port))
+		URIs = append(URIs, fmt.Sprintf("[::]:%d", port))
 	}
 	return strings.Join(URIs, ",")
 }
@@ -441,7 +403,7 @@ func buildNodeURIs(ports []int) string {
 func fetchNodeClient(URI string, nodeClients map[string]pb.TalariaClient) pb.TalariaClient {
 	client := nodeClients[URI]
 	if client == nil {
-		log.Panic(fmt.Sprintf("'%s' does not align with a Node server", URI))
+		log.Panicf("'%s' does not align with a Node server: %v", URI, nodeClients)
 	}
 	return client
 }

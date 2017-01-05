@@ -10,13 +10,11 @@ import (
 	"time"
 
 	"github.com/apoydence/talaria/node/config"
+	"github.com/apoydence/talaria/node/internal/raft"
+	"github.com/apoydence/talaria/node/internal/raft/iofetcher"
+	"github.com/apoydence/talaria/node/internal/raft/network"
 	"github.com/apoydence/talaria/node/internal/server"
-	"github.com/apoydence/talaria/node/internal/storage"
-	"github.com/apoydence/talaria/node/internal/storage/intraserver"
-	"github.com/apoydence/talaria/node/internal/storage/intraserver/router"
-	"github.com/apoydence/talaria/node/internal/storage/urifinder"
 	"github.com/apoydence/talaria/pb"
-	"github.com/apoydence/talaria/pb/intra"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 
@@ -45,15 +43,20 @@ func main() {
 		log.Println(http.ListenAndServe("localhost:6060", nil))
 	}()
 
-	uriFinder := urifinder.New(conf.SchedulerURI)
-	router := router.New()
-	store := storage.New(ID, router, uriFinder)
-	talaria := server.New(store)
-	intraServer := intraserver.New(ID, store, router)
+	// TODO: netowrk.Inbound should NOT create a grpc server and
+	// therefore require the SchedulerInbound. We can then get rid
+	// of this goofy function
+	var intraInbound *network.Inbound
+	ioFetcher := iofetcher.New(iofetcher.RaftClusterCreator(func(name string, peers []string) (iofetcher.RaftCluster, error) {
+		return raft.Build(name, intraInbound, raft.WithPeers(peers))
+	}))
+	schedulerHandler := network.NewSchedulerInbound(lis.Addr().String(), ioFetcher)
+	intraInbound = network.NewInbound(fmt.Sprintf(":%d", conf.IntraPort), schedulerHandler)
+
+	talaria := server.New(ioFetcher)
 
 	grpcServer := grpc.NewServer()
 
-	intra.RegisterNodeServer(grpcServer, intraServer)
 	pb.RegisterTalariaServer(grpcServer, talaria)
 	grpcServer.Serve(lis)
 }

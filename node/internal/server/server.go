@@ -8,7 +8,6 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/talaria/node/internal/storage/raftnode"
 	"github.com/apoydence/talaria/pb"
 )
 
@@ -18,7 +17,7 @@ type Reader interface {
 }
 
 type Writer interface {
-	Propose(ctx context.Context, data []byte) error
+	Write(data []byte, timeout time.Duration) error
 }
 
 type IOFetcher interface {
@@ -43,6 +42,11 @@ func (s *Server) Write(rx pb.Talaria_WriteServer) error {
 	writers := make(map[string]Writer)
 	for {
 		packet, err := rx.Recv()
+
+		if err == io.EOF {
+			return nil
+		}
+
 		if err != nil {
 			log.Printf("failed to read from client: %s", err)
 			return err
@@ -54,7 +58,7 @@ func (s *Server) Write(rx pb.Talaria_WriteServer) error {
 			return fmt.Errorf("unknown buffer: '%s'", packet.Name)
 		}
 
-		if err = writer.Propose(rx.Context(), packet.Message); err != nil {
+		if err = writer.Write(packet.Message, s.getContextDeadline(rx.Context())); err != nil {
 			log.Printf("error writing to buffer '%s': %s", packet.Name, err)
 			return err
 		}
@@ -88,16 +92,11 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error
 			continue
 		}
 
-		if err != nil && err != raftnode.ErrMetaData {
+		if err != nil {
 			log.Printf("failed to read from '%s': %s", buffer.Name, err)
 			return err
 		}
 		idx++
-
-		// We get empty data from raft that the user doesn't care about
-		if err == raftnode.ErrMetaData {
-			continue
-		}
 
 		err = sender.Send(&pb.ReadDataPacket{
 			Message: data,
@@ -109,6 +108,15 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error
 			return err
 		}
 	}
+}
+
+func (s *Server) getContextDeadline(ctx context.Context) time.Duration {
+	deadline, ok := ctx.Deadline()
+	if !ok {
+		return 0
+	}
+
+	return deadline.Sub(time.Now())
 }
 
 func (s *Server) isDone(ctx context.Context) bool {

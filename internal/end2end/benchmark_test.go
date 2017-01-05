@@ -14,7 +14,7 @@ import (
 )
 
 func BenchmarkSingleBufferWrite(b *testing.B) {
-	nodeClients := setupNodeClients(nodePorts)
+	nodeClients := setupNodeClients(intraNodePorts, nodePorts)
 	schedulerClient := connectToScheduler(schedulerPort)
 
 	bufferInfo := &pb.BufferInfo{
@@ -75,7 +75,7 @@ func BenchmarkSingleBufferWrite(b *testing.B) {
 }
 
 func BenchmarkSingleBufferRead(b *testing.B) {
-	nodeClients := setupNodeClients(nodePorts)
+	nodeClients := setupNodeClients(intraNodePorts, nodePorts)
 	schedulerClient := connectToScheduler(schedulerPort)
 
 	bufferInfo := &pb.BufferInfo{
@@ -173,7 +173,7 @@ func BenchmarkCreatingBuffers(b *testing.B) {
 }
 
 func BenchmarkMultipleBuffersRead(b *testing.B) {
-	nodeClients := setupNodeClients(nodePorts)
+	nodeClients := setupNodeClients(intraNodePorts, nodePorts)
 	schedulerClient := connectToScheduler(schedulerPort)
 
 	var (

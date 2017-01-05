@@ -18,7 +18,6 @@ import (
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
 	"github.com/apoydence/talaria/scheduler/internal/auditor"
-	"github.com/coreos/etcd/raft/raftpb"
 )
 
 func TestMain(m *testing.M) {
@@ -63,7 +62,7 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 				testhelpers.AlwaysReturn(n.CreateOutput.Ret0, new(intra.CreateResponse))
 				close(n.CreateOutput.Ret1)
 
-				testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, &intra.LeaderInfo{Id: 0})
+				testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, &intra.LeaderResponse{})
 				close(n.LeaderOutput.Ret1)
 
 				testhelpers.AlwaysReturn(n.UpdateConfigOutput.Ret0, new(intra.UpdateConfigResponse))
@@ -75,14 +74,14 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 		o.Group("when a buffer does not have 3 nodes", func() {
 			o.BeforeEach(func(t TT) TT {
 				testhelpers.AlwaysReturn(t.mockNodes[0].StatusOutput.Ret0, &intra.StatusResponse{
-					Id:      uint64(0),
-					Buffers: []*intra.StatusBufferInfo{{Name: "good"}},
+					Buffers: []*intra.StatusBufferInfo{{Name: "good", ExpectedNodes: []string{"0", "1", "2"}}},
 				})
 
-				for i, n := range t.mockNodes[1:] {
+				for _, n := range t.mockNodes[1:] {
 					testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
-						Id:      uint64(i + 1),
-						Buffers: []*intra.StatusBufferInfo{{Name: "good"}, {Name: "standalone"}},
+						Buffers: []*intra.StatusBufferInfo{
+							{Name: "good", ExpectedNodes: []string{"0", "1", "2"}},
+							{Name: "standalone", ExpectedNodes: []string{"1", "2"}}},
 					})
 				}
 				return t
@@ -93,21 +92,17 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 					Chain(Receive(), Equal(&intra.CreateInfo{
 						Name: "standalone",
 						Peers: []*intra.PeerInfo{
-							{Id: 0}, {Id: 1}, {Id: 2},
+							{"0"}, {"1"}, {"2"},
 						},
 					})),
 				))
 
 				Expect(t, t.mockNodes[1].UpdateConfigInput.Req).To(ViaPolling(
 					Chain(Receive(), Equal(&intra.UpdateConfigRequest{
-						Name: "standalone",
-						Change: &raftpb.ConfChange{
-							NodeID: 0,
-							Type:   raftpb.ConfChangeAddNode,
-						},
+						Name:          "standalone",
+						ExpectedNodes: []string{"0", "1", "2"},
 					})),
 				))
-
 			})
 
 			o.Spec("a buffer is not created on attending nodes", func(t TT) {
@@ -117,40 +112,35 @@ func TestAuditorWithEnoughNodes(t *testing.T) {
 			})
 		})
 
-		o.Group("when the buffer has 3 nodes", func() {
+		o.Group("when a buffer does not know about a peer", func() {
 			o.BeforeEach(func(t TT) TT {
 				testhelpers.AlwaysReturn(t.mockNodes[0].StatusOutput.Ret0, &intra.StatusResponse{
-					Id: uint64(0),
 					Buffers: []*intra.StatusBufferInfo{
-						{Name: "good", Ids: []uint64{0, 1, 2}},
-						{Name: "missing", Ids: []uint64{0, 1}},
+						{Name: "good", ExpectedNodes: []string{"0", "1", "2"}},
+						{Name: "missing", ExpectedNodes: []string{"0", "1"}},
 					},
 				})
 
-				for i, n := range t.mockNodes[1:] {
+				for _, n := range t.mockNodes[1:] {
 					testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
-						Id: uint64(i + 1),
 						Buffers: []*intra.StatusBufferInfo{
-							{Name: "missing", Ids: []uint64{0, 1, 2}},
-							{Name: "good", Ids: []uint64{0, 1, 2}},
+							{Name: "good", ExpectedNodes: []string{"0", "1", "2"}},
+							{Name: "missing", ExpectedNodes: []string{"0", "1", "2"}},
 						},
 					})
 				}
 				return t
 			})
 
-			o.Spec("it updates the buffer to add the missing ID", func(t TT) {
-				Expect(t, t.mockNodes[0].UpdateConfigInput.Req).To(ViaPolling(
-					Chain(Receive(), Equal(&intra.UpdateConfigRequest{
-						Name: "missing",
-						Change: &raftpb.ConfChange{
-							NodeID: 2,
-							Type:   raftpb.ConfChangeAddNode,
-						},
-					})),
-				))
-			})
+			o.Spec("it updates the buffer to add the missing peer", func(t TT) {
 
+				var req *intra.UpdateConfigRequest
+				Expect(t, t.mockNodes[0].UpdateConfigInput.Req).To(ViaPolling(
+					Chain(Receive(), Fetch(&req)),
+				))
+
+				Expect(t, req.Name).To(Equal("missing"))
+			})
 		})
 	})
 }
@@ -164,6 +154,7 @@ func TestAuditorWithDeadNodes(t *testing.T) {
 		mockNodes := []*mockNode{
 			newMockNode(),
 			newMockNode(),
+			newMockNode(),
 		}
 
 		return TT{
@@ -175,16 +166,18 @@ func TestAuditorWithDeadNodes(t *testing.T) {
 
 	o.Group("when a buffer has a dead ID", func() {
 		o.BeforeEach(func(t TT) TT {
-			for i, n := range t.mockNodes {
+			for _, n := range t.mockNodes {
 				testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
-					Id: uint64(i),
 					Buffers: []*intra.StatusBufferInfo{
-						{Name: "standalone", Ids: []uint64{99}},
+						{
+							Name:          "standalone",
+							ExpectedNodes: []string{"0", "1", "2", "99"},
+						},
 					},
 				})
 				close(n.StatusOutput.Ret1)
 
-				testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, new(intra.LeaderInfo))
+				testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, new(intra.LeaderResponse))
 				close(n.LeaderOutput.Ret1)
 
 				testhelpers.AlwaysReturn(n.UpdateConfigOutput.Ret0, new(intra.UpdateConfigResponse))
@@ -194,15 +187,13 @@ func TestAuditorWithDeadNodes(t *testing.T) {
 		})
 
 		o.Spec("remove the dead ID", func(t TT) {
+			var req *intra.UpdateConfigRequest
 			Expect(t, t.mockNodes[0].UpdateConfigInput.Req).To(ViaPolling(
-				Chain(Receive(), Equal(&intra.UpdateConfigRequest{
-					Name: "standalone",
-					Change: &raftpb.ConfChange{
-						NodeID: 99,
-						Type:   raftpb.ConfChangeRemoveNode,
-					},
-				})),
+				Chain(Receive(), Fetch(&req)),
 			))
+
+			Expect(t, req.Name).To(Equal("standalone"))
+			Expect(t, req.ExpectedNodes).To(HaveLen(3))
 		})
 	})
 }
@@ -220,11 +211,11 @@ func TestAuditorList(t *testing.T) {
 		}
 
 		for i, n := range mockNodes {
-			testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, &intra.LeaderInfo{Id: 0})
+			testhelpers.AlwaysReturn(n.LeaderOutput.Ret0, &intra.LeaderResponse{Addr: "0"})
 			close(n.LeaderOutput.Ret1)
 			testhelpers.AlwaysReturn(n.StatusOutput.Ret0, &intra.StatusResponse{
-				Id:      uint64(i),
-				Buffers: []*intra.StatusBufferInfo{{Name: "good"}, {Name: "standalone"}},
+				ExternalAddr: fmt.Sprintf("external-%d", i),
+				Buffers:      []*intra.StatusBufferInfo{{Name: "good"}, {Name: "standalone"}},
 			})
 			close(n.StatusOutput.Ret1)
 		}
@@ -248,17 +239,17 @@ func TestAuditorList(t *testing.T) {
 		Expect(t, list.Info[0].Name).To(Or(Equal("good"), Equal("standalone")))
 		Expect(t, list.Info[1].Name).To(Or(Equal("good"), Equal("standalone")))
 		Expect(t, list.Info[0].Name).To(Not(Equal(list.Info[1].Name)))
-		Expect(t, list.Info[0].Leader).To(Equal("0"))
-		Expect(t, list.Info[0].Leader).To(Equal("0"))
+		Expect(t, list.Info[0].Leader).To(Equal("external-0"))
+		Expect(t, list.Info[1].Leader).To(Equal("external-0"))
 		Expect(t, list.Info[0].Nodes).To(Contain(
-			&pb.NodeInfo{URI: "0", ID: 0},
-			&pb.NodeInfo{URI: "1", ID: 1},
-			&pb.NodeInfo{URI: "2", ID: 2},
+			&pb.NodeInfo{URI: "0"},
+			&pb.NodeInfo{URI: "1"},
+			&pb.NodeInfo{URI: "2"},
 		))
 		Expect(t, list.Info[1].Nodes).To(Contain(
-			&pb.NodeInfo{URI: "0", ID: 0},
-			&pb.NodeInfo{URI: "1", ID: 1},
-			&pb.NodeInfo{URI: "2", ID: 2},
+			&pb.NodeInfo{URI: "0"},
+			&pb.NodeInfo{URI: "1"},
+			&pb.NodeInfo{URI: "2"},
 		))
 	})
 }

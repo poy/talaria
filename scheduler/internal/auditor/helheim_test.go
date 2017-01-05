@@ -51,7 +51,7 @@ type mockNode struct {
 		Opts chan []grpc.CallOption
 	}
 	LeaderOutput struct {
-		Ret0 chan *intra.LeaderInfo
+		Ret0 chan *intra.LeaderResponse
 		Ret1 chan error
 	}
 }
@@ -80,7 +80,7 @@ func newMockNode() *mockNode {
 	m.LeaderInput.Ctx = make(chan context.Context, 100)
 	m.LeaderInput.Req = make(chan *intra.LeaderRequest, 100)
 	m.LeaderInput.Opts = make(chan []grpc.CallOption, 100)
-	m.LeaderOutput.Ret0 = make(chan *intra.LeaderInfo, 100)
+	m.LeaderOutput.Ret0 = make(chan *intra.LeaderResponse, 100)
 	m.LeaderOutput.Ret1 = make(chan error, 100)
 	return m
 }
@@ -105,7 +105,7 @@ func (m *mockNode) UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequ
 	m.UpdateConfigInput.Opts <- opts
 	return <-m.UpdateConfigOutput.Ret0, <-m.UpdateConfigOutput.Ret1
 }
-func (m *mockNode) Leader(ctx context.Context, req *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderInfo, error) {
+func (m *mockNode) Leader(ctx context.Context, req *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderResponse, error) {
 	m.LeaderCalled <- true
 	m.LeaderInput.Ctx <- ctx
 	m.LeaderInput.Req <- req

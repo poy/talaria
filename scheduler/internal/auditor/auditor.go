@@ -12,18 +12,18 @@ import (
 
 	"github.com/apoydence/talaria/pb"
 	"github.com/apoydence/talaria/pb/intra"
-	"github.com/coreos/etcd/raft/raftpb"
 )
 
 type Node interface {
 	Status(ctx context.Context, req *intra.StatusRequest, opts ...grpc.CallOption) (*intra.StatusResponse, error)
 	Create(ctx context.Context, req *intra.CreateInfo, opts ...grpc.CallOption) (*intra.CreateResponse, error)
 	UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequest, opts ...grpc.CallOption) (*intra.UpdateConfigResponse, error)
-	Leader(ctx context.Context, req *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderInfo, error)
+	Leader(ctx context.Context, req *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderResponse, error)
 }
 
 type Auditor struct {
-	nodes map[Node]string
+	nodes    map[Node]string
+	nodeURIs map[string]Node
 
 	mu       sync.RWMutex
 	listResp pb.ListResponse
@@ -33,6 +33,8 @@ func Start(poll time.Duration, nodes map[Node]string) *Auditor {
 	a := &Auditor{
 		nodes: nodes,
 	}
+
+	a.nodeURIs = a.buildURIs(nodes)
 
 	go a.run(poll)
 
@@ -48,9 +50,8 @@ func (a *Auditor) List() pb.ListResponse {
 func (a *Auditor) run(poll time.Duration) {
 	for range time.Tick(poll) {
 		log.Println("Running audit...")
-		var allIDs []uint64
-		buffers := make(map[string][]uint64)
-		nodes := make(map[uint64]Node)
+		buffers := make(map[string][]string)
+		externalAddrs := make(map[string]string)
 		nodePeers := make(map[Node][]*intra.StatusBufferInfo)
 
 		for node, _ := range a.nodes {
@@ -60,33 +61,41 @@ func (a *Auditor) run(poll time.Duration) {
 				continue
 			}
 
-			allIDs = append(allIDs, resp.Id)
-			nodes[resp.Id] = node
+			URI := a.nodes[node]
+			externalAddrs[URI] = resp.ExternalAddr
 
 			nodePeers[node] = resp.Buffers
 			for _, bufName := range resp.Buffers {
-				buffers[bufName.Name] = append(buffers[bufName.Name], resp.Id)
+				buffers[bufName.Name] = append(buffers[bufName.Name], URI)
 			}
 		}
 
-		a.setClusterInfo(buffers, nodes)
-		a.repairBufferIDs(nodePeers, allIDs)
-		a.fixBuffers(buffers, allIDs, nodes)
+		a.setClusterInfo(buffers, externalAddrs)
+		a.addMissingNode(nodePeers, buffers)
+		a.fixMissingPeers(nodePeers, buffers)
 	}
 }
 
-func (a *Auditor) setClusterInfo(buffers map[string][]uint64, nodes map[uint64]Node) {
+func (a *Auditor) buildURIs(m map[Node]string) map[string]Node {
+	uris := make(map[string]Node)
+	for k, v := range m {
+		uris[v] = k
+	}
+	return uris
+}
+
+func (a *Auditor) setClusterInfo(buffers map[string][]string, externalAddrs map[string]string) {
 	log.Println("Saving cluster info")
 	var results []*pb.ClusterInfo
-	for bufferName, ids := range buffers {
-		log.Printf("Saving results for %s", bufferName)
+	for name, addrs := range buffers {
+		log.Printf("Saving results for %s", name)
 		info := &pb.ClusterInfo{
-			Name:   bufferName,
-			Leader: a.fetchLeader(bufferName, ids, nodes),
-			Nodes:  a.buildNodeInfoList(ids, nodes),
+			Name:   string(name),
+			Leader: a.fetchLeader(name, addrs, externalAddrs),
+			Nodes:  a.buildNodeInfoList(addrs),
 		}
 		results = append(results, info)
-		log.Printf("Results for %s: %v", bufferName, info)
+		log.Printf("Results for %s: %v", name, info)
 	}
 
 	a.mu.Lock()
@@ -96,95 +105,8 @@ func (a *Auditor) setClusterInfo(buffers map[string][]uint64, nodes map[uint64]N
 	}
 }
 
-func (a *Auditor) repairBufferIDs(peers map[Node][]*intra.StatusBufferInfo, allIDs []uint64) {
-	m := a.fetchAllBufferIDs(peers)
-	for node, infos := range peers {
-		for _, info := range infos {
-			a.addMissingID(node, info, infos, allIDs, m)
-			for _, id := range info.Ids {
-				a.removeDeadID(id, allIDs, info.Name, node)
-			}
-		}
-	}
-}
-
-func (a *Auditor) fetchAllBufferIDs(peers map[Node][]*intra.StatusBufferInfo) map[string][]uint64 {
-	m := make(map[string][]uint64)
-	for _, infos := range peers {
-		for _, info := range infos {
-			m[info.Name] = append(m[info.Name], info.Ids...)
-		}
-	}
-
-	return m
-}
-
-func (a *Auditor) addMissingID(
-	node Node,
-	info *intra.StatusBufferInfo,
-	peerInfos []*intra.StatusBufferInfo,
-	allIDs []uint64,
-	bufferIDs map[string][]uint64,
-) {
-	if len(info.Ids) == 3 {
-		return
-	}
-
-	m := make(map[uint64]bool)
-	for _, id := range bufferIDs[info.Name] {
-		if !a.contains(id, allIDs) {
-			continue
-		}
-		m[id] = true
-	}
-
-	for _, id := range info.Ids {
-		delete(m, id)
-	}
-
-	if len(m) == 0 {
-		return
-	}
-
-	for id, _ := range m {
-		log.Printf("Updating config to add ID (%d) for %s", id, info.Name)
-		defer log.Printf("Done updating config to add ID (%d) for %s", id, info.Name)
-		a.updateConf(node, info.Name, raftpb.ConfChange{
-			NodeID: id,
-			Type:   raftpb.ConfChangeAddNode,
-		})
-		return
-	}
-}
-
-func (a *Auditor) removeDeadID(id uint64, allIDs []uint64, name string, node Node) {
-	if a.contains(id, allIDs) {
-		return
-	}
-
-	log.Printf("Updating config to remove dead ID (%d) for %s", id, name)
-	defer log.Printf("Done updating config to remove dead ID (%d) for %s", id, name)
-	a.updateConf(node, name, raftpb.ConfChange{
-		NodeID: id,
-		Type:   raftpb.ConfChangeRemoveNode,
-	})
-}
-
-func (a *Auditor) updateConf(node Node, name string, change raftpb.ConfChange) {
-	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(3*time.Second))
-	_, err := node.UpdateConfig(ctx, &intra.UpdateConfigRequest{
-		Name:   name,
-		Change: &change,
-	}, grpc.FailFast(true))
-
-	if err != nil {
-		log.Printf("Failed to update config (buffer=%s, ID=%d): %s", name, change.NodeID, err)
-		return
-	}
-}
-
-func (a *Auditor) fetchLeader(name string, ids []uint64, nodes map[uint64]Node) string {
-	n := nodes[ids[uint64(rand.Intn(len(ids)))]]
+func (a *Auditor) fetchLeader(name string, addrs []string, externalAddrs map[string]string) string {
+	n := a.nodeURIs[addrs[rand.Intn(len(addrs))]]
 	if n == nil {
 		return ""
 	}
@@ -195,88 +117,120 @@ func (a *Auditor) fetchLeader(name string, ids []uint64, nodes map[uint64]Node) 
 		log.Printf("Failed to fetch leader for %s: %s", name, err)
 		return ""
 	}
-	log.Printf("Leader for %s is %d", name, resp.Id)
 
-	return a.nodes[nodes[resp.Id]]
+	log.Println(externalAddrs)
+	leader := externalAddrs[resp.Addr]
+	log.Printf("Leader for %s is (intra %s) %s", name, resp.Addr, leader)
+
+	return leader
 }
 
-func (a *Auditor) buildNodeInfoList(ids []uint64, nodes map[uint64]Node) []*pb.NodeInfo {
+func (a *Auditor) buildNodeInfoList(addrs []string) []*pb.NodeInfo {
 	var results []*pb.NodeInfo
-	for _, id := range ids {
+	for _, addr := range addrs {
 		results = append(results, &pb.NodeInfo{
-			URI: a.nodes[nodes[id]],
-			ID:  id,
+			URI: addr,
 		})
 	}
 	return results
 }
 
-func (a *Auditor) fixBuffers(buffers map[string][]uint64, allIDs []uint64, nodes map[uint64]Node) {
-	for bufName, ids := range buffers {
-		if len(ids) == 3 {
+// addMissingNode adds a node to a buffer that does not have 3 nodes servicing it
+func (a *Auditor) addMissingNode(actuals map[Node][]*intra.StatusBufferInfo, buffers map[string][]string) {
+	for name, addrs := range buffers {
+		if len(addrs) == 3 {
 			continue
 		}
-		log.Printf("Buffer %s only has %d nodes...", bufName, len(ids))
 
-		newId, ok := a.findRandExcluded(ids, allIDs)
+		log.Printf("Buffer %s only has %d nodes", name, len(addrs))
+
+		newAddr, newNode, ok := a.findRandExcluded(addrs)
 		if !ok {
-			log.Printf("unable to find a new node for %s", bufName)
+			log.Printf("unable to find a new node for %s", name)
 			continue
 		}
 
-		log.Printf("Adding %d to buffer %s...", newId, bufName)
-		_, err := nodes[newId].Create(context.Background(), &intra.CreateInfo{
-			Name:  bufName,
-			Peers: a.buildPeerInfos(newId, ids),
+		log.Printf("Adding %s to buffer %s...", newAddr, name)
+		ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+		_, err := newNode.Create(ctx, &intra.CreateInfo{
+			Name:  name,
+			Peers: a.buildPeerInfos(newAddr, addrs),
 		})
 
 		if err != nil {
-			log.Printf("Failed to add node (%d) to buffer cluster (%s): %s", newId, bufName, err)
+			log.Printf("Failed to add node %s to buffer %s: %s", newAddr, name, err)
 			continue
 		}
 
-		for _, id := range ids {
-			log.Printf("Updating %d with new node %d", id, newId)
-			ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(3*time.Second))
-			_, err := nodes[id].UpdateConfig(ctx, &intra.UpdateConfigRequest{
-				Name: bufName,
-				Change: &raftpb.ConfChange{
-					NodeID: newId,
-					Type:   raftpb.ConfChangeAddNode,
-				},
+		newExpected := append([]string{newAddr}, addrs...)
+
+		for _, addr := range addrs {
+			node, ok := a.nodeURIs[addr]
+			if !ok {
+				log.Printf("Unknown addr %s. Skipping...", addr)
+				continue
+			}
+
+			log.Printf("Adding %s to buffer %s", newAddr, name)
+
+			ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+			_, err := node.UpdateConfig(ctx, &intra.UpdateConfigRequest{
+				Name:          name,
+				ExpectedNodes: newExpected,
 			})
 
 			if err != nil {
-				log.Printf("Failed to update node (%d) for buffer cluster (%s): %s", id, bufName, err)
+				log.Printf("Failed to add node %s to buffer %s: %s", newAddr, name, err)
 				continue
 			}
-			log.Printf("Updated %d with new node %d", id, newId)
+		}
+	}
+}
+
+// fixMissingPeers sets the expected peers to nodes who have the wrong expected
+// peers based on the other nodes.
+func (a *Auditor) fixMissingPeers(actuals map[Node][]*intra.StatusBufferInfo, buffers map[string][]string) {
+	for node, infos := range actuals {
+		for _, info := range infos {
+			actual := buffers[info.Name]
+			if len(info.ExpectedNodes) == 3 || len(actual) != 3 {
+				continue
+			}
+
+			log.Printf("Repairing expected peers for buffer %s...", info.Name)
+			ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+			_, err := node.UpdateConfig(ctx, &intra.UpdateConfigRequest{
+				Name:          info.Name,
+				ExpectedNodes: actual,
+			})
+
+			if err != nil {
+				log.Printf("Failed to repair expected nodes to buffer cluster (%s): %s", info.Name, err)
+				continue
+			}
 		}
 	}
 
 }
 
-func (a *Auditor) buildPeerInfos(newId uint64, ids []uint64) []*intra.PeerInfo {
-	result := []*intra.PeerInfo{{Id: newId}}
-	for _, id := range ids {
-		result = append(result, &intra.PeerInfo{Id: id})
+func (a *Auditor) buildPeerInfos(newAddr string, addrs []string) []*intra.PeerInfo {
+	result := []*intra.PeerInfo{{Addr: newAddr}}
+	for _, addr := range addrs {
+		result = append(result, &intra.PeerInfo{Addr: addr})
 	}
 	return result
 }
 
-func (a *Auditor) findRandExcluded(included []uint64, ids []uint64) (uint64, bool) {
-	seed := rand.Int()
-	for i := range ids {
-		idx := (i + seed) % len(ids)
-		x := ids[idx]
-		if !a.contains(x, included) {
-			return x, true
+func (a *Auditor) findRandExcluded(included []string) (string, Node, bool) {
+	for URI, node := range a.nodeURIs {
+		if !a.contains(URI, included) {
+			return URI, node, true
 		}
 	}
-	return 0, false
+	return "", nil, false
 }
 
-func (a *Auditor) contains(x uint64, j []uint64) bool {
+func (a *Auditor) contains(x string, j []string) bool {
 	for _, i := range j {
 		if i == x {
 			return true

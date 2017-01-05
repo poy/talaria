@@ -54,7 +54,6 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 
 		info := server.NodeInfo{
 			Client: mockNodeClient,
-			ID:     99,
 			URI:    "some-leader-uri",
 		}
 
@@ -104,7 +103,7 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 			))
 
 			Expect(t, info.Name).To(Equal(t.createInfo.Name))
-			Expect(t, info.Peers).To(Equal([]*intra.PeerInfo{{Id: 99}, {Id: 99}, {Id: 99}}))
+			Expect(t, info.Peers).To(Equal([]*intra.PeerInfo{{"some-leader-uri"}, {"some-leader-uri"}, {"some-leader-uri"}}))
 		})
 	})
 
@@ -130,7 +129,6 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 		o.BeforeEach(func(t TT) TT {
 			info := server.NodeInfo{
 				Client: t.mockNodeClient,
-				ID:     99,
 				URI:    "some-leader-uri",
 			}
 
@@ -208,15 +206,15 @@ func TestListClusterInfo(t *testing.T) {
 			Info: []*pb.ClusterInfo{
 				{
 					Name:  "A",
-					Nodes: []*pb.NodeInfo{{"i", 0}, {"j", 1}},
+					Nodes: []*pb.NodeInfo{{"i"}, {"j"}},
 				},
 				{
 					Name:  "B",
-					Nodes: []*pb.NodeInfo{{"k", 2}, {"l", 3}},
+					Nodes: []*pb.NodeInfo{{"k"}, {"l"}},
 				},
 				{
 					Name:  "C",
-					Nodes: []*pb.NodeInfo{{"m", 4}, {"n", 5}},
+					Nodes: []*pb.NodeInfo{{"m"}, {"n"}},
 				},
 			},
 		}

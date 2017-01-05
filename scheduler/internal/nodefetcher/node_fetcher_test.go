@@ -75,7 +75,6 @@ func TestNodeFetcherNodesAreConfigured(t *testing.T) {
 
 			for _, node := range nodes {
 				node.Client.Create(context.Background(), t.createInfo)
-				Expect(t, node.ID).To(Equal(uint64(99)))
 				Expect(t, node.URI).To(Not(HaveLen(0)))
 			}
 		}
@@ -176,20 +175,14 @@ func (m *mockNode) Create(ctx context.Context, info *intra.CreateInfo) (*intra.C
 	return new(intra.CreateResponse), nil
 }
 
-func (m *mockNode) Update(ctx context.Context, in *intra.UpdateMessage) (*intra.UpdateResponse, error) {
-	return nil, nil
-}
-
-func (m *mockNode) Leader(ctx context.Context, req *intra.LeaderRequest) (*intra.LeaderInfo, error) {
+func (m *mockNode) Leader(ctx context.Context, req *intra.LeaderRequest) (*intra.LeaderResponse, error) {
 	return nil, nil
 }
 
 func (m *mockNode) Status(ctx context.Context, req *intra.StatusRequest) (*intra.StatusResponse, error) {
 	m.s <- true
 
-	return &intra.StatusResponse{
-		Id: m.id,
-	}, nil
+	return &intra.StatusResponse{}, nil
 }
 
 func (m *mockNode) UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequest) (*intra.UpdateConfigResponse, error) {

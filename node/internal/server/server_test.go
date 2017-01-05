@@ -2,9 +2,13 @@
 package server_test
 
 import (
+	"flag"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"log"
 	"net"
+	"os"
 	"sync"
 	"testing"
 
@@ -13,13 +17,23 @@ import (
 	"github.com/apoydence/eachers/testhelpers"
 	"github.com/apoydence/onpar"
 	"github.com/apoydence/talaria/node/internal/server"
-	"github.com/apoydence/talaria/node/internal/storage/raftnode"
 	"github.com/apoydence/talaria/pb"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/grpclog"
 
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
 )
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+		grpclog.SetLogger(log.New(ioutil.Discard, "", 0))
+	}
+
+	os.Exit(m.Run())
+}
 
 type TT struct {
 	*testing.T
@@ -106,7 +120,7 @@ func TestServerWrite(t *testing.T) {
 			o.Spec("it writes to the given writer", func(t TW) {
 				t.writer.Send(t.packet)
 
-				Expect(t, t.mockWriter.ProposeInput.Data).To(ViaPolling(Chain(
+				Expect(t, t.mockWriter.WriteInput.Data).To(ViaPolling(Chain(
 					Receive(), Equal(t.packet.Message),
 				)))
 			})
@@ -114,7 +128,7 @@ func TestServerWrite(t *testing.T) {
 
 		o.Group("when writer returns an error", func() {
 			o.BeforeEach(func(t TW) TW {
-				t.mockWriter.ProposeOutput.Ret0 <- fmt.Errorf("some-error")
+				t.mockWriter.WriteOutput.Ret0 <- fmt.Errorf("some-error")
 				t.mockIOFetcher.FetchWriterOutput.Ret0 <- t.mockWriter
 				t.mockIOFetcher.FetchWriterOutput.Ret1 <- nil
 
@@ -279,16 +293,6 @@ func TestServerRead(t *testing.T) {
 					Expect(t, t.mReader.ReadAtInput.Index).To(ViaPolling(
 						Chain(Receive(), Equal(uint64(1))),
 					))
-				})
-
-				o.Spec("it filters out the meta data", func(t TR) {
-					data, _, errs := startReading(t.reader, t.startReadingWg)
-					writeToReader(t.mReader, []byte("some-meta-data"), 0, raftnode.ErrMetaData)
-
-					Expect(t, data).To(Always(
-						Not(Chain(Receive(), Equal([]byte("some-meta-data")))),
-					))
-					Expect(t, errs).To(HaveLen(0))
 				})
 
 				o.Group("when tailing the reader", func() {

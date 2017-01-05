@@ -30,5 +30,4 @@ message ClusterInfo {
 
 message NodeInfo {
   string URI = 1;
-  uint64 ID = 2;
 }

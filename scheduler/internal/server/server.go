@@ -13,7 +13,6 @@ import (
 type NodeInfo struct {
 	Client intra.NodeClient
 	URI    string
-	ID     uint64
 }
 
 type Auditor interface {
@@ -51,7 +50,7 @@ func (s *Server) Create(ctx context.Context, info *pb.CreateInfo) (*pb.CreateRes
 	}
 
 	for _, node := range nodes {
-		log.Printf("Creating buffer %s on node %s (ID=%d)", info.Name, node.URI, node.ID)
+		log.Printf("Creating buffer %s on node %s", info.Name, node.URI)
 		if _, err := node.Client.Create(ctx, intraInfo); err != nil {
 			log.Printf("Error scheduling %s on %s: %s", info.Name, node.URI, err)
 			continue
@@ -97,18 +96,8 @@ func (s *Server) contains(str string, values []string) bool {
 func (s *Server) buildPeerList(nodes []NodeInfo) []*intra.PeerInfo {
 	var peers []*intra.PeerInfo
 	for _, node := range nodes {
-		peers = append(peers, &intra.PeerInfo{Id: node.ID})
+		peers = append(peers, &intra.PeerInfo{Addr: node.URI})
 	}
 
 	return peers
-}
-
-func (s *Server) findViaID(ID uint64, nodes []NodeInfo) (NodeInfo, bool) {
-	for _, n := range nodes {
-		if ID == n.ID {
-			return n, true
-		}
-	}
-
-	return NodeInfo{}, false
 }

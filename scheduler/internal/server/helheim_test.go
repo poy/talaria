@@ -31,17 +31,7 @@ type mockNodeClient struct {
 		Opts chan []grpc.CallOption
 	}
 	LeaderOutput struct {
-		Ret0 chan *intra.LeaderInfo
-		Ret1 chan error
-	}
-	UpdateCalled chan bool
-	UpdateInput  struct {
-		Ctx  chan context.Context
-		In   chan *intra.UpdateMessage
-		Opts chan []grpc.CallOption
-	}
-	UpdateOutput struct {
-		Ret0 chan *intra.UpdateResponse
+		Ret0 chan *intra.LeaderResponse
 		Ret1 chan error
 	}
 	UpdateConfigCalled chan bool
@@ -78,14 +68,8 @@ func newMockNodeClient() *mockNodeClient {
 	m.LeaderInput.Ctx = make(chan context.Context, 100)
 	m.LeaderInput.In = make(chan *intra.LeaderRequest, 100)
 	m.LeaderInput.Opts = make(chan []grpc.CallOption, 100)
-	m.LeaderOutput.Ret0 = make(chan *intra.LeaderInfo, 100)
+	m.LeaderOutput.Ret0 = make(chan *intra.LeaderResponse, 100)
 	m.LeaderOutput.Ret1 = make(chan error, 100)
-	m.UpdateCalled = make(chan bool, 100)
-	m.UpdateInput.Ctx = make(chan context.Context, 100)
-	m.UpdateInput.In = make(chan *intra.UpdateMessage, 100)
-	m.UpdateInput.Opts = make(chan []grpc.CallOption, 100)
-	m.UpdateOutput.Ret0 = make(chan *intra.UpdateResponse, 100)
-	m.UpdateOutput.Ret1 = make(chan error, 100)
 	m.UpdateConfigCalled = make(chan bool, 100)
 	m.UpdateConfigInput.Ctx = make(chan context.Context, 100)
 	m.UpdateConfigInput.In = make(chan *intra.UpdateConfigRequest, 100)
@@ -107,19 +91,12 @@ func (m *mockNodeClient) Create(ctx context.Context, in *intra.CreateInfo, opts 
 	m.CreateInput.Opts <- opts
 	return <-m.CreateOutput.Ret0, <-m.CreateOutput.Ret1
 }
-func (m *mockNodeClient) Leader(ctx context.Context, in *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderInfo, error) {
+func (m *mockNodeClient) Leader(ctx context.Context, in *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderResponse, error) {
 	m.LeaderCalled <- true
 	m.LeaderInput.Ctx <- ctx
 	m.LeaderInput.In <- in
 	m.LeaderInput.Opts <- opts
 	return <-m.LeaderOutput.Ret0, <-m.LeaderOutput.Ret1
-}
-func (m *mockNodeClient) Update(ctx context.Context, in *intra.UpdateMessage, opts ...grpc.CallOption) (*intra.UpdateResponse, error) {
-	m.UpdateCalled <- true
-	m.UpdateInput.Ctx <- ctx
-	m.UpdateInput.In <- in
-	m.UpdateInput.Opts <- opts
-	return <-m.UpdateOutput.Ret0, <-m.UpdateOutput.Ret1
 }
 func (m *mockNodeClient) UpdateConfig(ctx context.Context, in *intra.UpdateConfigRequest, opts ...grpc.CallOption) (*intra.UpdateConfigResponse, error) {
 	m.UpdateConfigCalled <- true
