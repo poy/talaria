@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"net"
@@ -30,11 +29,11 @@ func main() {
 
 	grpclog.SetLogger(log.New(os.Stderr, "[GRPC]", log.LstdFlags))
 
-	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", conf.Port))
+	lis, err := net.Listen("tcp4", conf.Addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Printf("Listening on port %d", conf.Port)
+	log.Printf("Listening on %s", conf.Addr)
 
 	ID := uint64(rand.Int63())
 	log.Printf("Node ID=%d", ID)
@@ -51,7 +50,7 @@ func main() {
 		return raft.Build(name, intraInbound, raft.WithPeers(peers))
 	}))
 	schedulerHandler := network.NewSchedulerInbound(lis.Addr().String(), ioFetcher)
-	intraInbound = network.NewInbound(fmt.Sprintf(":%d", conf.IntraPort), schedulerHandler)
+	intraInbound = network.NewInbound(conf.IntraAddr, schedulerHandler)
 
 	talaria := server.New(ioFetcher)
 

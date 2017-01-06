@@ -210,7 +210,7 @@ func TestEnd2EndBufferHasNotBeenCreated(t *testing.T) {
 
 	o.BeforeEach(func(t *testing.T) TC {
 		nodeClients := setupNodeClients(intraNodePorts, nodePorts)
-		nodeClient := fetchNodeClient(fmt.Sprintf("[::]:%d", nodePorts[0]), nodeClients)
+		nodeClient := fetchNodeClient(fmt.Sprintf("127.0.0.1:%d", nodePorts[0]), nodeClients)
 
 		return TC{
 			T:          t,
@@ -322,14 +322,14 @@ func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteCl
 func setupNodeClients(intraPorts, ports []int) map[string]pb.TalariaClient {
 	clients := make(map[string]pb.TalariaClient)
 	for _, port := range ports {
-		URI := fmt.Sprintf("[::]:%d", port)
+		URI := fmt.Sprintf("127.0.0.1:%d", port)
 		clients[URI] = connectToNode(port)
 	}
 	return clients
 }
 
 func connectToNode(nodePort int) pb.TalariaClient {
-	clientConn, err := grpc.Dial(fmt.Sprintf("[::]:%d", nodePort), grpc.WithInsecure())
+	clientConn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", nodePort), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
@@ -338,7 +338,7 @@ func connectToNode(nodePort int) pb.TalariaClient {
 }
 
 func connectToScheduler(schedulerPort int) pb.SchedulerClient {
-	clientConn, err := grpc.Dial(fmt.Sprintf("[::]:%d", schedulerPort), grpc.WithInsecure())
+	clientConn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", schedulerPort), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
@@ -355,8 +355,8 @@ func startNode() (int, int, *os.Process) {
 	}
 	command := exec.Command(path)
 	command.Env = []string{
-		fmt.Sprintf("PORT=%d", nodePort),
-		fmt.Sprintf("INTRA_PORT=%d", intraNodePort),
+		fmt.Sprintf("ADDR=localhost:%d", nodePort),
+		fmt.Sprintf("INTRA_ADDR=localhost:%d", intraNodePort),
 	}
 
 	err = command.Start()
@@ -395,7 +395,7 @@ func startScheduler(schedulerPort int, nodePorts []int) *os.Process {
 func buildNodeURIs(ports []int) string {
 	var URIs []string
 	for _, port := range ports {
-		URIs = append(URIs, fmt.Sprintf("[::]:%d", port))
+		URIs = append(URIs, fmt.Sprintf("127.0.0.1:%d", port))
 	}
 	return strings.Join(URIs, ",")
 }

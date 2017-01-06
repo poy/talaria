@@ -23,7 +23,7 @@ func main() {
 	conf := config.Load()
 	var nodeAddrs []string
 	for _, node := range conf.Nodes {
-		addr, err := net.ResolveTCPAddr("tcp", node)
+		addr, err := net.ResolveTCPAddr("tcp4", node)
 		if err != nil {
 			log.Printf("Unable to resolve node address %s: %s", node, err)
 			continue
@@ -31,7 +31,7 @@ func main() {
 		nodeAddrs = append(nodeAddrs, addr.String())
 	}
 
-	lis, err := net.Listen("tcp6", fmt.Sprintf(":%d", conf.Port))
+	lis, err := net.Listen("tcp4", fmt.Sprintf(":%d", conf.Port))
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}

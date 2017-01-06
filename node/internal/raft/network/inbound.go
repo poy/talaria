@@ -100,7 +100,7 @@ func (i *Inbound) RequestVote(ctx context.Context, in *intra.RequestVoteRequest)
 }
 
 func (i *Inbound) runServer() string {
-	lis, err := net.Listen("tcp", i.addr)
+	lis, err := net.Listen("tcp4", i.addr)
 	if err != nil {
 		log.Fatalf("Failed to start intra server: %s", err)
 	}

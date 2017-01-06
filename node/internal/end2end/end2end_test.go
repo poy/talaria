@@ -88,7 +88,7 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 		}
 
 		Expect(t, leaderF).To(ViaPollingMatcher{
-			Matcher:  Equal(fmt.Sprintf("[::]:%d", intraNodePort)),
+			Matcher:  Equal(fmt.Sprintf("127.0.0.1:%d", intraNodePort)),
 			Duration: 5 * time.Second,
 		})
 
@@ -329,8 +329,8 @@ func startNode(t *testing.T) (int, int, *os.Process) {
 	Expect(t, err == nil).To(BeTrue())
 	command := exec.Command(path)
 	command.Env = []string{
-		fmt.Sprintf("PORT=%d", nodePort),
-		fmt.Sprintf("INTRA_PORT=%d", intraNodePort),
+		fmt.Sprintf("ADDR=localhost:%d", nodePort),
+		fmt.Sprintf("INTRA_ADDR=localhost:%d", intraNodePort),
 	}
 
 	err = command.Start()

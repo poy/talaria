@@ -7,15 +7,12 @@ import (
 )
 
 type Talaria struct {
-	Port      uint16 `env:"port"`
-	IntraPort uint16 `env:"intra_port"`
+	Addr      string `env:"ADDR,required"`
+	IntraAddr string `env:"INTRA_ADDR,required"`
 }
 
 func Load() Talaria {
-	c := Talaria{
-		Port:      8080,
-		IntraPort: 8081,
-	}
+	c := Talaria{}
 
 	if err := envstruct.Load(&c); err != nil {
 		log.Fatal(err.Error())
