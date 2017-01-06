@@ -43,7 +43,7 @@ type TC struct {
 	nodePort        int
 	nodeProcess     *os.Process
 	closers         []io.Closer
-	nodeClient      pb.TalariaClient
+	nodeClient      pb.NodeClient
 	intraNodeClient intra.NodeClient
 }
 
@@ -238,7 +238,7 @@ func TestNodeEnd2EndBufferNotCreated(t *testing.T) {
 	})
 
 	o.Spec("it returns an error", func(t TC) {
-		var client pb.Talaria_ReadClient
+		var client pb.Node_ReadClient
 
 		f := func() bool {
 			var err error
@@ -256,7 +256,7 @@ func createName() string {
 	return fmt.Sprintf("some-buffer-%d", rand.Int63())
 }
 
-func writeTo(name string, data []byte, writer pb.Talaria_WriteClient) {
+func writeTo(name string, data []byte, writer pb.Node_WriteClient) {
 	packet := &pb.WriteDataPacket{
 		Name:    name,
 		Message: data,
@@ -267,7 +267,7 @@ func writeTo(name string, data []byte, writer pb.Talaria_WriteClient) {
 	}
 }
 
-func fetchReaderWithIndex(name string, index uint64, client pb.TalariaClient) (chan []byte, chan uint64) {
+func fetchReaderWithIndex(name string, index uint64, client pb.NodeClient) (chan []byte, chan uint64) {
 	c := make(chan []byte, 100)
 	idx := make(chan uint64, 100)
 
@@ -294,7 +294,7 @@ func fetchReaderWithIndex(name string, index uint64, client pb.TalariaClient) (c
 	return c, idx
 }
 
-func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteClient) *sync.WaitGroup {
+func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Node_WriteClient) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -307,11 +307,11 @@ func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteCl
 	return &wg
 }
 
-func connectToNode(t *testing.T, nodePort int) (pb.TalariaClient, io.Closer) {
+func connectToNode(t *testing.T, nodePort int) (pb.NodeClient, io.Closer) {
 	clientConn, err := grpc.Dial(fmt.Sprintf("localhost:%d", nodePort), grpc.WithInsecure())
 	Expect(t, err == nil).To(BeTrue())
 
-	return pb.NewTalariaClient(clientConn), clientConn
+	return pb.NewNodeClient(clientConn), clientConn
 }
 
 func connectToIntraNode(t *testing.T, nodePort int) (intra.NodeClient, io.Closer) {
@@ -339,7 +339,7 @@ func startNode(t *testing.T) (int, int, *os.Process) {
 	return nodePort, intraNodePort, command.Process
 }
 
-func fetchReaderLastIndex(name string, client pb.TalariaClient) (chan []byte, chan uint64) {
+func fetchReaderLastIndex(name string, client pb.NodeClient) (chan []byte, chan uint64) {
 	c := make(chan []byte, 100)
 	idx := make(chan uint64, 100)
 

@@ -25,7 +25,7 @@ func BenchmarkSingleBufferWrite(b *testing.B) {
 		Name: bufferInfo.Name,
 	}
 
-	var nodeClient pb.TalariaClient
+	var nodeClient pb.NodeClient
 	f := func() bool {
 		_, err := schedulerClient.Create(context.Background(), createInfo)
 		return err == nil
@@ -86,7 +86,7 @@ func BenchmarkSingleBufferRead(b *testing.B) {
 		Name: bufferInfo.Name,
 	}
 
-	var nodeClient pb.TalariaClient
+	var nodeClient pb.NodeClient
 	f := func() bool {
 		_, err := schedulerClient.Create(context.Background(), createInfo)
 		return err == nil
@@ -179,7 +179,7 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 	var (
 		bufferInfos []*pb.BufferInfo
 		createInfos []*pb.CreateInfo
-		clients     []pb.TalariaClient
+		clients     []pb.NodeClient
 	)
 
 	for i := 0; i < 5; i++ {
@@ -191,17 +191,17 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 			Name: bufferInfo.Name,
 		}
 
-		var nodeClient pb.TalariaClient
-		f := func() bool {
+		var nodeClient pb.NodeClient
+		f := func() error {
 			_, err := schedulerClient.Create(context.Background(), createInfo)
-			return err == nil
+			return err
 		}
 		Expect(b, f).To(ViaPollingMatcher{
-			Matcher:  BeTrue(),
+			Matcher:  Not(HaveOccurred()),
 			Duration: 5 * time.Second,
 		})
 
-		f = func() bool {
+		ff := func() bool {
 			resp, err := schedulerClient.ListClusterInfo(context.Background(), &pb.ListInfo{
 				Names: []string{createInfo.Name},
 			})
@@ -218,7 +218,7 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 			return true
 		}
 
-		Expect(b, f).To(ViaPollingMatcher{
+		Expect(b, ff).To(ViaPollingMatcher{
 			Matcher:  BeTrue(),
 			Duration: 5 * time.Second,
 		})
@@ -234,7 +234,7 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 	for i, fi := range bufferInfos {
 		wg.Add(2)
 
-		go func(client pb.TalariaClient, info *pb.BufferInfo, n int) {
+		go func(client pb.NodeClient, info *pb.BufferInfo, n int) {
 			defer wg.Done()
 			randomData := randomDataBuilder()
 
@@ -254,7 +254,7 @@ func BenchmarkMultipleBuffersRead(b *testing.B) {
 
 		}(clients[i], fi, b.N)
 
-		go func(client pb.TalariaClient, info *pb.BufferInfo, n int) {
+		go func(client pb.NodeClient, info *pb.BufferInfo, n int) {
 			defer wg.Done()
 
 			reader, err := client.Read(context.Background(), info)

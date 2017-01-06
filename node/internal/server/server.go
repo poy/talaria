@@ -35,7 +35,7 @@ func New(fetcher IOFetcher) *Server {
 	}
 }
 
-func (s *Server) Write(rx pb.Talaria_WriteServer) error {
+func (s *Server) Write(rx pb.Node_WriteServer) error {
 	log.Print("Starting Writer...")
 	defer log.Print("Writer done.")
 
@@ -65,7 +65,7 @@ func (s *Server) Write(rx pb.Talaria_WriteServer) error {
 	}
 }
 
-func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Talaria_ReadServer) error {
+func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Node_ReadServer) error {
 	log.Printf("Starting reader for '%s'...", buffer.Name)
 	defer log.Printf("Reader done for '%s'.", buffer.Name)
 

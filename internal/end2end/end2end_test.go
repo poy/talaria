@@ -73,7 +73,7 @@ type TC struct {
 	*testing.T
 	bufferInfo *pb.BufferInfo
 	createInfo *pb.CreateInfo
-	nodeClient pb.TalariaClient
+	nodeClient pb.NodeClient
 }
 
 func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
@@ -93,7 +93,7 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 			Name: bufferInfo.Name,
 		}
 
-		var nodeClient pb.TalariaClient
+		var nodeClient pb.NodeClient
 		f := func() bool {
 			_, err := schedulerClient.Create(context.Background(), createInfo)
 			return err == nil
@@ -232,7 +232,7 @@ func createName() string {
 	return fmt.Sprintf("some-buffer-%d", rand.Int63())
 }
 
-func writeTo(name string, data []byte, writer pb.Talaria_WriteClient) {
+func writeTo(name string, data []byte, writer pb.Node_WriteClient) {
 	packet := &pb.WriteDataPacket{
 		Name:    name,
 		Message: data,
@@ -243,7 +243,7 @@ func writeTo(name string, data []byte, writer pb.Talaria_WriteClient) {
 	}
 }
 
-func fetchReaderWithIndex(name string, index uint64, client pb.TalariaClient) (chan []byte, chan uint64) {
+func fetchReaderWithIndex(name string, index uint64, client pb.NodeClient) (chan []byte, chan uint64) {
 	c := make(chan []byte, 100)
 	idx := make(chan uint64, 100)
 
@@ -270,7 +270,7 @@ func fetchReaderWithIndex(name string, index uint64, client pb.TalariaClient) (c
 	return c, idx
 }
 
-func fetchReaderLastIndex(name string, client pb.TalariaClient) (chan []byte, chan uint64) {
+func fetchReaderLastIndex(name string, client pb.NodeClient) (chan []byte, chan uint64) {
 	c := make(chan []byte, 100)
 	idx := make(chan uint64, 100)
 
@@ -298,7 +298,7 @@ func fetchReaderLastIndex(name string, client pb.TalariaClient) (chan []byte, ch
 	return c, idx
 }
 
-func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteClient) *sync.WaitGroup {
+func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Node_WriteClient) *sync.WaitGroup {
 	var wg sync.WaitGroup
 	wg.Add(1)
 	go func() {
@@ -319,8 +319,8 @@ func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Talaria_WriteCl
 	return &wg
 }
 
-func setupNodeClients(intraPorts, ports []int) map[string]pb.TalariaClient {
-	clients := make(map[string]pb.TalariaClient)
+func setupNodeClients(intraPorts, ports []int) map[string]pb.NodeClient {
+	clients := make(map[string]pb.NodeClient)
 	for _, port := range ports {
 		URI := fmt.Sprintf("127.0.0.1:%d", port)
 		clients[URI] = connectToNode(port)
@@ -328,13 +328,13 @@ func setupNodeClients(intraPorts, ports []int) map[string]pb.TalariaClient {
 	return clients
 }
 
-func connectToNode(nodePort int) pb.TalariaClient {
+func connectToNode(nodePort int) pb.NodeClient {
 	clientConn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", nodePort), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
 
-	return pb.NewTalariaClient(clientConn)
+	return pb.NewNodeClient(clientConn)
 }
 
 func connectToScheduler(schedulerPort int) pb.SchedulerClient {
@@ -400,7 +400,7 @@ func buildNodeURIs(ports []int) string {
 	return strings.Join(URIs, ",")
 }
 
-func fetchNodeClient(URI string, nodeClients map[string]pb.TalariaClient) pb.TalariaClient {
+func fetchNodeClient(URI string, nodeClients map[string]pb.NodeClient) pb.NodeClient {
 	client := nodeClients[URI]
 	if client == nil {
 		log.Panicf("'%s' does not align with a Node server: %v", URI, nodeClients)

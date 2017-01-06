@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package pb;
 
-service Talaria{
+service Node{
   rpc Write(stream WriteDataPacket) returns (WriteResponse)  {}
   rpc Read(BufferInfo) returns (stream ReadDataPacket) {}
 }

@@ -1,3 +1,3 @@
 package intra
 
-//go:generate bash -c "protoc *.proto -I=. -I=$GOPATH/src -I=$GOPATH/src/github.com/gogo/protobuf --go_out=plugins=grpc:."
+//go:generate bash -c "protoc *.proto -I=. --go_out=plugins=grpc:."

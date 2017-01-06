@@ -52,10 +52,10 @@ func main() {
 	schedulerHandler := network.NewSchedulerInbound(lis.Addr().String(), ioFetcher)
 	intraInbound = network.NewInbound(conf.IntraAddr, schedulerHandler)
 
-	talaria := server.New(ioFetcher)
+	node := server.New(ioFetcher)
 
 	grpcServer := grpc.NewServer()
 
-	pb.RegisterTalariaServer(grpcServer, talaria)
+	pb.RegisterNodeServer(grpcServer, node)
 	grpcServer.Serve(lis)
 }

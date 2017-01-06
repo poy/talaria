@@ -41,13 +41,13 @@ type TT struct {
 	mockWriter     *mockWriter
 	handlerWrapper *handlerWrapper
 	s              *server.Server
-	client         pb.TalariaClient
+	client         pb.NodeClient
 	closers        []io.Closer
 }
 
 type TW struct {
 	TT
-	writer pb.Talaria_WriteClient
+	writer pb.Node_WriteClient
 	info   *pb.BufferInfo
 	packet *pb.WriteDataPacket
 }
@@ -168,7 +168,7 @@ func TestServerWrite(t *testing.T) {
 type TR struct {
 	TT
 	mReader        *mockReader
-	reader         pb.Talaria_ReadClient
+	reader         pb.Node_ReadClient
 	info           *pb.BufferInfo
 	startReadingWg *sync.WaitGroup
 	ctx            context.Context
@@ -387,10 +387,10 @@ func TestServerRead(t *testing.T) {
 type handlerWrapper struct {
 	rDone   chan struct{}
 	wDone   chan struct{}
-	handler pb.TalariaServer
+	handler pb.NodeServer
 }
 
-func newHandlerWrapper(handler pb.TalariaServer) *handlerWrapper {
+func newHandlerWrapper(handler pb.NodeServer) *handlerWrapper {
 	return &handlerWrapper{
 		rDone:   make(chan struct{}),
 		wDone:   make(chan struct{}),
@@ -398,43 +398,43 @@ func newHandlerWrapper(handler pb.TalariaServer) *handlerWrapper {
 	}
 }
 
-func (w *handlerWrapper) Write(s pb.Talaria_WriteServer) error {
+func (w *handlerWrapper) Write(s pb.Node_WriteServer) error {
 	defer close(w.wDone)
 	return w.handler.Write(s)
 }
 
-func (w *handlerWrapper) Read(i *pb.BufferInfo, s pb.Talaria_ReadServer) error {
+func (w *handlerWrapper) Read(i *pb.BufferInfo, s pb.Node_ReadServer) error {
 	defer close(w.rDone)
 	return w.handler.Read(i, s)
 }
 
-func setupGrpcServer(handler pb.TalariaServer) (net.Listener, *handlerWrapper) {
+func setupGrpcServer(handler pb.NodeServer) (net.Listener, *handlerWrapper) {
 	lis, err := net.Listen("tcp", ":0")
 	if err != nil {
 		panic(err)
 	}
 	gs := grpc.NewServer()
 	handlerWrapper := newHandlerWrapper(handler)
-	pb.RegisterTalariaServer(gs, handlerWrapper)
+	pb.RegisterNodeServer(gs, handlerWrapper)
 	go gs.Serve(lis)
 	return lis, handlerWrapper
 }
 
-func establishClient(URI string) (pb.TalariaClient, *grpc.ClientConn) {
+func establishClient(URI string) (pb.NodeClient, *grpc.ClientConn) {
 	conn, err := grpc.Dial(URI, grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
-	return pb.NewTalariaClient(conn), conn
+	return pb.NewNodeClient(conn), conn
 }
 
-func keepWriting(writer pb.Talaria_WriteClient, p *pb.WriteDataPacket) func() bool {
+func keepWriting(writer pb.Node_WriteClient, p *pb.WriteDataPacket) func() bool {
 	return func() bool {
 		return writer.Send(p) == nil
 	}
 }
 
-func setupReader(ctx context.Context, client pb.TalariaClient, info *pb.BufferInfo) pb.Talaria_ReadClient {
+func setupReader(ctx context.Context, client pb.NodeClient, info *pb.BufferInfo) pb.Node_ReadClient {
 	reader, err := client.Read(ctx, info)
 	if err != nil {
 		panic(err)
@@ -442,12 +442,12 @@ func setupReader(ctx context.Context, client pb.TalariaClient, info *pb.BufferIn
 	return reader
 }
 
-func startReading(reader pb.Talaria_ReadClient, wg *sync.WaitGroup) (chan []byte, chan uint64, chan error) {
+func startReading(reader pb.Node_ReadClient, wg *sync.WaitGroup) (chan []byte, chan uint64, chan error) {
 	wg.Add(1)
 	d := make(chan []byte, 100)
 	i := make(chan uint64, 100)
 	e := make(chan error, 100)
-	go func(r pb.Talaria_ReadClient) {
+	go func(r pb.Node_ReadClient) {
 		defer wg.Done()
 		for {
 			packet, err := r.Recv()

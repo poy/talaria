@@ -2,26 +2,6 @@
 // source: scheduler.proto
 // DO NOT EDIT!
 
-/*
-Package pb is a generated protocol buffer package.
-
-It is generated from these files:
-	scheduler.proto
-	talaria.proto
-
-It has these top-level messages:
-	CreateInfo
-	CreateResponse
-	ListInfo
-	ListResponse
-	ClusterInfo
-	NodeInfo
-	BufferInfo
-	WriteDataPacket
-	ReadDataPacket
-	WriteResponse
-	InfoResponse
-*/
 package pb
 
 import proto "github.com/golang/protobuf/proto"
@@ -38,12 +18,6 @@ var _ = proto.Marshal
 var _ = fmt.Errorf
 var _ = math.Inf
 
-// This is a compile-time assertion to ensure that this generated file
-// is compatible with the proto package it is being compiled against.
-// A compilation error at this line likely means your copy of the
-// proto package needs to be updated.
-const _ = proto.ProtoPackageIsVersion2 // please upgrade the proto package
-
 type CreateInfo struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
@@ -51,7 +25,7 @@ type CreateInfo struct {
 func (m *CreateInfo) Reset()                    { *m = CreateInfo{} }
 func (m *CreateInfo) String() string            { return proto.CompactTextString(m) }
 func (*CreateInfo) ProtoMessage()               {}
-func (*CreateInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
+func (*CreateInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
 
 type CreateResponse struct {
 }
@@ -59,7 +33,7 @@ type CreateResponse struct {
 func (m *CreateResponse) Reset()                    { *m = CreateResponse{} }
 func (m *CreateResponse) String() string            { return proto.CompactTextString(m) }
 func (*CreateResponse) ProtoMessage()               {}
-func (*CreateResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+func (*CreateResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{1} }
 
 type ListInfo struct {
 	Names []string `protobuf:"bytes,1,rep,name=names" json:"names,omitempty"`
@@ -68,7 +42,7 @@ type ListInfo struct {
 func (m *ListInfo) Reset()                    { *m = ListInfo{} }
 func (m *ListInfo) String() string            { return proto.CompactTextString(m) }
 func (*ListInfo) ProtoMessage()               {}
-func (*ListInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
+func (*ListInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
 
 type ListResponse struct {
 	Info []*ClusterInfo `protobuf:"bytes,1,rep,name=info" json:"info,omitempty"`
@@ -77,7 +51,7 @@ type ListResponse struct {
 func (m *ListResponse) Reset()                    { *m = ListResponse{} }
 func (m *ListResponse) String() string            { return proto.CompactTextString(m) }
 func (*ListResponse) ProtoMessage()               {}
-func (*ListResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
+func (*ListResponse) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{3} }
 
 func (m *ListResponse) GetInfo() []*ClusterInfo {
 	if m != nil {
@@ -95,7 +69,7 @@ type ClusterInfo struct {
 func (m *ClusterInfo) Reset()                    { *m = ClusterInfo{} }
 func (m *ClusterInfo) String() string            { return proto.CompactTextString(m) }
 func (*ClusterInfo) ProtoMessage()               {}
-func (*ClusterInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+func (*ClusterInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{4} }
 
 func (m *ClusterInfo) GetNodes() []*NodeInfo {
 	if m != nil {
@@ -111,7 +85,7 @@ type NodeInfo struct {
 func (m *NodeInfo) Reset()                    { *m = NodeInfo{} }
 func (m *NodeInfo) String() string            { return proto.CompactTextString(m) }
 func (*NodeInfo) ProtoMessage()               {}
-func (*NodeInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
+func (*NodeInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{5} }
 
 func init() {
 	proto.RegisterType((*CreateInfo)(nil), "pb.CreateInfo")
@@ -224,12 +198,12 @@ var _Scheduler_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: fileDescriptor0,
+	Metadata: fileDescriptor1,
 }
 
-func init() { proto.RegisterFile("scheduler.proto", fileDescriptor0) }
+func init() { proto.RegisterFile("scheduler.proto", fileDescriptor1) }
 
-var fileDescriptor0 = []byte{
+var fileDescriptor1 = []byte{
 	// 259 bytes of a gzipped FileDescriptorProto
 	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x09, 0x6e, 0x88, 0x02, 0xff, 0x6c, 0x51, 0x31, 0x6f, 0xb3, 0x30,
 	0x10, 0xfd, 0x08, 0x09, 0x0a, 0x97, 0x28, 0xa0, 0xd3, 0xa7, 0x0a, 0x45, 0x1d, 0x90, 0xbb, 0x64,
