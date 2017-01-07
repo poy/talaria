@@ -109,6 +109,11 @@ func TestServerWrite(t *testing.T) {
 		})
 
 		o.Group("when writer does not return an error", func() {
+			o.BeforeEach(func(t TW) TW {
+				close(t.mockWriter.WriteOutput.Ret0)
+				return t
+			})
+
 			o.Spec("it uses the expected name for the fetcher only once", func(t TW) {
 				Expect(t, keepWriting(t.writer, t.packet)).To(Always(Equal(true)))
 				Expect(t, t.mockIOFetcher.FetchWriterInput.Name).To(HaveLen(1))
@@ -118,11 +123,21 @@ func TestServerWrite(t *testing.T) {
 			})
 
 			o.Spec("it writes to the given writer", func(t TW) {
-				t.writer.Send(t.packet)
+				err := t.writer.Send(t.packet)
+				Expect(t, err == nil).To(BeTrue())
 
 				Expect(t, t.mockWriter.WriteInput.Data).To(ViaPolling(Chain(
 					Receive(), Equal(t.packet.Message),
 				)))
+			})
+
+			o.Spec("it returns the number of successful writes", func(t TW) {
+				err := t.writer.Send(t.packet)
+				Expect(t, err == nil).To(BeTrue())
+
+				resp, err := t.writer.CloseAndRecv()
+				Expect(t, err == nil).To(BeTrue())
+				Expect(t, resp.LastWriteIndex).To(Equal(uint64(1)))
 			})
 		})
 

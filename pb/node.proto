@@ -24,6 +24,8 @@ message ReadDataPacket {
 }
 
 message WriteResponse {
+  uint64 lastWriteIndex = 1;
+  string error = 2;
 }
 
 message InfoResponse {

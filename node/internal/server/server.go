@@ -35,9 +35,23 @@ func New(fetcher IOFetcher) *Server {
 	}
 }
 
-func (s *Server) Write(rx pb.Node_WriteServer) error {
+func (s *Server) Write(rx pb.Node_WriteServer) (err error) {
 	log.Print("Starting Writer...")
 	defer log.Print("Writer done.")
+
+	var writeCount uint64
+	defer func() {
+		var errMsg string
+		if err != nil {
+			errMsg = err.Error()
+		}
+		err = nil
+
+		rx.SendAndClose(&pb.WriteResponse{
+			LastWriteIndex: writeCount,
+			Error:          errMsg,
+		})
+	}()
 
 	writers := make(map[string]Writer)
 	for {
@@ -62,6 +76,7 @@ func (s *Server) Write(rx pb.Node_WriteServer) error {
 			log.Printf("error writing to buffer '%s': %s", packet.Name, err)
 			return err
 		}
+		writeCount++
 	}
 }
 
