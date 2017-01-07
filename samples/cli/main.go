@@ -8,8 +8,10 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
+	"time"
 
 	"github.com/apoydence/talaria/pb"
+	"github.com/apoydence/talaria/pb/intra"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
@@ -18,14 +20,17 @@ import (
 var (
 	verbose = flag.Bool("verbose", false, "Verbose mode")
 
-	schedulerUri = flag.String("scheduler", "", "The URI for the scheduler")
-	nodeUri      = flag.String("node", "", "The URI for the node")
-	bufferName   = flag.String("buffer", "", "The buffer to interact with")
+	schedulerUri    = flag.String("scheduler", "", "The URI for the scheduler")
+	nodeUri         = flag.String("node", "", "The URI for the node")
+	bufferName      = flag.String("buffer", "", "The buffer to interact with")
+	writePacketSize = flag.Uint("packetSize", 1024, "The size of each write packet")
 
 	list      = flag.Bool("list", false, "List cluster info")
 	create    = flag.Bool("create", false, "Create a buffer")
 	tail      = flag.Bool("tail", false, "The buffer to tail")
 	writeData = flag.Bool("write", false, "Write data from STDIN")
+
+	diag = flag.Bool("diag", false, "Look at IDs for a buffer on a node")
 )
 
 func main() {
@@ -52,6 +57,11 @@ func main() {
 
 	if *list {
 		listCommand()
+		return
+	}
+
+	if *diag {
+		diagCommand()
 		return
 	}
 
@@ -91,12 +101,12 @@ func setupSchedulerClient() pb.SchedulerClient {
 	return pb.NewSchedulerClient(conn)
 }
 
-func setupNodeClient() pb.TalariaClient {
-	conn, err := grpc.Dial(*nodeUri, grpc.WithInsecure())
+func setupNodeClient(URI string) pb.NodeClient {
+	conn, err := grpc.Dial(URI, grpc.WithInsecure())
 	if err != nil {
 		log.Fatalf("unable to connect to node: %s", err)
 	}
-	return pb.NewTalariaClient(conn)
+	return pb.NewNodeClient(conn)
 }
 
 func tailCommand() {
@@ -116,7 +126,7 @@ func tailCommand() {
 		log.Fatal("You must provide a node URI")
 	}
 
-	client := setupNodeClient()
+	client := setupNodeClient(*nodeUri)
 	rx, err := client.Read(context.Background(), &pb.BufferInfo{Name: *bufferName})
 	if err != nil {
 		log.Fatal(err)
@@ -141,37 +151,54 @@ func writeDataCommand() {
 		log.Fatal("You must provide a buffer name")
 	}
 
-	if *schedulerUri != "" {
-		log.Fatal("You can't provide a scheduler URI")
+	if *schedulerUri == "" && *nodeUri == "" {
+		log.Fatal("You must provide a scheduler URI or node URI")
 	}
 
-	if *nodeUri == "" {
-		log.Fatal("You must provide a node URI")
+	if *schedulerUri != "" && *nodeUri != "" {
+		log.Fatal("You must provide a scheduler URI or node URI (not both)")
 	}
 
-	client := setupNodeClient()
+	client := fetchWrtierNode()
 	tx, err := client.Write(context.Background())
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer func() {
+		// Give the buffer time to clear
+		time.Sleep(250 * time.Millisecond)
+		tx.CloseSend()
+	}()
 
-	buffer := make([]byte, 1024)
+	var count int
+	buffer := make([]byte, *writePacketSize)
 	for {
 		n, err := os.Stdin.Read(buffer)
 		if err == io.EOF {
-			os.Exit(0)
+			resp, _ := tx.CloseAndRecv()
+			log.Printf("Done writing (actual=%d expected=%d)", resp.LastWriteIndex, count)
+			return
 		}
 
 		if err != nil {
 			log.Fatal(err)
 		}
 
-		tx.Send(&pb.WriteDataPacket{
+		err = tx.Send(&pb.WriteDataPacket{
 			Name:    *bufferName,
 			Message: buffer[:n],
 		})
+
+		if err != nil {
+			resp, err := tx.CloseAndRecv()
+			fmt.Printf("!! %#v\n", resp)
+			log.Fatal(err)
+		}
+
 		fmt.Println("Wrote", string(buffer[:n]))
+		count++
 	}
+
 }
 
 func listCommand() {
@@ -196,7 +223,7 @@ func listCommand() {
 
 	resp, err := client.ListClusterInfo(context.Background(), listInfo)
 	if err != nil {
-		log.Fatalf("unable to create buffer %s: %s", *bufferName, err)
+		log.Fatalf("unable to list buffer info %s: %s", *bufferName, err)
 	}
 
 	if len(resp.Info) == 0 {
@@ -214,10 +241,65 @@ func listCommand() {
 
 	fmt.Println("\nNODES:")
 	for _, n := range resp.Info[0].Nodes {
-		fmt.Printf("URI: %s -> ID:%x\n", n.URI, n.ID)
+		fmt.Printf("URI: %s\n", n.URI)
 	}
+}
+
+func setupIntraNodeClient() intra.NodeClient {
+	conn, err := grpc.Dial(*nodeUri, grpc.WithInsecure())
+	if err != nil {
+		log.Fatalf("unable to connect to intra node: %s", err)
+	}
+	return intra.NewNodeClient(conn)
+}
+
+func diagCommand() {
+	c := setupIntraNodeClient()
+	resp, err := c.Status(context.Background(), &intra.StatusRequest{})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println(resp)
 }
 
 func onlyOneCommandUsage() {
 	log.Fatal("Use only one create, tail, list or write")
+}
+
+func fetchWrtierNode() pb.NodeClient {
+	if *nodeUri != "" {
+		return setupNodeClient(*nodeUri)
+	}
+
+	for {
+		leader := fetchLeader()
+		if leader == "" {
+			log.Print("Unable to find leader. Waiting...")
+			time.Sleep(time.Second)
+			continue
+		}
+
+		return setupNodeClient(leader)
+	}
+}
+
+func fetchLeader() string {
+	client := setupSchedulerClient()
+
+	listInfo := &pb.ListInfo{}
+	if *bufferName != "" {
+		listInfo.Names = []string{*bufferName}
+	}
+
+	resp, err := client.ListClusterInfo(context.Background(), listInfo)
+	if err != nil {
+		log.Fatalf("unable to list buffer info %s: %s", *bufferName, err)
+	}
+
+	if len(resp.Info) != 1 {
+		return ""
+	}
+
+	return resp.Info[0].Leader
 }
