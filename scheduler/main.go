@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"log"
 	"math/rand"
 	"net"
@@ -31,11 +30,11 @@ func main() {
 		nodeAddrs = append(nodeAddrs, addr.String())
 	}
 
-	lis, err := net.Listen("tcp4", fmt.Sprintf(":%d", conf.Port))
+	lis, err := net.Listen("tcp4", conf.Addr)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	log.Printf("Listening on port %d", conf.Port)
+	log.Printf("Listening on %s", conf.Addr)
 
 	auditor := auditor.Start(time.Second, auditor.Generate(nodeAddrs...))
 

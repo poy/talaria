@@ -74,7 +74,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 			close(mockServer.CreateOutput.Ret1)
 
 			testhelpers.AlwaysReturn(mockServer.LeaderOutput.Ret0, &intra.LeaderResponse{
-				Addr: fmt.Sprintf("[::]:%d", intraPorts[i]),
+				Addr: fmt.Sprintf("127.0.0.1:%d", intraPorts[i]),
 			})
 			close(mockServer.LeaderOutput.Ret1)
 		}
@@ -122,9 +122,9 @@ func TestSchedulerEnd2End(t *testing.T) {
 				))
 				Expect(t, info.Name).To(Equal(t.createInfo.Name))
 				Expect(t, info.Peers).To(Contain([]interface{}{
-					&intra.PeerInfo{Addr: fmt.Sprintf("[::]:%d", t.intraPorts[0])},
-					&intra.PeerInfo{Addr: fmt.Sprintf("[::]:%d", t.intraPorts[1])},
-					&intra.PeerInfo{Addr: fmt.Sprintf("[::]:%d", t.intraPorts[2])},
+					&intra.PeerInfo{Addr: fmt.Sprintf("127.0.0.1:%d", t.intraPorts[0])},
+					&intra.PeerInfo{Addr: fmt.Sprintf("127.0.0.1:%d", t.intraPorts[1])},
+					&intra.PeerInfo{Addr: fmt.Sprintf("127.0.0.1:%d", t.intraPorts[2])},
 				}...))
 			}
 		})
@@ -135,7 +135,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 			testhelpers.AlwaysReturn(t.mockServers[0].StatusOutput.Ret0, &intra.StatusResponse{
 				ExternalAddr: fmt.Sprintf("some-external-%d", 0),
 				Buffers: []*intra.StatusBufferInfo{
-					{Name: "standalone", ExpectedNodes: []string{fmt.Sprintf("[::]:%d", t.intraPorts[0])}},
+					{Name: "standalone", ExpectedNodes: []string{fmt.Sprintf("127.0.0.1:%d", t.intraPorts[0])}},
 				},
 			})
 			close(t.mockServers[0].StatusOutput.Ret1)
@@ -181,8 +181,8 @@ func TestSchedulerEnd2End(t *testing.T) {
 
 			Expect(t, req.Name).To(Equal("standalone"))
 			Expect(t, req.ExpectedNodes).To(Or(
-				Contain(fmt.Sprintf("[::]:%d", t.intraPorts[1])),
-				Contain(fmt.Sprintf("[::]:%d", t.intraPorts[2])),
+				Contain(fmt.Sprintf("127.0.0.1:%d", t.intraPorts[1])),
+				Contain(fmt.Sprintf("127.0.0.1:%d", t.intraPorts[2])),
 			))
 		})
 
@@ -205,7 +205,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 			Expect(t, resp.Info[0].Name).To(Equal("standalone"))
 			Expect(t, resp.Info[0].Leader).To(Equal("some-external-0"))
 			Expect(t, resp.Info[0].Nodes).To(Contain(
-				&pb.NodeInfo{URI: fmt.Sprintf("[::]:%d", t.intraPorts[0])},
+				&pb.NodeInfo{URI: fmt.Sprintf("127.0.0.1:%d", t.intraPorts[0])},
 			))
 		})
 
@@ -217,7 +217,7 @@ func createName() string {
 }
 
 func connectToScheduler(schedulerPort int) (pb.SchedulerClient, io.Closer) {
-	clientConn, err := grpc.Dial(fmt.Sprintf("[::]:%d", schedulerPort), grpc.WithInsecure())
+	clientConn, err := grpc.Dial(fmt.Sprintf("127.0.0.1:%d", schedulerPort), grpc.WithInsecure())
 	if err != nil {
 		panic(err)
 	}
@@ -234,7 +234,7 @@ func startScheduler(intraPorts ...int) (int, *os.Process) {
 	}
 	command := exec.Command(path)
 	command.Env = []string{
-		fmt.Sprintf("PORT=%d", schedulerPort),
+		fmt.Sprintf("ADDR=127.0.0.1:%d", schedulerPort),
 		fmt.Sprintf("NODES=%s", buildNodeURIs(intraPorts)),
 	}
 
@@ -257,7 +257,7 @@ func startMockIntraServer(count int) ([]int, []*mockIntraServer) {
 
 	for i := 0; i < count; i++ {
 		intraPort := end2end.AvailablePort()
-		lis, err := net.Listen("tcp", fmt.Sprintf("[::]:%d", intraPort))
+		lis, err := net.Listen("tcp4", fmt.Sprintf("127.0.0.1:%d", intraPort))
 		if err != nil {
 			panic(err)
 		}
@@ -279,7 +279,7 @@ func startMockIntraServer(count int) ([]int, []*mockIntraServer) {
 func buildNodeURIs(ports []int) string {
 	var URIs []string
 	for _, port := range ports {
-		URIs = append(URIs, fmt.Sprintf("[::]:%d", port))
+		URIs = append(URIs, fmt.Sprintf("127.0.0.1:%d", port))
 	}
 	return strings.Join(URIs, ",")
 }

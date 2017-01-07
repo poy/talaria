@@ -7,14 +7,12 @@ import (
 )
 
 type Scheduler struct {
-	Port  uint16   `env:"port"`
-	Nodes []string `env:"nodes"`
+	Addr  string   `env:"ADDR,required"`
+	Nodes []string `env:"NODES"`
 }
 
 func Load() Scheduler {
-	c := Scheduler{
-		Port: 8080,
-	}
+	c := Scheduler{}
 
 	if err := envstruct.Load(&c); err != nil {
 		log.Fatal(err.Error())

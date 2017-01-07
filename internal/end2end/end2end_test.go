@@ -221,9 +221,14 @@ func TestEnd2EndBufferHasNotBeenCreated(t *testing.T) {
 	o.Spec("it returns an error", func(t TC) {
 		writer, err := t.nodeClient.Write(context.Background())
 		Expect(t, err == nil).To(BeTrue())
+		writer.Send(&pb.WriteDataPacket{
+			Name:    createName(),
+			Message: []byte("some-message"),
+		})
 
-		_, err = writer.CloseAndRecv()
-		Expect(t, err == nil).To(BeFalse())
+		resp, err := writer.CloseAndRecv()
+		Expect(t, err == nil).To(BeTrue())
+		Expect(t, resp.Error).To(Not(Equal("")))
 	})
 
 }
@@ -380,7 +385,7 @@ func startScheduler(schedulerPort int, nodePorts []int) *os.Process {
 
 	command := exec.Command(path)
 	command.Env = []string{
-		fmt.Sprintf("PORT=%d", schedulerPort),
+		fmt.Sprintf("ADDR=localhost:%d", schedulerPort),
 		fmt.Sprintf("NODES=%s", buildNodeURIs(nodePorts)),
 	}
 
