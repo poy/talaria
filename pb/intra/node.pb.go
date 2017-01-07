@@ -88,6 +88,13 @@ func (m *CreateInfo) String() string            { return proto.CompactTextString
 func (*CreateInfo) ProtoMessage()               {}
 func (*CreateInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
+func (m *CreateInfo) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
 func (m *CreateInfo) GetPeers() []*PeerInfo {
 	if m != nil {
 		return m.Peers
@@ -112,6 +119,13 @@ func (m *PeerInfo) String() string            { return proto.CompactTextString(m
 func (*PeerInfo) ProtoMessage()               {}
 func (*PeerInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
+func (m *PeerInfo) GetAddr() string {
+	if m != nil {
+		return m.Addr
+	}
+	return ""
+}
+
 type LeaderRequest struct {
 	Name string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 }
@@ -121,6 +135,13 @@ func (m *LeaderRequest) String() string            { return proto.CompactTextStr
 func (*LeaderRequest) ProtoMessage()               {}
 func (*LeaderRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
+func (m *LeaderRequest) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
 type LeaderResponse struct {
 	Addr string `protobuf:"bytes,1,opt,name=addr" json:"addr,omitempty"`
 }
@@ -129,6 +150,13 @@ func (m *LeaderResponse) Reset()                    { *m = LeaderResponse{} }
 func (m *LeaderResponse) String() string            { return proto.CompactTextString(m) }
 func (*LeaderResponse) ProtoMessage()               {}
 func (*LeaderResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+func (m *LeaderResponse) GetAddr() string {
+	if m != nil {
+		return m.Addr
+	}
+	return ""
+}
 
 type AppendEntriesRequest struct {
 	BufferName        string     `protobuf:"bytes,1,opt,name=BufferName,json=bufferName" json:"BufferName,omitempty"`
@@ -145,11 +173,53 @@ func (m *AppendEntriesRequest) String() string            { return proto.Compact
 func (*AppendEntriesRequest) ProtoMessage()               {}
 func (*AppendEntriesRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{5} }
 
+func (m *AppendEntriesRequest) GetBufferName() string {
+	if m != nil {
+		return m.BufferName
+	}
+	return ""
+}
+
+func (m *AppendEntriesRequest) GetTerm() uint64 {
+	if m != nil {
+		return m.Term
+	}
+	return 0
+}
+
+func (m *AppendEntriesRequest) GetLeader() []byte {
+	if m != nil {
+		return m.Leader
+	}
+	return nil
+}
+
+func (m *AppendEntriesRequest) GetPrevLogEntry() uint64 {
+	if m != nil {
+		return m.PrevLogEntry
+	}
+	return 0
+}
+
+func (m *AppendEntriesRequest) GetPrevLogTerm() uint64 {
+	if m != nil {
+		return m.PrevLogTerm
+	}
+	return 0
+}
+
 func (m *AppendEntriesRequest) GetEntries() []*RaftLog {
 	if m != nil {
 		return m.Entries
 	}
 	return nil
+}
+
+func (m *AppendEntriesRequest) GetLeaderCommitIndex() uint64 {
+	if m != nil {
+		return m.LeaderCommitIndex
+	}
+	return 0
 }
 
 type AppendEntriesResponse struct {
@@ -164,6 +234,34 @@ func (m *AppendEntriesResponse) String() string            { return proto.Compac
 func (*AppendEntriesResponse) ProtoMessage()               {}
 func (*AppendEntriesResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{6} }
 
+func (m *AppendEntriesResponse) GetTerm() uint64 {
+	if m != nil {
+		return m.Term
+	}
+	return 0
+}
+
+func (m *AppendEntriesResponse) GetLastLog() uint64 {
+	if m != nil {
+		return m.LastLog
+	}
+	return 0
+}
+
+func (m *AppendEntriesResponse) GetSuccess() bool {
+	if m != nil {
+		return m.Success
+	}
+	return false
+}
+
+func (m *AppendEntriesResponse) GetNoRetryBackoff() bool {
+	if m != nil {
+		return m.NoRetryBackoff
+	}
+	return false
+}
+
 type RaftLog struct {
 	Index uint64          `protobuf:"varint,1,opt,name=Index,json=index" json:"Index,omitempty"`
 	Term  uint64          `protobuf:"varint,2,opt,name=Term,json=term" json:"Term,omitempty"`
@@ -175,6 +273,34 @@ func (m *RaftLog) Reset()                    { *m = RaftLog{} }
 func (m *RaftLog) String() string            { return proto.CompactTextString(m) }
 func (*RaftLog) ProtoMessage()               {}
 func (*RaftLog) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{7} }
+
+func (m *RaftLog) GetIndex() uint64 {
+	if m != nil {
+		return m.Index
+	}
+	return 0
+}
+
+func (m *RaftLog) GetTerm() uint64 {
+	if m != nil {
+		return m.Term
+	}
+	return 0
+}
+
+func (m *RaftLog) GetType() RaftLog_LogType {
+	if m != nil {
+		return m.Type
+	}
+	return RaftLog_LogCommand
+}
+
+func (m *RaftLog) GetData() []byte {
+	if m != nil {
+		return m.Data
+	}
+	return nil
+}
 
 type RequestVoteRequest struct {
 	BufferName   string `protobuf:"bytes,1,opt,name=BufferName,json=bufferName" json:"BufferName,omitempty"`
@@ -189,6 +315,41 @@ func (m *RequestVoteRequest) String() string            { return proto.CompactTe
 func (*RequestVoteRequest) ProtoMessage()               {}
 func (*RequestVoteRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{8} }
 
+func (m *RequestVoteRequest) GetBufferName() string {
+	if m != nil {
+		return m.BufferName
+	}
+	return ""
+}
+
+func (m *RequestVoteRequest) GetTerm() uint64 {
+	if m != nil {
+		return m.Term
+	}
+	return 0
+}
+
+func (m *RequestVoteRequest) GetCandidate() []byte {
+	if m != nil {
+		return m.Candidate
+	}
+	return nil
+}
+
+func (m *RequestVoteRequest) GetLastLogIndex() uint64 {
+	if m != nil {
+		return m.LastLogIndex
+	}
+	return 0
+}
+
+func (m *RequestVoteRequest) GetLastLogTerm() uint64 {
+	if m != nil {
+		return m.LastLogTerm
+	}
+	return 0
+}
+
 type RequestVoteResponse struct {
 	Term    uint64 `protobuf:"varint,1,opt,name=Term,json=term" json:"Term,omitempty"`
 	Peers   []byte `protobuf:"bytes,2,opt,name=Peers,json=peers,proto3" json:"Peers,omitempty"`
@@ -200,6 +361,27 @@ func (m *RequestVoteResponse) String() string            { return proto.CompactT
 func (*RequestVoteResponse) ProtoMessage()               {}
 func (*RequestVoteResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{9} }
 
+func (m *RequestVoteResponse) GetTerm() uint64 {
+	if m != nil {
+		return m.Term
+	}
+	return 0
+}
+
+func (m *RequestVoteResponse) GetPeers() []byte {
+	if m != nil {
+		return m.Peers
+	}
+	return nil
+}
+
+func (m *RequestVoteResponse) GetGranted() bool {
+	if m != nil {
+		return m.Granted
+	}
+	return false
+}
+
 type UpdateResponse struct {
 	Dropped bool `protobuf:"varint,1,opt,name=dropped" json:"dropped,omitempty"`
 }
@@ -208,6 +390,13 @@ func (m *UpdateResponse) Reset()                    { *m = UpdateResponse{} }
 func (m *UpdateResponse) String() string            { return proto.CompactTextString(m) }
 func (*UpdateResponse) ProtoMessage()               {}
 func (*UpdateResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{10} }
+
+func (m *UpdateResponse) GetDropped() bool {
+	if m != nil {
+		return m.Dropped
+	}
+	return false
+}
 
 type UpdateConfigRequest struct {
 	Name          string   `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
@@ -218,6 +407,20 @@ func (m *UpdateConfigRequest) Reset()                    { *m = UpdateConfigRequ
 func (m *UpdateConfigRequest) String() string            { return proto.CompactTextString(m) }
 func (*UpdateConfigRequest) ProtoMessage()               {}
 func (*UpdateConfigRequest) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{11} }
+
+func (m *UpdateConfigRequest) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *UpdateConfigRequest) GetExpectedNodes() []string {
+	if m != nil {
+		return m.ExpectedNodes
+	}
+	return nil
+}
 
 type UpdateConfigResponse struct {
 }
@@ -245,6 +448,13 @@ func (m *StatusResponse) String() string            { return proto.CompactTextSt
 func (*StatusResponse) ProtoMessage()               {}
 func (*StatusResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{14} }
 
+func (m *StatusResponse) GetExternalAddr() string {
+	if m != nil {
+		return m.ExternalAddr
+	}
+	return ""
+}
+
 func (m *StatusResponse) GetBuffers() []*StatusBufferInfo {
 	if m != nil {
 		return m.Buffers
@@ -261,6 +471,20 @@ func (m *StatusBufferInfo) Reset()                    { *m = StatusBufferInfo{} 
 func (m *StatusBufferInfo) String() string            { return proto.CompactTextString(m) }
 func (*StatusBufferInfo) ProtoMessage()               {}
 func (*StatusBufferInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{15} }
+
+func (m *StatusBufferInfo) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *StatusBufferInfo) GetExpectedNodes() []string {
+	if m != nil {
+		return m.ExpectedNodes
+	}
+	return nil
+}
 
 func init() {
 	proto.RegisterType((*CreateInfo)(nil), "intra.CreateInfo")
@@ -288,7 +512,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion3
+const _ = grpc.SupportPackageIsVersion4
 
 // Client API for Node service
 
@@ -450,7 +674,7 @@ var _Node_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: fileDescriptor0,
+	Metadata: "node.proto",
 }
 
 // Client API for NodeRaft service
@@ -547,7 +771,7 @@ var _NodeRaft_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: fileDescriptor0,
+	Metadata: "node.proto",
 }
 
 func init() { proto.RegisterFile("node.proto", fileDescriptor0) }

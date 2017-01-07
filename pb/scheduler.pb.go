@@ -27,6 +27,13 @@ func (m *CreateInfo) String() string            { return proto.CompactTextString
 func (*CreateInfo) ProtoMessage()               {}
 func (*CreateInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{0} }
 
+func (m *CreateInfo) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
 type CreateResponse struct {
 }
 
@@ -43,6 +50,13 @@ func (m *ListInfo) Reset()                    { *m = ListInfo{} }
 func (m *ListInfo) String() string            { return proto.CompactTextString(m) }
 func (*ListInfo) ProtoMessage()               {}
 func (*ListInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{2} }
+
+func (m *ListInfo) GetNames() []string {
+	if m != nil {
+		return m.Names
+	}
+	return nil
+}
 
 type ListResponse struct {
 	Info []*ClusterInfo `protobuf:"bytes,1,rep,name=info" json:"info,omitempty"`
@@ -71,6 +85,20 @@ func (m *ClusterInfo) String() string            { return proto.CompactTextStrin
 func (*ClusterInfo) ProtoMessage()               {}
 func (*ClusterInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{4} }
 
+func (m *ClusterInfo) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *ClusterInfo) GetLeader() string {
+	if m != nil {
+		return m.Leader
+	}
+	return ""
+}
+
 func (m *ClusterInfo) GetNodes() []*NodeInfo {
 	if m != nil {
 		return m.Nodes
@@ -87,6 +115,13 @@ func (m *NodeInfo) String() string            { return proto.CompactTextString(m
 func (*NodeInfo) ProtoMessage()               {}
 func (*NodeInfo) Descriptor() ([]byte, []int) { return fileDescriptor1, []int{5} }
 
+func (m *NodeInfo) GetURI() string {
+	if m != nil {
+		return m.URI
+	}
+	return ""
+}
+
 func init() {
 	proto.RegisterType((*CreateInfo)(nil), "pb.CreateInfo")
 	proto.RegisterType((*CreateResponse)(nil), "pb.CreateResponse")
@@ -102,7 +137,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion3
+const _ = grpc.SupportPackageIsVersion4
 
 // Client API for Scheduler service
 
@@ -198,7 +233,7 @@ var _Scheduler_serviceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: fileDescriptor1,
+	Metadata: "scheduler.proto",
 }
 
 func init() { proto.RegisterFile("scheduler.proto", fileDescriptor1) }

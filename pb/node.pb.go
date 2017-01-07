@@ -55,6 +55,27 @@ func (m *BufferInfo) String() string            { return proto.CompactTextString
 func (*BufferInfo) ProtoMessage()               {}
 func (*BufferInfo) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{0} }
 
+func (m *BufferInfo) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *BufferInfo) GetStartIndex() uint64 {
+	if m != nil {
+		return m.StartIndex
+	}
+	return 0
+}
+
+func (m *BufferInfo) GetStartFromEnd() bool {
+	if m != nil {
+		return m.StartFromEnd
+	}
+	return false
+}
+
 type WriteDataPacket struct {
 	Name    string `protobuf:"bytes,1,opt,name=name" json:"name,omitempty"`
 	Message []byte `protobuf:"bytes,2,opt,name=message,proto3" json:"message,omitempty"`
@@ -64,6 +85,20 @@ func (m *WriteDataPacket) Reset()                    { *m = WriteDataPacket{} }
 func (m *WriteDataPacket) String() string            { return proto.CompactTextString(m) }
 func (*WriteDataPacket) ProtoMessage()               {}
 func (*WriteDataPacket) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{1} }
+
+func (m *WriteDataPacket) GetName() string {
+	if m != nil {
+		return m.Name
+	}
+	return ""
+}
+
+func (m *WriteDataPacket) GetMessage() []byte {
+	if m != nil {
+		return m.Message
+	}
+	return nil
+}
 
 type ReadDataPacket struct {
 	Message []byte `protobuf:"bytes,1,opt,name=message,proto3" json:"message,omitempty"`
@@ -75,6 +110,20 @@ func (m *ReadDataPacket) String() string            { return proto.CompactTextSt
 func (*ReadDataPacket) ProtoMessage()               {}
 func (*ReadDataPacket) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{2} }
 
+func (m *ReadDataPacket) GetMessage() []byte {
+	if m != nil {
+		return m.Message
+	}
+	return nil
+}
+
+func (m *ReadDataPacket) GetIndex() uint64 {
+	if m != nil {
+		return m.Index
+	}
+	return 0
+}
+
 type WriteResponse struct {
 	LastWriteIndex uint64 `protobuf:"varint,1,opt,name=lastWriteIndex" json:"lastWriteIndex,omitempty"`
 	Error          string `protobuf:"bytes,2,opt,name=error" json:"error,omitempty"`
@@ -85,6 +134,20 @@ func (m *WriteResponse) String() string            { return proto.CompactTextStr
 func (*WriteResponse) ProtoMessage()               {}
 func (*WriteResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{3} }
 
+func (m *WriteResponse) GetLastWriteIndex() uint64 {
+	if m != nil {
+		return m.LastWriteIndex
+	}
+	return 0
+}
+
+func (m *WriteResponse) GetError() string {
+	if m != nil {
+		return m.Error
+	}
+	return ""
+}
+
 type InfoResponse struct {
 	Uri string `protobuf:"bytes,1,opt,name=uri" json:"uri,omitempty"`
 }
@@ -93,6 +156,13 @@ func (m *InfoResponse) Reset()                    { *m = InfoResponse{} }
 func (m *InfoResponse) String() string            { return proto.CompactTextString(m) }
 func (*InfoResponse) ProtoMessage()               {}
 func (*InfoResponse) Descriptor() ([]byte, []int) { return fileDescriptor0, []int{4} }
+
+func (m *InfoResponse) GetUri() string {
+	if m != nil {
+		return m.Uri
+	}
+	return ""
+}
 
 func init() {
 	proto.RegisterType((*BufferInfo)(nil), "pb.BufferInfo")
@@ -108,7 +178,7 @@ var _ grpc.ClientConn
 
 // This is a compile-time assertion to ensure that this generated file
 // is compatible with the grpc package it is being compiled against.
-const _ = grpc.SupportPackageIsVersion3
+const _ = grpc.SupportPackageIsVersion4
 
 // Client API for Node service
 
@@ -265,7 +335,7 @@ var _Node_serviceDesc = grpc.ServiceDesc{
 			ServerStreams: true,
 		},
 	},
-	Metadata: fileDescriptor0,
+	Metadata: "node.proto",
 }
 
 func init() { proto.RegisterFile("node.proto", fileDescriptor0) }
