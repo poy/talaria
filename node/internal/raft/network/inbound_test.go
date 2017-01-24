@@ -4,7 +4,11 @@ package network_test
 
 import (
 	"context"
+	"flag"
 	"io"
+	"io/ioutil"
+	"log"
+	"os"
 	"testing"
 
 	"google.golang.org/grpc"
@@ -16,6 +20,15 @@ import (
 	"github.com/apoydence/talaria/pb/intra"
 	rafthashi "github.com/hashicorp/raft"
 )
+
+func TestMain(m *testing.M) {
+	flag.Parse()
+	if !testing.Verbose() {
+		log.SetOutput(ioutil.Discard)
+	}
+
+	os.Exit(m.Run())
+}
 
 type TI struct {
 	*testing.T
