@@ -18,6 +18,7 @@ import (
 	"github.com/apoydence/onpar"
 	"github.com/apoydence/talaria/node/internal/server"
 	"github.com/apoydence/talaria/pb"
+	"github.com/apoydence/talaria/pb/stored"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 
@@ -126,8 +127,13 @@ func TestServerWrite(t *testing.T) {
 				err := t.writer.Send(t.packet)
 				Expect(t, err == nil).To(BeTrue())
 
+				expectedMsg := stored.Data{
+					Payload: t.packet.Message,
+					Type:    stored.Data_Normal,
+				}
+
 				Expect(t, t.mockWriter.WriteInput.Data).To(ViaPolling(Chain(
-					Receive(), Equal(t.packet.Message),
+					Receive(), Equal(expectedMsg),
 				)))
 			})
 

@@ -1,6 +1,7 @@
 package nodefetcher
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 
@@ -48,6 +49,16 @@ func (f *NodeFetcher) FetchAllNodes() []server.NodeInfo {
 		})
 	}
 	return results
+}
+
+func (f *NodeFetcher) FetchNode(addr string) (node server.NodeInfo, err error) {
+	for _, info := range f.clients {
+		if info.URI == addr {
+			return server.NodeInfo{Client: info.client, URI: addr}, nil
+		}
+	}
+
+	return server.NodeInfo{}, fmt.Errorf("unable to find %s", addr)
 }
 
 func (f *NodeFetcher) FetchNodes(count int, exclude ...server.NodeInfo) []server.NodeInfo {

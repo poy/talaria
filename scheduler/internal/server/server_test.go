@@ -8,6 +8,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/apoydence/eachers/testhelpers"
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
@@ -246,5 +247,62 @@ func TestListClusterInfo(t *testing.T) {
 		})
 		Expect(t, err == nil).To(BeTrue())
 		Expect(t, resp.Info).To(Equal(t.listResponse.Info[1:]))
+	})
+}
+
+func TestReadOnly(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TT {
+		mockNodeClient := newMockNodeClient()
+		mockNodeFetcher := newMockNodeFetcher()
+		mockAuditor := newMockAuditor()
+
+		s := server.New(mockNodeFetcher, mockAuditor)
+
+		listResp := pb.ListResponse{
+			Info: []*pb.ClusterInfo{
+				{
+					Name:   "A",
+					Leader: "some-leader",
+					Nodes: []*pb.NodeInfo{{
+						URI: "some-uri",
+					}},
+				},
+			},
+		}
+		mockAuditor.ListOutput.Ret0 <- listResp
+		mockNodeFetcher.FetchNodeOutput.Node <- server.NodeInfo{
+			Client: mockNodeClient,
+		}
+		close(mockNodeFetcher.FetchNodeOutput.Err)
+
+		testhelpers.AlwaysReturn(mockNodeClient.ReadOnlyOutput.Ret0, new(intra.ReadOnlyResponse))
+		close(mockNodeClient.ReadOnlyOutput.Ret1)
+
+		return TT{
+			T:               t,
+			mockNodeFetcher: mockNodeFetcher,
+			mockNodeClient:  mockNodeClient,
+			mockAuditor:     mockAuditor,
+			s:               s,
+		}
+	})
+
+	o.Spec("it sets the leader to ReadOnly", func(t TT) {
+		_, err := t.s.ReadOnly(context.Background(), &pb.ReadOnlyInfo{Name: "A"})
+		Expect(t, err == nil).To(BeTrue())
+
+		Expect(t, t.mockNodeFetcher.FetchNodeInput.Addr).To(ViaPolling(
+			Chain(Receive(), Equal("some-uri")),
+		))
+
+		var in *intra.ReadOnlyInfo
+		Expect(t, t.mockNodeClient.ReadOnlyInput.In).To(ViaPolling(
+			Chain(Receive(), Fetch(&in)),
+		))
+		Expect(t, in.Name).To(Equal("A"))
 	})
 }

@@ -17,6 +17,8 @@ It has these top-level messages:
 	InfoResponse
 	CreateInfo
 	CreateResponse
+	ReadOnlyInfo
+	ReadOnlyResponse
 	ListInfo
 	ListResponse
 	ClusterInfo

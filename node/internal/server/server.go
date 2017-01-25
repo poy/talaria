@@ -9,6 +9,7 @@ import (
 	"golang.org/x/net/context"
 
 	"github.com/apoydence/talaria/pb"
+	"github.com/apoydence/talaria/pb/stored"
 )
 
 type Reader interface {
@@ -17,7 +18,7 @@ type Reader interface {
 }
 
 type Writer interface {
-	Write(data []byte, timeout time.Duration) error
+	Write(data stored.Data, timeout time.Duration) error
 }
 
 type IOFetcher interface {
@@ -72,7 +73,11 @@ func (s *Server) Write(rx pb.Node_WriteServer) (err error) {
 			return fmt.Errorf("unknown buffer: '%s'", packet.Name)
 		}
 
-		if err = writer.Write(packet.Message, s.getContextDeadline(rx.Context())); err != nil {
+		msg := stored.Data{
+			Payload: packet.Message,
+			Type:    stored.Data_Normal,
+		}
+		if err = writer.Write(msg, s.getContextDeadline(rx.Context())); err != nil {
 			log.Printf("error writing to buffer '%s': %s", packet.Name, err)
 			return err
 		}

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/apoydence/talaria/pb/stored"
 )
 
 type mockReader struct {
@@ -51,7 +52,7 @@ func (m *mockReader) LastIndex() uint64 {
 type mockWriter struct {
 	WriteCalled chan bool
 	WriteInput  struct {
-		Data    chan []byte
+		Data    chan stored.Data
 		Timeout chan time.Duration
 	}
 	WriteOutput struct {
@@ -62,12 +63,12 @@ type mockWriter struct {
 func newMockWriter() *mockWriter {
 	m := &mockWriter{}
 	m.WriteCalled = make(chan bool, 100)
-	m.WriteInput.Data = make(chan []byte, 100)
+	m.WriteInput.Data = make(chan stored.Data, 100)
 	m.WriteInput.Timeout = make(chan time.Duration, 100)
 	m.WriteOutput.Ret0 = make(chan error, 100)
 	return m
 }
-func (m *mockWriter) Write(data []byte, timeout time.Duration) error {
+func (m *mockWriter) Write(data stored.Data, timeout time.Duration) error {
 	m.WriteCalled <- true
 	m.WriteInput.Data <- data
 	m.WriteInput.Timeout <- timeout

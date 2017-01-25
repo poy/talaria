@@ -99,9 +99,20 @@ func TestSchedulerEnd2End(t *testing.T) {
 
 	o.Group("when the node is reporting standard status", func() {
 		o.BeforeEach(func(t TT) TT {
-			for _, mockServer := range t.mockServers {
-				testhelpers.AlwaysReturn(mockServer.StatusOutput.Ret0, &intra.StatusResponse{})
+			for i, mockServer := range t.mockServers {
+				testhelpers.AlwaysReturn(mockServer.StatusOutput.Ret0, &intra.StatusResponse{
+					ExternalAddr: fmt.Sprintf("127.0.0.1:%d", t.intraPorts[i]),
+					Buffers: []*intra.StatusBufferInfo{{
+						Name: t.createInfo.Name,
+					}},
+				})
 				close(mockServer.StatusOutput.Ret1)
+
+				testhelpers.AlwaysReturn(t.mockServers[i].UpdateConfigOutput.Ret0, &intra.UpdateConfigResponse{})
+				close(t.mockServers[i].UpdateConfigOutput.Ret1)
+
+				testhelpers.AlwaysReturn(t.mockServers[i].ReadOnlyOutput.Ret0, new(intra.ReadOnlyResponse))
+				close(t.mockServers[i].ReadOnlyOutput.Ret1)
 			}
 
 			return t
@@ -113,6 +124,14 @@ func TestSchedulerEnd2End(t *testing.T) {
 				return err == nil
 			}
 
+			Expect(t, f).To(ViaPolling(BeTrue()))
+
+			f = func() bool {
+				_, err := t.schedulerClient.ReadOnly(context.Background(), &pb.ReadOnlyInfo{
+					t.createInfo.Name,
+				})
+				return err == nil
+			}
 			Expect(t, f).To(ViaPolling(BeTrue()))
 
 			var info *intra.CreateInfo

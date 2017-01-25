@@ -24,6 +24,16 @@ type mockNodeClient struct {
 		Ret0 chan *intra.CreateResponse
 		Ret1 chan error
 	}
+	ReadOnlyCalled chan bool
+	ReadOnlyInput  struct {
+		Ctx  chan context.Context
+		In   chan *intra.ReadOnlyInfo
+		Opts chan []grpc.CallOption
+	}
+	ReadOnlyOutput struct {
+		Ret0 chan *intra.ReadOnlyResponse
+		Ret1 chan error
+	}
 	LeaderCalled chan bool
 	LeaderInput  struct {
 		Ctx  chan context.Context
@@ -64,6 +74,12 @@ func newMockNodeClient() *mockNodeClient {
 	m.CreateInput.Opts = make(chan []grpc.CallOption, 100)
 	m.CreateOutput.Ret0 = make(chan *intra.CreateResponse, 100)
 	m.CreateOutput.Ret1 = make(chan error, 100)
+	m.ReadOnlyCalled = make(chan bool, 100)
+	m.ReadOnlyInput.Ctx = make(chan context.Context, 100)
+	m.ReadOnlyInput.In = make(chan *intra.ReadOnlyInfo, 100)
+	m.ReadOnlyInput.Opts = make(chan []grpc.CallOption, 100)
+	m.ReadOnlyOutput.Ret0 = make(chan *intra.ReadOnlyResponse, 100)
+	m.ReadOnlyOutput.Ret1 = make(chan error, 100)
 	m.LeaderCalled = make(chan bool, 100)
 	m.LeaderInput.Ctx = make(chan context.Context, 100)
 	m.LeaderInput.In = make(chan *intra.LeaderRequest, 100)
@@ -90,6 +106,13 @@ func (m *mockNodeClient) Create(ctx context.Context, in *intra.CreateInfo, opts 
 	m.CreateInput.In <- in
 	m.CreateInput.Opts <- opts
 	return <-m.CreateOutput.Ret0, <-m.CreateOutput.Ret1
+}
+func (m *mockNodeClient) ReadOnly(ctx context.Context, in *intra.ReadOnlyInfo, opts ...grpc.CallOption) (*intra.ReadOnlyResponse, error) {
+	m.ReadOnlyCalled <- true
+	m.ReadOnlyInput.Ctx <- ctx
+	m.ReadOnlyInput.In <- in
+	m.ReadOnlyInput.Opts <- opts
+	return <-m.ReadOnlyOutput.Ret0, <-m.ReadOnlyOutput.Ret1
 }
 func (m *mockNodeClient) Leader(ctx context.Context, in *intra.LeaderRequest, opts ...grpc.CallOption) (*intra.LeaderResponse, error) {
 	m.LeaderCalled <- true
@@ -140,6 +163,14 @@ type mockNodeFetcher struct {
 	FetchNodesOutput struct {
 		Client chan []server.NodeInfo
 	}
+	FetchNodeCalled chan bool
+	FetchNodeInput  struct {
+		Addr chan string
+	}
+	FetchNodeOutput struct {
+		Node chan server.NodeInfo
+		Err  chan error
+	}
 }
 
 func newMockNodeFetcher() *mockNodeFetcher {
@@ -148,6 +179,10 @@ func newMockNodeFetcher() *mockNodeFetcher {
 	m.FetchNodesInput.Count = make(chan int, 100)
 	m.FetchNodesInput.Exclude = make(chan []server.NodeInfo, 100)
 	m.FetchNodesOutput.Client = make(chan []server.NodeInfo, 100)
+	m.FetchNodeCalled = make(chan bool, 100)
+	m.FetchNodeInput.Addr = make(chan string, 100)
+	m.FetchNodeOutput.Node = make(chan server.NodeInfo, 100)
+	m.FetchNodeOutput.Err = make(chan error, 100)
 	return m
 }
 func (m *mockNodeFetcher) FetchNodes(count int, exclude ...server.NodeInfo) (client []server.NodeInfo) {
@@ -155,4 +190,9 @@ func (m *mockNodeFetcher) FetchNodes(count int, exclude ...server.NodeInfo) (cli
 	m.FetchNodesInput.Count <- count
 	m.FetchNodesInput.Exclude <- exclude
 	return <-m.FetchNodesOutput.Client
+}
+func (m *mockNodeFetcher) FetchNode(addr string) (node server.NodeInfo, err error) {
+	m.FetchNodeCalled <- true
+	m.FetchNodeInput.Addr <- addr
+	return <-m.FetchNodeOutput.Node, <-m.FetchNodeOutput.Err
 }

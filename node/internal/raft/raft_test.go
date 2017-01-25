@@ -17,6 +17,7 @@ import (
 	. "github.com/apoydence/onpar/matchers"
 	"github.com/apoydence/talaria/node/internal/raft"
 	"github.com/apoydence/talaria/node/internal/raft/network"
+	"github.com/apoydence/talaria/pb/stored"
 	rafthashi "github.com/hashicorp/raft"
 )
 
@@ -92,7 +93,12 @@ func TestRaft(t *testing.T) {
 			Matcher:  BeFalse(),
 		})
 
-		err := leader.Write([]byte("some-data"), time.Second)
+		storedData := stored.Data{
+			Type:    stored.Data_Normal,
+			Payload: []byte("some-data"),
+		}
+
+		err := leader.Write(storedData, time.Second)
 		Expect(t, err == nil).To(BeTrue())
 
 		for i := range t.nodes {
@@ -128,7 +134,12 @@ func TestRaft(t *testing.T) {
 				Matcher:  BeFalse(),
 			})
 
-			err := leader.Write([]byte("some-data"), time.Second)
+			storedData := stored.Data{
+				Type:    stored.Data_Normal,
+				Payload: []byte("some-data"),
+			}
+
+			err := leader.Write(storedData, time.Second)
 			Expect(t, err == nil).To(BeTrue())
 
 			for i := range t.nodes {
@@ -189,7 +200,13 @@ func writeToLeader(t TR, data []byte) error {
 		Duration: 5 * time.Second,
 		Matcher:  BeFalse(),
 	})
-	return leader.Write(data, time.Second)
+
+	storedData := stored.Data{
+		Type:    stored.Data_Normal,
+		Payload: data,
+	}
+
+	return leader.Write(storedData, time.Second)
 }
 
 func restartFirstNode(t TR, bufferName string) {

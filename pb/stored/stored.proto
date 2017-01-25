@@ -1,0 +1,13 @@
+syntax = "proto3";
+
+package stored;
+
+message Data {
+  enum Type {
+    Normal = 0;
+    ReadOnly = 1;
+  }
+
+  bytes payload = 1;
+  Type type = 2;
+}

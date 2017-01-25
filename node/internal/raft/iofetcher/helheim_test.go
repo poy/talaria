@@ -5,12 +5,16 @@
 
 package iofetcher_test
 
-import "time"
+import (
+	"time"
+
+	"github.com/apoydence/talaria/pb/stored"
+)
 
 type mockRaftCluster struct {
 	WriteCalled chan bool
 	WriteInput  struct {
-		Data    chan []byte
+		Data    chan stored.Data
 		Timeout chan time.Duration
 	}
 	WriteOutput struct {
@@ -46,7 +50,7 @@ type mockRaftCluster struct {
 func newMockRaftCluster() *mockRaftCluster {
 	m := &mockRaftCluster{}
 	m.WriteCalled = make(chan bool, 100)
-	m.WriteInput.Data = make(chan []byte, 100)
+	m.WriteInput.Data = make(chan stored.Data, 100)
 	m.WriteInput.Timeout = make(chan time.Duration, 100)
 	m.WriteOutput.Ret0 = make(chan error, 100)
 	m.ReadAtCalled = make(chan bool, 100)
@@ -64,7 +68,7 @@ func newMockRaftCluster() *mockRaftCluster {
 	m.ExpectedPeersOutput.Ret0 = make(chan []string, 100)
 	return m
 }
-func (m *mockRaftCluster) Write(data []byte, timeout time.Duration) error {
+func (m *mockRaftCluster) Write(data stored.Data, timeout time.Duration) error {
 	m.WriteCalled <- true
 	m.WriteInput.Data <- data
 	m.WriteInput.Timeout <- timeout

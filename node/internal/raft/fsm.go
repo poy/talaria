@@ -3,13 +3,17 @@ package raft
 import (
 	"io"
 	"log"
+	"sync/atomic"
 
 	"github.com/apoydence/talaria/node/internal/raft/buffers/ringbuffer"
+	"github.com/apoydence/talaria/pb/stored"
+	"github.com/gogo/protobuf/proto"
 	rafthashi "github.com/hashicorp/raft"
 )
 
 type fsm struct {
-	buffer *ringbuffer.RingBuffer
+	buffer   *ringbuffer.RingBuffer
+	readOnly int32
 }
 
 func NewFSM(buffer *ringbuffer.RingBuffer) rafthashi.FSM {
@@ -19,9 +23,13 @@ func NewFSM(buffer *ringbuffer.RingBuffer) rafthashi.FSM {
 }
 
 func (f *fsm) Apply(entry *rafthashi.Log) interface{} {
+	if !f.validateData(entry.Data) {
+		return false
+	}
+
 	f.buffer.Write(entry)
 
-	return nil
+	return true
 }
 
 func (f *fsm) Snapshot() (rafthashi.FSMSnapshot, error) {
@@ -36,4 +44,21 @@ func (f *fsm) Restore(io.ReadCloser) error {
 	defer log.Println("Done restoring from snapshot.")
 
 	return nil
+}
+
+func (f *fsm) validateData(data []byte) (accepted bool) {
+	storedData := new(stored.Data)
+	if err := proto.Unmarshal(data, storedData); err != nil {
+		return true
+	}
+
+	if atomic.LoadInt32(&f.readOnly) != 0 {
+		return false
+	}
+
+	if storedData.Type == stored.Data_ReadOnly {
+		return atomic.CompareAndSwapInt32(&f.readOnly, 0, 1)
+	}
+
+	return true
 }

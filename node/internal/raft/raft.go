@@ -1,11 +1,15 @@
 package raft
 
 import (
+	"fmt"
+	"io"
 	"log"
 	"time"
 
 	"github.com/apoydence/talaria/node/internal/raft/buffers/ringbuffer"
 	"github.com/apoydence/talaria/node/internal/raft/network"
+	"github.com/apoydence/talaria/pb/stored"
+	"github.com/gogo/protobuf/proto"
 	rafthashi "github.com/hashicorp/raft"
 )
 
@@ -74,9 +78,22 @@ func Build(bufferName string, consumerFetcher ConsumerFetcher, ops ...BuildOp) (
 	}, nil
 }
 
-func (r *Raft) Write(data []byte, timeout time.Duration) error {
+func (r *Raft) Write(storedData stored.Data, timeout time.Duration) error {
+	data, err := proto.Marshal(&storedData)
+	if err != nil {
+		return err
+	}
+
 	fut := r.node.Apply(data, timeout)
-	return fut.Error()
+	if err := fut.Error(); err != nil {
+		return err
+	}
+
+	if result, ok := fut.Response().(bool); ok && !result {
+		return fmt.Errorf("buffer set to ReadOnly")
+	}
+
+	return nil
 }
 
 func (r *Raft) ReadAt(index uint64) (entry []byte, seq uint64, err error) {
@@ -90,7 +107,16 @@ func (r *Raft) ReadAt(index uint64) (entry []byte, seq uint64, err error) {
 		return nil, seq, nil
 	}
 
-	return logEntry.Data, seq, nil
+	storedData := new(stored.Data)
+	if err := proto.Unmarshal(logEntry.Data, storedData); err != nil {
+		return nil, 0, err
+	}
+
+	if storedData.Type == stored.Data_ReadOnly {
+		return nil, 0, io.EOF
+	}
+
+	return storedData.Payload, seq, nil
 }
 
 func (r *Raft) LastIndex() uint64 {

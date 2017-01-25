@@ -21,6 +21,7 @@ type Auditor interface {
 
 type NodeFetcher interface {
 	FetchNodes(count int, exclude ...NodeInfo) (client []NodeInfo)
+	FetchNode(addr string) (node NodeInfo, err error)
 }
 
 type Server struct {
@@ -64,6 +65,34 @@ func (s *Server) Create(ctx context.Context, info *pb.CreateInfo) (*pb.CreateRes
 	}
 
 	return new(pb.CreateResponse), nil
+}
+
+func (s *Server) ReadOnly(ctx context.Context, info *pb.ReadOnlyInfo) (*pb.ReadOnlyResponse, error) {
+	log.Printf("Setting %s to ReadOnly...", info.Name)
+	defer log.Printf("Done setting %s to ReadOnly.", info.Name)
+	list := s.auditor.List()
+
+	for _, c := range list.Info {
+		if c.Name == info.Name {
+			for _, n := range c.Nodes {
+				node, err := s.fetcher.FetchNode(n.URI)
+				if err != nil {
+					continue
+				}
+
+				_, err = node.Client.ReadOnly(ctx, &intra.ReadOnlyInfo{
+					Name: info.Name,
+				})
+				if err != nil {
+					continue
+				}
+
+				return new(pb.ReadOnlyResponse), nil
+			}
+		}
+	}
+
+	return nil, fmt.Errorf("unable to set %s to ReadOnly", info.Name)
 }
 
 func (s *Server) ListClusterInfo(ctx context.Context, info *pb.ListInfo) (*pb.ListResponse, error) {

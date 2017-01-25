@@ -71,9 +71,10 @@ func TestMain(m *testing.M) {
 
 type TC struct {
 	*testing.T
-	bufferInfo *pb.BufferInfo
-	createInfo *pb.CreateInfo
-	nodeClient pb.NodeClient
+	bufferInfo      *pb.BufferInfo
+	createInfo      *pb.CreateInfo
+	nodeClient      pb.NodeClient
+	schedulerClient pb.SchedulerClient
 }
 
 func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
@@ -126,10 +127,11 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 		})
 
 		return TC{
-			T:          t,
-			bufferInfo: bufferInfo,
-			createInfo: createInfo,
-			nodeClient: nodeClient,
+			T:               t,
+			bufferInfo:      bufferInfo,
+			createInfo:      createInfo,
+			nodeClient:      nodeClient,
+			schedulerClient: schedulerClient,
 		}
 	})
 
@@ -164,6 +166,30 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 					Duration: 5 * time.Second,
 				})
 			}
+		})
+
+		o.Spec("it fails to write to a read only buffer", func(t TC) {
+			writer, err := t.nodeClient.Write(context.Background())
+			Expect(t, err == nil).To(BeTrue())
+
+			f := func() bool {
+				_, err := t.schedulerClient.ReadOnly(context.Background(), &pb.ReadOnlyInfo{
+					Name: t.bufferInfo.Name,
+				})
+				fmt.Println(err)
+				return err == nil
+			}
+			Expect(t, f).To(ViaPolling(BeTrue()))
+
+			f = func() bool {
+				err := writer.Send(&pb.WriteDataPacket{
+					Name:    t.bufferInfo.Name,
+					Message: []byte("some-data"),
+				})
+				return err == nil
+			}
+
+			Expect(t, f).To(ViaPolling(BeFalse()))
 		})
 
 		o.Group("when tailing from middle", func() {
@@ -387,6 +413,11 @@ func startScheduler(schedulerPort int, nodePorts []int) *os.Process {
 	command.Env = []string{
 		fmt.Sprintf("ADDR=localhost:%d", schedulerPort),
 		fmt.Sprintf("NODES=%s", buildNodeURIs(nodePorts)),
+	}
+
+	if testing.Verbose() {
+		command.Stdout = os.Stdout
+		command.Stderr = os.Stderr
 	}
 
 	err = command.Start()

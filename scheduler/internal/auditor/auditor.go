@@ -85,7 +85,9 @@ func (a *Auditor) buildURIs(m map[Node]string) map[string]Node {
 }
 
 func (a *Auditor) setClusterInfo(buffers map[string][]string, externalAddrs map[string]string) {
-	log.Println("Saving cluster info")
+	log.Println("Saving cluster info...")
+	defer log.Println("Done saving cluster info.")
+
 	var results []*pb.ClusterInfo
 	for name, addrs := range buffers {
 		log.Printf("Saving results for %s", name)
@@ -118,7 +120,6 @@ func (a *Auditor) fetchLeader(name string, addrs []string, externalAddrs map[str
 		return ""
 	}
 
-	log.Println(externalAddrs)
 	leader := externalAddrs[resp.Addr]
 	log.Printf("Leader for %s is (intra %s) %s", name, resp.Addr, leader)
 

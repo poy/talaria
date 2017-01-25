@@ -4,6 +4,7 @@ package pb;
 
 service Scheduler{
   rpc Create(CreateInfo) returns (CreateResponse) {}
+  rpc ReadOnly(ReadOnlyInfo) returns (ReadOnlyResponse) {}
   rpc ListClusterInfo(ListInfo) returns (ListResponse) {}
 }
 
@@ -12,6 +13,13 @@ message CreateInfo {
 }
 
 message CreateResponse {
+}
+
+message ReadOnlyInfo {
+  string name = 1;
+}
+
+message ReadOnlyResponse {
 }
 
 message ListInfo {

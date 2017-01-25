@@ -61,6 +61,16 @@ type mockNodeClient struct {
 		Ret0 chan *intra.LeaderResponse
 		Ret1 chan error
 	}
+	ReadOnlyCalled chan bool
+	ReadOnlyInput  struct {
+		Ctx  chan context.Context
+		In   chan *intra.ReadOnlyInfo
+		Opts chan []grpc.CallOption
+	}
+	ReadOnlyOutput struct {
+		Ret0 chan *intra.ReadOnlyResponse
+		Ret1 chan error
+	}
 	UpdateConfigCalled chan bool
 	UpdateConfigInput  struct {
 		Ctx  chan context.Context
@@ -101,6 +111,12 @@ func newMockNodeClient() *mockNodeClient {
 	m.CreateInput.Opts = make(chan []grpc.CallOption, 100)
 	m.CreateOutput.Ret0 = make(chan *intra.CreateResponse, 100)
 	m.CreateOutput.Ret1 = make(chan error, 100)
+	m.ReadOnlyCalled = make(chan bool, 100)
+	m.ReadOnlyInput.Ctx = make(chan context.Context, 100)
+	m.ReadOnlyInput.In = make(chan *intra.ReadOnlyInfo, 100)
+	m.ReadOnlyInput.Opts = make(chan []grpc.CallOption, 100)
+	m.ReadOnlyOutput.Ret0 = make(chan *intra.ReadOnlyResponse, 100)
+	m.ReadOnlyOutput.Ret1 = make(chan error, 100)
 	m.LeaderCalled = make(chan bool, 100)
 	m.LeaderInput.Ctx = make(chan context.Context, 100)
 	m.LeaderInput.In = make(chan *intra.LeaderRequest, 100)
@@ -132,6 +148,12 @@ func (m *mockNodeClient) Create(ctx context.Context, in *intra.CreateInfo) (*int
 	m.CreateInput.Ctx <- ctx
 	m.CreateInput.In <- in
 	return <-m.CreateOutput.Ret0, <-m.CreateOutput.Ret1
+}
+func (m *mockNodeClient) ReadOnly(ctx context.Context, in *intra.ReadOnlyInfo) (*intra.ReadOnlyResponse, error) {
+	m.ReadOnlyCalled <- true
+	m.ReadOnlyInput.Ctx <- ctx
+	m.ReadOnlyInput.In <- in
+	return <-m.ReadOnlyOutput.Ret0, <-m.ReadOnlyOutput.Ret1
 }
 func (m *mockNodeClient) Leader(ctx context.Context, in *intra.LeaderRequest) (*intra.LeaderResponse, error) {
 	m.LeaderCalled <- true
@@ -294,6 +316,13 @@ type mockIOFetcher struct {
 	CreateOutput struct {
 		Ret0 chan error
 	}
+	ReadOnlyCalled chan bool
+	ReadOnlyInput  struct {
+		Name chan string
+	}
+	ReadOnlyOutput struct {
+		Ret0 chan error
+	}
 	LeaderCalled chan bool
 	LeaderInput  struct {
 		Name chan string
@@ -322,6 +351,9 @@ func newMockIOFetcher() *mockIOFetcher {
 	m.CreateInput.Name = make(chan string, 100)
 	m.CreateInput.Peers = make(chan []string, 100)
 	m.CreateOutput.Ret0 = make(chan error, 100)
+	m.ReadOnlyCalled = make(chan bool, 100)
+	m.ReadOnlyInput.Name = make(chan string, 100)
+	m.ReadOnlyOutput.Ret0 = make(chan error, 100)
 	m.LeaderCalled = make(chan bool, 100)
 	m.LeaderInput.Name = make(chan string, 100)
 	m.LeaderOutput.Ret0 = make(chan string, 100)
@@ -339,6 +371,11 @@ func (m *mockIOFetcher) Create(name string, peers []string) error {
 	m.CreateInput.Name <- name
 	m.CreateInput.Peers <- peers
 	return <-m.CreateOutput.Ret0
+}
+func (m *mockIOFetcher) ReadOnly(name string) error {
+	m.ReadOnlyCalled <- true
+	m.ReadOnlyInput.Name <- name
+	return <-m.ReadOnlyOutput.Ret0
 }
 func (m *mockIOFetcher) Leader(name string) (string, error) {
 	m.LeaderCalled <- true

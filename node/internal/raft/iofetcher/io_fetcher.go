@@ -2,10 +2,12 @@ package iofetcher
 
 import (
 	"errors"
+	"log"
 	"sync"
 	"time"
 
 	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/apoydence/talaria/pb/stored"
 )
 
 var (
@@ -14,7 +16,7 @@ var (
 )
 
 type RaftCluster interface {
-	Write(data []byte, timeout time.Duration) error
+	Write(data stored.Data, timeout time.Duration) error
 	ReadAt(index uint64) ([]byte, uint64, error)
 	LastIndex() uint64
 	Leader() string
@@ -52,6 +54,20 @@ func (f *IOFetcher) Create(name string, peers []string) error {
 	}
 
 	f.rafts[name] = r
+	return nil
+}
+
+func (f *IOFetcher) ReadOnly(name string) error {
+	r := f.fetchRaft(name)
+	if r == nil {
+		return BufferNotCreated
+	}
+
+	if err := r.Write(stored.Data{Type: stored.Data_ReadOnly}, time.Second); err != nil {
+		log.Printf("Failed to set buffer %s to ReadOnly: %s", name, err)
+		return err
+	}
+
 	return nil
 }
 
