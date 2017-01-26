@@ -405,7 +405,46 @@ func TestServerRead(t *testing.T) {
 
 }
 
+func TestServerListClusters(t *testing.T) {
+	t.Parallel()
+	o := onpar.New()
+	defer o.Run(t)
+
+	o.BeforeEach(func(t *testing.T) TT {
+		mockIOFetcher := newMockIOFetcher()
+
+		s := server.New(mockIOFetcher)
+		lis, handlerWrapper := setupGrpcServer(s)
+		client, conn := establishClient(lis.Addr().String())
+
+		mockIOFetcher.FetchClustersOutput.Ret0 <- []string{"A", "B", "C"}
+
+		return TT{
+			T:              t,
+			mockIOFetcher:  mockIOFetcher,
+			handlerWrapper: handlerWrapper,
+			s:              s,
+			client:         client,
+			closers:        []io.Closer{lis, conn},
+		}
+	})
+
+	o.AfterEach(func(t TT) {
+		for _, c := range t.closers {
+			c.Close()
+		}
+	})
+
+	o.Spec("it returns the results from the fetcher", func(t TT) {
+		resp, err := t.client.ListClusters(context.Background(), new(pb.ListClustersInfo))
+		Expect(t, err == nil).To(BeTrue())
+		Expect(t, resp.Names).To(Contain("A", "B", "C"))
+	})
+
+}
+
 type handlerWrapper struct {
+	lDone   chan struct{}
 	rDone   chan struct{}
 	wDone   chan struct{}
 	handler pb.NodeServer
@@ -413,10 +452,16 @@ type handlerWrapper struct {
 
 func newHandlerWrapper(handler pb.NodeServer) *handlerWrapper {
 	return &handlerWrapper{
+		lDone:   make(chan struct{}),
 		rDone:   make(chan struct{}),
 		wDone:   make(chan struct{}),
 		handler: handler,
 	}
+}
+
+func (w *handlerWrapper) ListClusters(ctx context.Context, in *pb.ListClustersInfo) (*pb.ListClustersResponse, error) {
+	defer close(w.lDone)
+	return w.handler.ListClusters(ctx, in)
 }
 
 func (w *handlerWrapper) Write(s pb.Node_WriteServer) error {

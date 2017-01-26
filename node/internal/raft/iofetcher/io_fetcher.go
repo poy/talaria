@@ -41,6 +41,17 @@ func New(creator RaftClusterCreator) *IOFetcher {
 	}
 }
 
+func (f *IOFetcher) FetchClusters() (names []string) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+
+	for name, _ := range f.rafts {
+		names = append(names, name)
+	}
+
+	return nil
+}
+
 func (f *IOFetcher) Create(name string, peers []string) error {
 	r, err := f.creator(name, peers)
 	if err != nil {

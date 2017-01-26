@@ -24,6 +24,7 @@ type Writer interface {
 type IOFetcher interface {
 	FetchWriter(name string) (Writer, error)
 	FetchReader(name string) (Reader, error)
+	FetchClusters() []string
 }
 
 type Server struct {
@@ -34,6 +35,10 @@ func New(fetcher IOFetcher) *Server {
 	return &Server{
 		fetcher: fetcher,
 	}
+}
+
+func (s *Server) ListClusters(ctx context.Context, in *pb.ListClustersInfo) (resp *pb.ListClustersResponse, err error) {
+	return &pb.ListClustersResponse{Names: s.fetcher.FetchClusters()}, nil
 }
 
 func (s *Server) Write(rx pb.Node_WriteServer) (err error) {

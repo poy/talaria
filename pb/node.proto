@@ -5,6 +5,7 @@ package pb;
 service Node{
   rpc Write(stream WriteDataPacket) returns (WriteResponse)  {}
   rpc Read(BufferInfo) returns (stream ReadDataPacket) {}
+  rpc ListClusters(ListClustersInfo) returns (ListClustersResponse) {}
 }
 
 message BufferInfo{
@@ -32,3 +33,9 @@ message InfoResponse {
   string uri = 1;
 }
 
+message ListClustersInfo {
+}
+
+message ListClustersResponse {
+  repeated string names = 1;
+}
