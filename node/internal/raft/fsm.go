@@ -7,7 +7,7 @@ import (
 
 	"github.com/apoydence/talaria/node/internal/raft/buffers/ringbuffer"
 	"github.com/apoydence/talaria/pb/stored"
-	"github.com/gogo/protobuf/proto"
+	"github.com/golang/protobuf/proto"
 	rafthashi "github.com/hashicorp/raft"
 )
 
