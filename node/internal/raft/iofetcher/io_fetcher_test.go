@@ -49,11 +49,33 @@ func TestIOFetcher(t *testing.T) {
 				createName <- name
 				createPeers <- peers
 				return mockRaftCluster, nil
-			})),
+			}), func() string { return "some-leader" }),
 			mockRaftCluster: mockRaftCluster,
 			createName:      createName,
 			createPeers:     createPeers,
 		}
+	})
+
+	o.Group("FetchClusters", func() {
+		o.BeforeEach(func(t TIF) TIF {
+			err := t.fetcher.Create("some-name-a", []string{"A", "B", "C"})
+			Expect(t, err == nil).To(BeTrue())
+			err = t.fetcher.Create("some-name-b", []string{"A", "B", "C"})
+			Expect(t, err == nil).To(BeTrue())
+			err = t.fetcher.Create("some-name-c", []string{"A", "B", "C"})
+			Expect(t, err == nil).To(BeTrue())
+
+			t.mockRaftCluster.LeaderOutput.Ret0 <- "some-leader"
+			t.mockRaftCluster.LeaderOutput.Ret0 <- "some-leader"
+			t.mockRaftCluster.LeaderOutput.Ret0 <- "some-other-leader"
+			close(t.mockRaftCluster.LeaderOutput.Ret0)
+			return t
+		})
+
+		o.Spec("it returns a list of clusters that the node is the leader of", func(t TIF) {
+			names := t.fetcher.FetchClusters()
+			Expect(t, names).To(HaveLen(2))
+		})
 	})
 
 	o.Group("Create", func() {

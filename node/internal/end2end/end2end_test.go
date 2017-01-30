@@ -113,6 +113,14 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 		t.nodeProcess.Wait()
 	})
 
+	o.Spec("it lists the buffer", func(t TC) {
+		ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
+		resp, err := t.nodeClient.ListClusters(ctx, new(pb.ListClustersInfo))
+		Expect(t, err == nil).To(BeTrue())
+		Expect(t, resp.Names).To(HaveLen(1))
+		Expect(t, resp.Names).To(Contain(t.bufferInfo.Name))
+	})
+
 	o.Group("when tailing from beginning", func() {
 		o.Spec("it writes data to a subscriber", func(t TC) {
 			writer, err := t.nodeClient.Write(context.Background())

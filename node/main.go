@@ -48,7 +48,7 @@ func main() {
 	var intraInbound *network.Inbound
 	ioFetcher := iofetcher.New(iofetcher.RaftClusterCreator(func(name string, peers []string) (iofetcher.RaftCluster, error) {
 		return raft.Build(name, intraInbound, raft.WithPeers(peers))
-	}))
+	}), func() string { return intraInbound.Addr() })
 	schedulerHandler := network.NewSchedulerInbound(lis.Addr().String(), ioFetcher)
 	intraInbound = network.NewInbound(conf.IntraAddr, schedulerHandler)
 

@@ -27,29 +27,36 @@ type RaftCluster interface {
 
 type RaftClusterCreator func(name string, peers []string) (RaftCluster, error)
 
+type AddrFetcher func() string
+
 type IOFetcher struct {
-	creator RaftClusterCreator
+	creator     RaftClusterCreator
+	addrFetcher AddrFetcher
 
 	mu    sync.Mutex
 	rafts map[string]RaftCluster
 }
 
-func New(creator RaftClusterCreator) *IOFetcher {
+func New(creator RaftClusterCreator, addrFetcher AddrFetcher) *IOFetcher {
 	return &IOFetcher{
-		creator: creator,
-		rafts:   make(map[string]RaftCluster),
+		creator:     creator,
+		addrFetcher: addrFetcher,
+		rafts:       make(map[string]RaftCluster),
 	}
 }
 
 func (f *IOFetcher) FetchClusters() (names []string) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	addr := f.addrFetcher()
 
-	for name, _ := range f.rafts {
-		names = append(names, name)
+	for name, r := range f.rafts {
+		if r.Leader() == addr {
+			names = append(names, name)
+		}
 	}
 
-	return nil
+	return names
 }
 
 func (f *IOFetcher) Create(name string, peers []string) error {
