@@ -107,8 +107,7 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Node_ReadServer) error {
 
 	for {
 		data, actualIdx, err := reader.ReadAt(idx)
-
-		if err == io.EOF && s.isDone(sender.Context()) {
+		if err == io.EOF && (!buffer.Tail || s.isDone(sender.Context())) {
 			return io.EOF
 		}
 

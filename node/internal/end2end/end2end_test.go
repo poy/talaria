@@ -128,7 +128,7 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 			writeTo(t.bufferInfo.Name, []byte("some-data-1"), writer)
 			writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 
-			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, true, t.nodeClient)
 			Expect(t, data).To(ViaPollingMatcher{
 				Duration: 3 * time.Second,
 				Matcher:  Chain(Receive(), Equal([]byte("some-data-1"))),
@@ -160,7 +160,7 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 		})
 
 		o.Spec("it tails via Read", func(t TC) {
-			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, true, t.nodeClient)
 			writer, err := t.nodeClient.Write(context.Background())
 			Expect(t, err == nil).To(BeTrue())
 
@@ -175,6 +175,15 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 				})
 			}
 		})
+
+		o.Spec("it reads only whats available via Read", func(t TC) {
+			_, _, errs := fetchReaderWithIndex(t.bufferInfo.Name, 0, false, t.nodeClient)
+
+			Expect(t, errs).To(ViaPollingMatcher{
+				Duration: 3 * time.Second,
+				Matcher:  Not(HaveLen(0)),
+			})
+		})
 	})
 
 	o.Group("when tailing from middle", func() {
@@ -185,7 +194,7 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 			writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 			writeTo(t.bufferInfo.Name, []byte("some-data-3"), writer)
 
-			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, true, t.nodeClient)
 			Expect(t, data).To(ViaPollingMatcher{
 				Matcher:  Chain(Receive(), Equal([]byte("some-data-2"))),
 				Duration: 5 * time.Second,
@@ -201,7 +210,7 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 			writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 			writeTo(t.bufferInfo.Name, []byte("some-data-3"), writer)
 
-			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, true, t.nodeClient)
 			Expect(t, data).To(ViaPollingMatcher{
 				Duration: 3 * time.Second,
 				Matcher:  HaveLen(3),
@@ -295,13 +304,15 @@ func writeTo(name string, data []byte, writer pb.Node_WriteClient) {
 	}
 }
 
-func fetchReaderWithIndex(name string, index uint64, client pb.NodeClient) (chan []byte, chan uint64) {
+func fetchReaderWithIndex(name string, index uint64, tail bool, client pb.NodeClient) (chan []byte, chan uint64, chan error) {
 	c := make(chan []byte, 100)
 	idx := make(chan uint64, 100)
+	errs := make(chan error, 1)
 
 	bufferInfo := &pb.BufferInfo{
 		Name:       name,
 		StartIndex: index,
+		Tail:       tail,
 	}
 
 	reader, err := client.Read(context.Background(), bufferInfo)
@@ -313,13 +324,14 @@ func fetchReaderWithIndex(name string, index uint64, client pb.NodeClient) (chan
 		for {
 			packet, err := reader.Recv()
 			if err != nil {
+				errs <- err
 				return
 			}
 			c <- packet.Message
 			idx <- packet.Index
 		}
 	}()
-	return c, idx
+	return c, idx, errs
 }
 
 func writeSlowly(count int, bufferInfo *pb.BufferInfo, writer pb.Node_WriteClient) *sync.WaitGroup {

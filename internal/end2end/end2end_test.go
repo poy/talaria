@@ -142,7 +142,7 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 			writeTo(t.bufferInfo.Name, []byte("some-data-1"), writer)
 			writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 
-			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, true, t.nodeClient)
 			Expect(t, data).To(ViaPolling(
 				Chain(Receive(), Equal([]byte("some-data-1"))),
 			))
@@ -151,13 +151,21 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 			))
 		})
 
+		o.Spec("it reads what is available via Read", func(t TC) {
+			_, _, errs := fetchReaderWithIndex(t.bufferInfo.Name, 0, false, t.nodeClient)
+
+			Expect(t, errs).To(ViaPollingMatcher{
+				Matcher:  Not(HaveLen(0)),
+				Duration: 5 * time.Second,
+			})
+		})
+
 		o.Spec("it tails via Read", func(t TC) {
-			data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+			data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, true, t.nodeClient)
 			writer, err := t.nodeClient.Write(context.Background())
 			Expect(t, err == nil).To(BeTrue())
 
-			wg := writeSlowly(10, t.bufferInfo, writer)
-			defer wg.Wait()
+			writeSlowly(10, t.bufferInfo, writer).Wait()
 
 			for i := 0; i < 10; i++ {
 				expectedData := []byte(fmt.Sprintf("some-data-%d", i))
@@ -176,7 +184,6 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 				_, err := t.schedulerClient.ReadOnly(context.Background(), &pb.ReadOnlyInfo{
 					Name: t.bufferInfo.Name,
 				})
-				fmt.Println(err)
 				return err == nil
 			}
 			Expect(t, f).To(ViaPolling(BeTrue()))
@@ -200,7 +207,7 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 				writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 				writeTo(t.bufferInfo.Name, []byte("some-data-3"), writer)
 
-				data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 1, t.nodeClient)
+				data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 1, true, t.nodeClient)
 
 				Expect(t, data).To(ViaPolling(
 					Chain(Receive(), Equal([]byte("some-data-2"))),
@@ -215,7 +222,7 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 				writeTo(t.bufferInfo.Name, []byte("some-data-1"), writer)
 				writeTo(t.bufferInfo.Name, []byte("some-data-2"), writer)
 				writeTo(t.bufferInfo.Name, []byte("some-data-3"), writer)
-				data, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, t.nodeClient)
+				data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, true, t.nodeClient)
 				Expect(t, data).To(ViaPolling(HaveLen(3)))
 
 				data, _ = fetchReaderLastIndex(t.bufferInfo.Name, t.nodeClient)
@@ -274,13 +281,15 @@ func writeTo(name string, data []byte, writer pb.Node_WriteClient) {
 	}
 }
 
-func fetchReaderWithIndex(name string, index uint64, client pb.NodeClient) (chan []byte, chan uint64) {
+func fetchReaderWithIndex(name string, index uint64, tail bool, client pb.NodeClient) (chan []byte, chan uint64, chan error) {
 	c := make(chan []byte, 100)
 	idx := make(chan uint64, 100)
+	errs := make(chan error, 1)
 
 	bufferInfo := &pb.BufferInfo{
 		Name:       name,
 		StartIndex: index,
+		Tail:       tail,
 	}
 
 	reader, err := client.Read(context.Background(), bufferInfo)
@@ -292,13 +301,14 @@ func fetchReaderWithIndex(name string, index uint64, client pb.NodeClient) (chan
 		for {
 			packet, err := reader.Recv()
 			if err != nil {
+				errs <- err
 				return
 			}
 			c <- packet.Message
 			idx <- packet.Index
 		}
 	}()
-	return c, idx
+	return c, idx, errs
 }
 
 func fetchReaderLastIndex(name string, client pb.NodeClient) (chan []byte, chan uint64) {
@@ -309,6 +319,7 @@ func fetchReaderLastIndex(name string, client pb.NodeClient) (chan []byte, chan 
 		Name:         name,
 		StartIndex:   1,
 		StartFromEnd: true,
+		Tail:         true,
 	}
 
 	reader, err := client.Read(context.Background(), bufferInfo)

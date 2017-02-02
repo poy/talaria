@@ -110,7 +110,6 @@ func newMockIOFetcher() *mockIOFetcher {
 	m.FetchReaderOutput.Ret1 = make(chan error, 100)
 	m.FetchClustersCalled = make(chan bool, 100)
 	m.FetchClustersOutput.Ret0 = make(chan []string, 100)
-
 	return m
 }
 func (m *mockIOFetcher) FetchWriter(name string) (server.Writer, error) {
@@ -124,6 +123,6 @@ func (m *mockIOFetcher) FetchReader(name string) (server.Reader, error) {
 	return <-m.FetchReaderOutput.Ret0, <-m.FetchReaderOutput.Ret1
 }
 func (m *mockIOFetcher) FetchClusters() []string {
-	m.FetchReaderCalled <- true
+	m.FetchClustersCalled <- true
 	return <-m.FetchClustersOutput.Ret0
 }

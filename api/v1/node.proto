@@ -12,6 +12,7 @@ message BufferInfo{
   string name = 1;
   uint64 startIndex = 2;
   bool startFromEnd = 3;
+  bool tail = 4;
 }
 
 message WriteDataPacket {

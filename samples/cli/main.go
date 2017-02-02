@@ -27,7 +27,8 @@ var (
 
 	list      = flag.Bool("list", false, "List cluster info")
 	create    = flag.Bool("create", false, "Create a buffer")
-	tail      = flag.Bool("tail", false, "The buffer to tail")
+	read      = flag.Bool("read", false, "The buffer to read")
+	tail      = flag.Bool("tail", false, "Tail the buffer while reading")
 	writeData = flag.Bool("write", false, "Write data from STDIN")
 
 	diag = flag.Bool("diag", false, "Look at IDs for a buffer on a node")
@@ -45,8 +46,8 @@ func main() {
 		return
 	}
 
-	if *tail {
-		tailCommand()
+	if *read {
+		readCommand()
 		return
 	}
 
@@ -69,7 +70,7 @@ func main() {
 }
 
 func createCommand() {
-	if *tail || *writeData || *list {
+	if *read || *writeData || *list {
 		onlyOneCommandUsage()
 	}
 
@@ -109,7 +110,7 @@ func setupNodeClient(URI string) pb.NodeClient {
 	return pb.NewNodeClient(conn)
 }
 
-func tailCommand() {
+func readCommand() {
 	if *create || *writeData || *list {
 		onlyOneCommandUsage()
 	}
@@ -127,7 +128,7 @@ func tailCommand() {
 	}
 
 	client := setupNodeClient(*nodeUri)
-	rx, err := client.Read(context.Background(), &pb.BufferInfo{Name: *bufferName})
+	rx, err := client.Read(context.Background(), &pb.BufferInfo{Name: *bufferName, Tail: *tail})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -143,7 +144,7 @@ func tailCommand() {
 }
 
 func writeDataCommand() {
-	if *create || *tail || *list {
+	if *create || *read || *list {
 		onlyOneCommandUsage()
 	}
 
@@ -202,7 +203,7 @@ func writeDataCommand() {
 }
 
 func listCommand() {
-	if *create || *tail || *writeData {
+	if *create || *read || *writeData {
 		onlyOneCommandUsage()
 	}
 
@@ -267,7 +268,7 @@ func diagCommand() {
 }
 
 func onlyOneCommandUsage() {
-	log.Fatal("Use only one create, tail, list or write")
+	log.Fatal("Use only one create, read, list or write")
 }
 
 func fetchWrtierNode() pb.NodeClient {

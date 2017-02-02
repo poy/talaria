@@ -212,6 +212,7 @@ func TestServerRead(t *testing.T) {
 		startReadingWg := new(sync.WaitGroup)
 		info := &pb.BufferInfo{
 			Name: "some-name",
+			Tail: true,
 		}
 
 		mReader := newMockReader()
@@ -259,7 +260,7 @@ func TestServerRead(t *testing.T) {
 			return t
 		})
 
-		o.Group("when reader doesn't return an error", func() {
+		o.Group("when reader does not return an error", func() {
 			o.Group("when start index is 0 (beginning)", func() {
 				o.BeforeEach(func(t TR) TR {
 					t.reader = setupReader(t.ctx, t.client, t.info)
@@ -268,7 +269,7 @@ func TestServerRead(t *testing.T) {
 					return t
 				})
 
-				o.Spec("it uses the expected name for the fetcher only once", func(t TR) {
+				o.Spec("it uses the expected name and tail flag for the fetcher only once", func(t TR) {
 					startReading(t.reader, t.startReadingWg)
 
 					Expect(t, t.mockIOFetcher.FetchReaderInput.Name).To(ViaPolling(HaveLen(1)))
@@ -325,6 +326,23 @@ func TestServerRead(t *testing.T) {
 						Expect(t, t.mReader.ReadAtCalled).To(ViaPolling(HaveLen(3)))
 						Expect(t, errs).To(HaveLen(0))
 					})
+				})
+			})
+
+			o.Group("when tail is set to false", func() {
+				o.BeforeEach(func(t TR) TR {
+					t.info.Tail = false
+					t.reader = setupReader(t.ctx, t.client, t.info)
+					return t
+				})
+
+				o.Spec("it returns an EOF once the data is all read", func(t TR) {
+					writeToReader(t.mReader, []byte("some-data-1"), 0, nil)
+					writeToReader(t.mReader, nil, 0, io.EOF)
+					_, _, errs := startReading(t.reader, t.startReadingWg)
+
+					Expect(t, t.mReader.ReadAtCalled).To(ViaPolling(HaveLen(2)))
+					Expect(t, errs).To(HaveLen(1))
 				})
 			})
 
