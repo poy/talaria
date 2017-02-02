@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"log"
 	"math/rand"
 	"net"
@@ -47,7 +48,10 @@ func main() {
 	// of this goofy function
 	var intraInbound *network.Inbound
 	ioFetcher := iofetcher.New(iofetcher.RaftClusterCreator(func(name string, peers []string) (iofetcher.RaftCluster, error) {
-		return raft.Build(name, intraInbound, raft.WithPeers(peers))
+		return raft.Build(name, intraInbound,
+			raft.WithPeers(peers),
+			raft.WithLogger(log.New(os.Stderr, fmt.Sprintf("[RAFT %s] ", name), log.LstdFlags)),
+		)
 	}), func() string { return intraInbound.Addr() })
 	schedulerHandler := network.NewSchedulerInbound(lis.Addr().String(), ioFetcher)
 	intraInbound = network.NewInbound(conf.IntraAddr, schedulerHandler)
