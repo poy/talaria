@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	pb "github.com/apoydence/talaria/api"
+	pb "github.com/apoydence/talaria/api/v1"
 	"github.com/apoydence/talaria/scheduler/config"
 	"github.com/apoydence/talaria/scheduler/internal/auditor"
 	"github.com/apoydence/talaria/scheduler/internal/nodefetcher"

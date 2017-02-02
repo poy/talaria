@@ -16,8 +16,8 @@ import (
 
 	"github.com/apoydence/eachers/testhelpers"
 	"github.com/apoydence/onpar"
-	pb "github.com/apoydence/talaria/api"
 	"github.com/apoydence/talaria/api/stored"
+	pb "github.com/apoydence/talaria/api/v1"
 	"github.com/apoydence/talaria/node/internal/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"

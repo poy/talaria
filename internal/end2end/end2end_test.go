@@ -21,7 +21,7 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
-	pb "github.com/apoydence/talaria/api"
+	pb "github.com/apoydence/talaria/api/v1"
 	"github.com/apoydence/talaria/internal/end2end"
 	"github.com/onsi/gomega/gexec"
 )

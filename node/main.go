@@ -8,7 +8,7 @@ import (
 	"os"
 	"time"
 
-	pb "github.com/apoydence/talaria/api"
+	pb "github.com/apoydence/talaria/api/v1"
 	"github.com/apoydence/talaria/node/config"
 	"github.com/apoydence/talaria/node/internal/raft"
 	"github.com/apoydence/talaria/node/internal/raft/iofetcher"

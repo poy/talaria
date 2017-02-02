@@ -12,8 +12,8 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
-	pb "github.com/apoydence/talaria/api"
 	"github.com/apoydence/talaria/api/intra"
+	pb "github.com/apoydence/talaria/api/v1"
 	"github.com/apoydence/talaria/scheduler/internal/server"
 	"golang.org/x/net/context"
 )
