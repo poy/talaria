@@ -8,8 +8,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/talaria/pb"
-	"github.com/apoydence/talaria/pb/stored"
+	pb "github.com/apoydence/talaria/api"
+	"github.com/apoydence/talaria/api/stored"
 )
 
 type Reader interface {

@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apoydence/talaria/pb/intra"
+	"github.com/apoydence/talaria/api/intra"
 	rafthashi "github.com/hashicorp/raft"
 )
 

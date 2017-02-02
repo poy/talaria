@@ -8,7 +8,7 @@ package auditor_test
 import (
 	"time"
 
-	"github.com/apoydence/talaria/pb/intra"
+	"github.com/apoydence/talaria/api/intra"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/apoydence/talaria/pb"
-	"github.com/apoydence/talaria/pb/intra"
+	"github.com/apoydence/talaria/api"
+	"github.com/apoydence/talaria/api/intra"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
@@ -216,7 +216,7 @@ func listCommand() {
 
 	client := setupSchedulerClient()
 
-	listInfo := &pb.ListInfo{}
+	listInfo := new(pb.ListInfo)
 	if *bufferName != "" {
 		listInfo.Names = []string{*bufferName}
 	}
@@ -231,17 +231,20 @@ func listCommand() {
 		return
 	}
 
-	fmt.Println("BUFFER NAME:")
-	fmt.Println(resp.Info[0].Name)
-	fmt.Println("\nLEADER:")
-	if resp.Info[0].Leader == "" {
-		resp.Info[0].Leader = "<NO LEADER REPORTED>"
-	}
-	fmt.Println(resp.Info[0].Leader)
+	for _, info := range resp.Info {
+		fmt.Println("BUFFER NAME:")
+		fmt.Println(info.Name)
+		fmt.Println("\nLEADER:")
+		if info.Leader == "" {
+			info.Leader = "<NO LEADER REPORTED>"
+		}
+		fmt.Println(info.Leader)
 
-	fmt.Println("\nNODES:")
-	for _, n := range resp.Info[0].Nodes {
-		fmt.Printf("URI: %s\n", n.URI)
+		fmt.Println("\nNODES:")
+		for _, n := range info.Nodes {
+			fmt.Printf("URI: %s\n", n.URI)
+		}
+		fmt.Println()
 	}
 }
 

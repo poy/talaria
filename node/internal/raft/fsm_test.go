@@ -6,9 +6,9 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
+	"github.com/apoydence/talaria/api/stored"
 	"github.com/apoydence/talaria/node/internal/raft"
 	"github.com/apoydence/talaria/node/internal/raft/buffers/ringbuffer"
-	"github.com/apoydence/talaria/pb/stored"
 	"github.com/golang/protobuf/proto"
 	rafthashi "github.com/hashicorp/raft"
 )

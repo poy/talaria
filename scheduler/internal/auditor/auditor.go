@@ -10,8 +10,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/talaria/pb"
-	"github.com/apoydence/talaria/pb/intra"
+	pb "github.com/apoydence/talaria/api"
+	"github.com/apoydence/talaria/api/intra"
 )
 
 type Node interface {

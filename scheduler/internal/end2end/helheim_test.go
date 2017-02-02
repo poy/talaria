@@ -6,7 +6,7 @@ package end2end_test
 import (
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/talaria/pb/intra"
+	"github.com/apoydence/talaria/api/intra"
 )
 
 type mockIntraServer struct {

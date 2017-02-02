@@ -8,12 +8,12 @@ import (
 	"os"
 	"time"
 
+	pb "github.com/apoydence/talaria/api"
 	"github.com/apoydence/talaria/node/config"
 	"github.com/apoydence/talaria/node/internal/raft"
 	"github.com/apoydence/talaria/node/internal/raft/iofetcher"
 	"github.com/apoydence/talaria/node/internal/raft/network"
 	"github.com/apoydence/talaria/node/internal/server"
-	"github.com/apoydence/talaria/pb"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 

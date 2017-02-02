@@ -14,7 +14,7 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/pb/intra"
+	"github.com/apoydence/talaria/api/intra"
 	"github.com/apoydence/talaria/scheduler/internal/nodefetcher"
 	"github.com/apoydence/talaria/scheduler/internal/server"
 )

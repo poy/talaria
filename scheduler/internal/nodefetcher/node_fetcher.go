@@ -5,7 +5,7 @@ import (
 	"log"
 	"math/rand"
 
-	"github.com/apoydence/talaria/pb/intra"
+	"github.com/apoydence/talaria/api/intra"
 	"github.com/apoydence/talaria/scheduler/internal/server"
 	"google.golang.org/grpc"
 )

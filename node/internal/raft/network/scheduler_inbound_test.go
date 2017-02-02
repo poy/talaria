@@ -12,8 +12,8 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
+	"github.com/apoydence/talaria/api/intra"
 	"github.com/apoydence/talaria/node/internal/raft/network"
-	"github.com/apoydence/talaria/pb/intra"
 )
 
 type TIS struct {

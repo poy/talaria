@@ -3,7 +3,7 @@ package network
 import (
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/talaria/pb/intra"
+	"github.com/apoydence/talaria/api/intra"
 )
 
 type IOFetcher interface {

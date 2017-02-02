@@ -12,8 +12,8 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
+	"github.com/apoydence/talaria/api/stored"
 	"github.com/apoydence/talaria/node/internal/raft/iofetcher"
-	"github.com/apoydence/talaria/pb/stored"
 )
 
 func TestMain(m *testing.M) {
