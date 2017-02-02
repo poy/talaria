@@ -1,6 +1,7 @@
 package raft
 
 import (
+	"fmt"
 	"io"
 	"log"
 	"sync/atomic"
@@ -36,14 +37,14 @@ func (f *fsm) Snapshot() (rafthashi.FSMSnapshot, error) {
 	log.Println("Requesting Snapshot...")
 	defer log.Println("Done requesting Snapshot.")
 
-	return nil, nil
+	return nil, fmt.Errorf("not implemented")
 }
 
 func (f *fsm) Restore(io.ReadCloser) error {
 	log.Println("Restoring from snapshot...")
 	defer log.Println("Done restoring from snapshot.")
 
-	return nil
+	return fmt.Errorf("not implemented")
 }
 
 func (f *fsm) validateData(data []byte) (accepted bool) {
