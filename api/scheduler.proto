@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package pb;
+package talaria;
 
 service Scheduler{
   rpc Create(CreateInfo) returns (CreateResponse) {}

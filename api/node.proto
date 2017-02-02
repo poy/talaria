@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package pb;
+package talaria;
 
 service Node{
   rpc Write(stream WriteDataPacket) returns (WriteResponse)  {}
