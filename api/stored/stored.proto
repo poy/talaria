@@ -5,7 +5,6 @@ package stored;
 message Data {
   enum Type {
     Normal = 0;
-    ReadOnly = 1;
   }
 
   bytes payload = 1;

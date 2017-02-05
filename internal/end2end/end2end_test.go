@@ -176,29 +176,6 @@ func TestEnd2EndBufferHasBeenCreated(t *testing.T) {
 			}
 		})
 
-		o.Spec("it fails to write to a read only buffer", func(t TC) {
-			writer, err := t.nodeClient.Write(context.Background())
-			Expect(t, err == nil).To(BeTrue())
-
-			f := func() bool {
-				_, err := t.schedulerClient.ReadOnly(context.Background(), &pb.ReadOnlyInfo{
-					Name: t.bufferInfo.Name,
-				})
-				return err == nil
-			}
-			Expect(t, f).To(ViaPolling(BeTrue()))
-
-			f = func() bool {
-				err := writer.Send(&pb.WriteDataPacket{
-					Name:    t.bufferInfo.Name,
-					Message: []byte("some-data"),
-				})
-				return err == nil
-			}
-
-			Expect(t, f).To(ViaPolling(BeFalse()))
-		})
-
 		o.Group("when tailing from middle", func() {
 			o.Spec("it reads from the given index", func(t TC) {
 				writer, err := t.nodeClient.Write(context.Background())

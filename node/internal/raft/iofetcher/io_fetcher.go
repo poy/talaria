@@ -2,7 +2,6 @@ package iofetcher
 
 import (
 	"errors"
-	"log"
 	"sync"
 	"time"
 
@@ -72,20 +71,6 @@ func (f *IOFetcher) Create(name string, peers []string) error {
 	}
 
 	f.rafts[name] = r
-	return nil
-}
-
-func (f *IOFetcher) ReadOnly(name string) error {
-	r := f.fetchRaft(name)
-	if r == nil {
-		return BufferNotCreated
-	}
-
-	if err := r.Write(stored.Data{Type: stored.Data_ReadOnly}, time.Second); err != nil {
-		log.Printf("Failed to set buffer %s to ReadOnly: %s", name, err)
-		return err
-	}
-
 	return nil
 }
 

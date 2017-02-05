@@ -139,26 +139,6 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 			))
 		})
 
-		o.Spec("it fails to write to a read only buffer", func(t TC) {
-			writer, err := t.nodeClient.Write(context.Background())
-			Expect(t, err == nil).To(BeTrue())
-
-			_, err = t.intraNodeClient.ReadOnly(context.Background(), &intra.ReadOnlyInfo{
-				Name: t.bufferInfo.Name,
-			})
-			Expect(t, err == nil).To(BeTrue())
-
-			packet := &pb.WriteDataPacket{
-				Name:    t.bufferInfo.Name,
-				Message: []byte("some-data-1"),
-			}
-
-			f := func() bool {
-				return writer.Send(packet) == nil
-			}
-			Expect(t, f).To(ViaPolling(BeFalse()))
-		})
-
 		o.Spec("it tails via Read", func(t TC) {
 			data, _, _ := fetchReaderWithIndex(t.bufferInfo.Name, 0, true, t.nodeClient)
 			writer, err := t.nodeClient.Write(context.Background())

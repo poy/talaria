@@ -1,8 +1,6 @@
 package raft
 
 import (
-	"fmt"
-	"io"
 	"log"
 	"time"
 
@@ -89,10 +87,6 @@ func (r *Raft) Write(storedData stored.Data, timeout time.Duration) error {
 		return err
 	}
 
-	if result, ok := fut.Response().(bool); ok && !result {
-		return fmt.Errorf("buffer set to ReadOnly")
-	}
-
 	return nil
 }
 
@@ -110,10 +104,6 @@ func (r *Raft) ReadAt(index uint64) (entry []byte, seq uint64, err error) {
 	storedData := new(stored.Data)
 	if err := proto.Unmarshal(logEntry.Data, storedData); err != nil {
 		return nil, 0, err
-	}
-
-	if storedData.Type == stored.Data_ReadOnly {
-		return nil, 0, io.EOF
 	}
 
 	return storedData.Payload, seq, nil

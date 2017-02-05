@@ -5,7 +5,6 @@ package intra;
 service Node{
   rpc Create(CreateInfo) returns (CreateResponse) {}
   rpc UpdateConfig(UpdateConfigRequest) returns (UpdateConfigResponse) {}
-  rpc ReadOnly(ReadOnlyInfo) returns (ReadOnlyResponse) {}
 
   rpc Status(StatusRequest) returns (StatusResponse) {}
   rpc Leader(LeaderRequest) returns (LeaderResponse) {}
@@ -26,13 +25,6 @@ message CreateResponse {
 
 message PeerInfo {
   string addr = 1;
-}
-
-message ReadOnlyInfo {
-  string name = 1;
-}
-
-message ReadOnlyResponse {
 }
 
 message LeaderRequest {

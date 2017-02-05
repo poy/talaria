@@ -110,9 +110,6 @@ func TestSchedulerEnd2End(t *testing.T) {
 
 				testhelpers.AlwaysReturn(t.mockServers[i].UpdateConfigOutput.Ret0, &intra.UpdateConfigResponse{})
 				close(t.mockServers[i].UpdateConfigOutput.Ret1)
-
-				testhelpers.AlwaysReturn(t.mockServers[i].ReadOnlyOutput.Ret0, new(intra.ReadOnlyResponse))
-				close(t.mockServers[i].ReadOnlyOutput.Ret1)
 			}
 
 			return t
@@ -124,14 +121,6 @@ func TestSchedulerEnd2End(t *testing.T) {
 				return err == nil
 			}
 
-			Expect(t, f).To(ViaPolling(BeTrue()))
-
-			f = func() bool {
-				_, err := t.schedulerClient.ReadOnly(context.Background(), &pb.ReadOnlyInfo{
-					t.createInfo.Name,
-				})
-				return err == nil
-			}
 			Expect(t, f).To(ViaPolling(BeTrue()))
 
 			var info *intra.CreateInfo

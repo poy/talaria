@@ -12,7 +12,6 @@ import (
 	"github.com/apoydence/onpar"
 	. "github.com/apoydence/onpar/expect"
 	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/api/stored"
 	"github.com/apoydence/talaria/node/internal/raft/iofetcher"
 )
 
@@ -91,35 +90,6 @@ func TestIOFetcher(t *testing.T) {
 
 			err = t.fetcher.Create("some-name", []string{"A", "B", "C"})
 			Expect(t, err).To(Equal(iofetcher.BufferAlreadyCreated))
-		})
-	})
-
-	o.Group("ReadOnly", func() {
-		o.Group("when the buffer is not created", func() {
-			o.Spec("it returns a BufferNotCreated error", func(t TIF) {
-				err := t.fetcher.ReadOnly("some-name")
-				Expect(t, err).To(Equal(iofetcher.BufferNotCreated))
-			})
-		})
-
-		o.Group("when buffer is created", func() {
-			o.BeforeEach(func(t TIF) TIF {
-				err := t.fetcher.Create("some-name", []string{"A", "B", "C"})
-				Expect(t, err == nil).To(BeTrue())
-				return t
-			})
-
-			o.Spec("it writes a ReadOnly message to the buffer", func(t TIF) {
-				close(t.mockRaftCluster.WriteOutput.Ret0)
-				t.fetcher.ReadOnly("some-name")
-
-				var data stored.Data
-				Expect(t, t.mockRaftCluster.WriteInput.Data).To(ViaPolling(
-					Chain(Receive(), Fetch(&data)),
-				))
-
-				Expect(t, data.Type).To(Equal(stored.Data_ReadOnly))
-			})
 		})
 	})
 

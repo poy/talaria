@@ -8,7 +8,6 @@ import (
 
 type IOFetcher interface {
 	Create(name string, peers []string) error
-	ReadOnly(name string) error
 	Leader(name string) (string, error)
 	Status() map[string][]string
 	SetExpectedPeers(name string, expectedPeers []string) error
@@ -33,15 +32,6 @@ func (i *SchedulerInbound) Create(ctx context.Context, in *intra.CreateInfo) (*i
 	}
 
 	return new(intra.CreateResponse), nil
-}
-
-func (i *SchedulerInbound) ReadOnly(ctx context.Context, in *intra.ReadOnlyInfo) (*intra.ReadOnlyResponse, error) {
-	err := i.ioFetcher.ReadOnly(in.Name)
-	if err != nil {
-		return nil, err
-	}
-
-	return new(intra.ReadOnlyResponse), nil
 }
 
 func (i *SchedulerInbound) Leader(ctx context.Context, in *intra.LeaderRequest) (*intra.LeaderResponse, error) {

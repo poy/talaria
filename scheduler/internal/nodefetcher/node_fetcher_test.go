@@ -66,8 +66,8 @@ func TestFetchNode(t *testing.T) {
 	o.Spec("it returns the matching address", func(t TT) {
 		node, err := t.nodeFetcher.FetchNode(t.serverURIs[1])
 		Expect(t, err == nil).To(BeTrue())
-		node.Client.ReadOnly(context.Background(), new(intra.ReadOnlyInfo))
-		Expect(t, t.mockNodes[1].r).To(ViaPolling(HaveLen(1)))
+		node.Client.Status(context.Background(), new(intra.StatusRequest))
+		Expect(t, t.mockNodes[1].s).To(ViaPolling(HaveLen(1)))
 	})
 }
 
@@ -202,7 +202,6 @@ func TestNodeFetcherNodesAreNotConfigured(t *testing.T) {
 
 type mockNode struct {
 	c  chan bool
-	r  chan bool
 	s  chan bool
 	id uint64
 }
@@ -210,11 +209,6 @@ type mockNode struct {
 func (m *mockNode) Create(ctx context.Context, info *intra.CreateInfo) (*intra.CreateResponse, error) {
 	m.c <- true
 	return new(intra.CreateResponse), nil
-}
-
-func (m *mockNode) ReadOnly(ctx context.Context, info *intra.ReadOnlyInfo) (*intra.ReadOnlyResponse, error) {
-	m.r <- true
-	return new(intra.ReadOnlyResponse), nil
 }
 
 func (m *mockNode) Leader(ctx context.Context, req *intra.LeaderRequest) (*intra.LeaderResponse, error) {
@@ -234,7 +228,6 @@ func (m *mockNode) UpdateConfig(ctx context.Context, req *intra.UpdateConfigRequ
 func startGRPCServer(mockID uint64) (string, *mockNode) {
 	m := &mockNode{
 		c:  make(chan bool, 100),
-		r:  make(chan bool, 100),
 		s:  make(chan bool, 100),
 		id: mockID,
 	}

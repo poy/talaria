@@ -19,8 +19,6 @@ It has these top-level messages:
 	ListClustersResponse
 	CreateInfo
 	CreateResponse
-	ReadOnlyInfo
-	ReadOnlyResponse
 	ListInfo
 	ListResponse
 	ClusterInfo

@@ -49,27 +49,6 @@ func TestInboundSchedulerCreate(t *testing.T) {
 	})
 }
 
-func TestInboundSchedulerReadOnly(t *testing.T) {
-	t.Parallel()
-	o := onpar.New()
-	defer o.Run(t)
-
-	setupTIS(o)
-
-	o.Spec("it sets the buffer to read only", func(t TIS) {
-		close(t.mockIOFetcher.ReadOnlyOutput.Ret0)
-
-		_, err := t.schedulerHandler.ReadOnly(context.Background(), &intra.ReadOnlyInfo{
-			Name: "some-buffer",
-		})
-
-		Expect(t, err == nil).To(BeTrue())
-		Expect(t, t.mockIOFetcher.ReadOnlyInput.Name).To(ViaPolling(
-			Chain(Receive(), Equal("some-buffer")),
-		))
-	})
-}
-
 func TestInboundSchedulerLeader(t *testing.T) {
 	t.Parallel()
 	o := onpar.New()
