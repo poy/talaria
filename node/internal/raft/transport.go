@@ -78,7 +78,7 @@ func (t *transport) AppendEntriesPipeline(target string) (rafthashi.AppendPipeli
 
 func (t *transport) AppendEntries(target string, args *rafthashi.AppendEntriesRequest, resp *rafthashi.AppendEntriesResponse) error {
 	client := t.clientFetcher.Fetch(target)
-	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
 	req := network.ConvertToAppendRequest(t.bufferName, target, args)
 	r, err := client.AppendEntries(ctx, req)
@@ -93,7 +93,7 @@ func (t *transport) AppendEntries(target string, args *rafthashi.AppendEntriesRe
 
 func (t *transport) RequestVote(target string, args *rafthashi.RequestVoteRequest, resp *rafthashi.RequestVoteResponse) error {
 	client := t.clientFetcher.Fetch(target)
-	ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 
 	req := t.convertToVoteRequest(target, args)
 	r, err := client.RequestVote(ctx, req)

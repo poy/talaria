@@ -114,7 +114,7 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 	})
 
 	o.Spec("it lists the buffer", func(t TC) {
-		ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(time.Second))
+		ctx, _ := context.WithTimeout(context.Background(), time.Second)
 		resp, err := t.nodeClient.ListClusters(ctx, new(pb.ListClustersInfo))
 		Expect(t, err == nil).To(BeTrue())
 		Expect(t, resp.Names).To(HaveLen(1))

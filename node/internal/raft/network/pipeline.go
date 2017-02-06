@@ -36,7 +36,7 @@ func (p *Pipeline) AppendEntries(args *rafthashi.AppendEntriesRequest, resp *raf
 	}
 
 	go func() {
-		ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		rxResp, err := p.client.AppendEntries(ctx, appendReq)
 		if err == nil {
 			SetRPCFromAppendResp(rxResp, fut.resp)

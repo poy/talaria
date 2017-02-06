@@ -152,7 +152,7 @@ func (a *Auditor) addMissingNode(actuals map[Node][]*intra.StatusBufferInfo, buf
 		}
 
 		log.Printf("Adding %s to buffer %s...", newAddr, name)
-		ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+		ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 		_, err := newNode.Create(ctx, &intra.CreateInfo{
 			Name:  name,
 			Peers: a.buildPeerInfos(newAddr, addrs),
@@ -174,7 +174,7 @@ func (a *Auditor) addMissingNode(actuals map[Node][]*intra.StatusBufferInfo, buf
 
 			log.Printf("Adding %s to buffer %s", newAddr, name)
 
-			ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+			ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 			_, err := node.UpdateConfig(ctx, &intra.UpdateConfigRequest{
 				Name:          name,
 				ExpectedNodes: newExpected,
@@ -199,7 +199,7 @@ func (a *Auditor) fixMissingPeers(actuals map[Node][]*intra.StatusBufferInfo, bu
 			}
 
 			log.Printf("Repairing expected peers for buffer %s...", info.Name)
-			ctx, _ := context.WithDeadline(context.Background(), time.Now().Add(5*time.Second))
+			ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 			_, err := node.UpdateConfig(ctx, &intra.UpdateConfigRequest{
 				Name:          info.Name,
 				ExpectedNodes: actual,
