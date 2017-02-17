@@ -120,7 +120,7 @@ func (s *Server) Read(buffer *pb.BufferInfo, sender pb.Node_ReadServer) error {
 			log.Printf("failed to read from '%s': %s", buffer.Name, err)
 			return err
 		}
-		idx++
+		idx = actualIdx + 1
 
 		err = sender.Send(&pb.ReadDataPacket{
 			Message: data,
