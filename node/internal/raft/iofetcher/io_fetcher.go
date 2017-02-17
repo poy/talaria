@@ -24,7 +24,7 @@ type RaftCluster interface {
 	ExpectedPeers() []string
 }
 
-type RaftClusterCreator func(name string, peers []string) (RaftCluster, error)
+type RaftClusterCreator func(name string, bufferSize uint64, peers []string) (RaftCluster, error)
 
 type AddrFetcher func() string
 
@@ -58,8 +58,8 @@ func (f *IOFetcher) FetchClusters() (names []string) {
 	return names
 }
 
-func (f *IOFetcher) Create(name string, peers []string) error {
-	r, err := f.creator(name, peers)
+func (f *IOFetcher) Create(name string, bufferSize uint64, peers []string) error {
+	r, err := f.creator(name, bufferSize, peers)
 	if err != nil {
 		return err
 	}

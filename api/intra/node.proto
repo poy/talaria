@@ -17,7 +17,8 @@ service NodeRaft {
 
 message CreateInfo {
   string name = 1;
-  repeated PeerInfo peers = 2;
+  uint64 buffer_size = 2;
+  repeated PeerInfo peers = 3;
 }
 
 message CreateResponse {

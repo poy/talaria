@@ -63,7 +63,8 @@ func TestNodeEnd2EndBufferCreated(t *testing.T) {
 		}
 
 		createInfo := &intra.CreateInfo{
-			Name: bufferInfo.Name,
+			Name:       bufferInfo.Name,
+			BufferSize: 100,
 		}
 
 		f := func() bool {
@@ -346,6 +347,7 @@ func startNode(t *testing.T) (int, int, *os.Process) {
 	intraNodePort := end2end.AvailablePort()
 
 	path, err := gexec.Build("github.com/apoydence/talaria/node")
+	fmt.Println(err)
 	Expect(t, err == nil).To(BeTrue())
 	command := exec.Command(path)
 	command.Env = []string{

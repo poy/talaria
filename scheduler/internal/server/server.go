@@ -46,8 +46,13 @@ func (s *Server) Create(ctx context.Context, info *pb.CreateInfo) (*pb.CreateRes
 	var successfulNodes []NodeInfo
 
 	intraInfo := &intra.CreateInfo{
-		Name:  info.Name,
-		Peers: s.buildPeerList(nodes),
+		Name:       info.Name,
+		Peers:      s.buildPeerList(nodes),
+		BufferSize: info.BufferSize,
+	}
+
+	if intraInfo.BufferSize == 0 {
+		intraInfo.BufferSize = 100
 	}
 
 	for _, node := range nodes {

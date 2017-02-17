@@ -47,8 +47,9 @@ func main() {
 	// therefore require the SchedulerInbound. We can then get rid
 	// of this goofy function
 	var intraInbound *network.Inbound
-	ioFetcher := iofetcher.New(iofetcher.RaftClusterCreator(func(name string, peers []string) (iofetcher.RaftCluster, error) {
+	ioFetcher := iofetcher.New(iofetcher.RaftClusterCreator(func(name string, bufferSize uint64, peers []string) (iofetcher.RaftCluster, error) {
 		return raft.Build(name, intraInbound,
+			raft.WithBufferSize(int(bufferSize)),
 			raft.WithPeers(peers),
 			raft.WithLogger(log.New(os.Stderr, fmt.Sprintf("[RAFT %s] ", name), log.LstdFlags)),
 		)

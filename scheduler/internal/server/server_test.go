@@ -49,7 +49,8 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 		s := server.New(mockNodeFetcher, mockAuditor)
 
 		createInfo := &pb.CreateInfo{
-			Name: "some-name",
+			Name:       "some-name",
+			BufferSize: 99,
 		}
 
 		info := server.NodeInfo{
@@ -94,6 +95,18 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 			))
 		})
 
+		o.Spec("it sets default buffer size", func(t TT) {
+			t.createInfo.BufferSize = 0
+			t.s.Create(context.Background(), t.createInfo)
+
+			var info *intra.CreateInfo
+			Expect(t, t.mockNodeClient.CreateInput.In).To(ViaPolling(
+				Chain(Receive(), Fetch(&info)),
+			))
+
+			Expect(t, info.BufferSize).To(Equal(uint64(100)))
+		})
+
 		o.Spec("it writes to fetched node", func(t TT) {
 			t.s.Create(context.Background(), t.createInfo)
 
@@ -103,6 +116,7 @@ func TestCreateServerNodesAvailable(t *testing.T) {
 			))
 
 			Expect(t, info.Name).To(Equal(t.createInfo.Name))
+			Expect(t, info.BufferSize).To(Equal(uint64(99)))
 			Expect(t, info.Peers).To(Equal([]*intra.PeerInfo{{"some-leader-uri"}, {"some-leader-uri"}, {"some-leader-uri"}}))
 		})
 	})

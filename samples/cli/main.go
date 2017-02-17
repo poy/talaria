@@ -23,7 +23,7 @@ var (
 	schedulerUri    = flag.String("scheduler", "", "The URI for the scheduler")
 	nodeUri         = flag.String("node", "", "The URI for the node")
 	bufferName      = flag.String("buffer", "", "The buffer to interact with")
-	writePacketSize = flag.Uint("packetSize", 1024, "The size of each write packet")
+	writePacketSize = flag.Uint("packet-size", 1024, "The size of each write packet")
 
 	list      = flag.Bool("list", false, "List cluster info")
 	create    = flag.Bool("create", false, "Create a buffer")
@@ -196,7 +196,7 @@ func writeDataCommand() {
 			log.Fatal(err)
 		}
 
-		fmt.Println("Wrote", string(buffer[:n]))
+		fmt.Printf("Wrote (%d): %s\n", n, string(buffer[:n]))
 		count++
 	}
 

@@ -33,7 +33,8 @@ func TestInboundSchedulerCreate(t *testing.T) {
 		close(t.mockIOFetcher.CreateOutput.Ret0)
 
 		_, err := t.schedulerHandler.Create(context.Background(), &intra.CreateInfo{
-			Name: "some-buffer",
+			Name:       "some-buffer",
+			BufferSize: 99,
 			Peers: []*intra.PeerInfo{
 				{"A"}, {"B"}, {"C"},
 			},
@@ -43,9 +44,26 @@ func TestInboundSchedulerCreate(t *testing.T) {
 		Expect(t, t.mockIOFetcher.CreateInput.Name).To(ViaPolling(
 			Chain(Receive(), Equal("some-buffer")),
 		))
+		Expect(t, t.mockIOFetcher.CreateInput.BufferSize).To(ViaPolling(
+			Chain(Receive(), Equal(uint64(99))),
+		))
 		Expect(t, t.mockIOFetcher.CreateInput.Peers).To(ViaPolling(
 			Chain(Receive(), Equal([]string{"A", "B", "C"})),
 		))
+	})
+
+	o.Spec("it returns an error for a 0 buffer size", func(t TIS) {
+		close(t.mockIOFetcher.CreateOutput.Ret0)
+
+		_, err := t.schedulerHandler.Create(context.Background(), &intra.CreateInfo{
+			Name:       "some-buffer",
+			BufferSize: 0,
+			Peers: []*intra.PeerInfo{
+				{"A"}, {"B"}, {"C"},
+			},
+		})
+
+		Expect(t, err == nil).To(BeFalse())
 	})
 }
 

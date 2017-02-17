@@ -57,7 +57,8 @@ func TestSchedulerEnd2End(t *testing.T) {
 
 	o.BeforeEach(func(t *testing.T) TT {
 		createInfo := &pb.CreateInfo{
-			Name: createName(),
+			Name:       createName(),
+			BufferSize: 909,
 		}
 
 		leaderRequest := &intra.LeaderRequest{
@@ -129,6 +130,7 @@ func TestSchedulerEnd2End(t *testing.T) {
 					Chain(Receive(), Fetch(&info)),
 				))
 				Expect(t, info.Name).To(Equal(t.createInfo.Name))
+				Expect(t, info.BufferSize).To(Equal(uint64(909)))
 				Expect(t, info.Peers).To(Contain([]interface{}{
 					&intra.PeerInfo{Addr: fmt.Sprintf("127.0.0.1:%d", t.intraPorts[0])},
 					&intra.PeerInfo{Addr: fmt.Sprintf("127.0.0.1:%d", t.intraPorts[1])},

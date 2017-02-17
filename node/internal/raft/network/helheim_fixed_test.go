@@ -288,8 +288,9 @@ func (m *mockNodeRaftClient) RequestVote(ctx context.Context, in *intra.RequestV
 type mockIOFetcher struct {
 	CreateCalled chan bool
 	CreateInput  struct {
-		Name  chan string
-		Peers chan []string
+		Name       chan string
+		BufferSize chan uint64
+		Peers      chan []string
 	}
 	CreateOutput struct {
 		Ret0 chan error
@@ -320,6 +321,7 @@ func newMockIOFetcher() *mockIOFetcher {
 	m := &mockIOFetcher{}
 	m.CreateCalled = make(chan bool, 100)
 	m.CreateInput.Name = make(chan string, 100)
+	m.CreateInput.BufferSize = make(chan uint64, 100)
 	m.CreateInput.Peers = make(chan []string, 100)
 	m.CreateOutput.Ret0 = make(chan error, 100)
 	m.LeaderCalled = make(chan bool, 100)
@@ -334,9 +336,10 @@ func newMockIOFetcher() *mockIOFetcher {
 	m.SetExpectedPeersOutput.Ret0 = make(chan error, 100)
 	return m
 }
-func (m *mockIOFetcher) Create(name string, peers []string) error {
+func (m *mockIOFetcher) Create(name string, bufferSize uint64, peers []string) error {
 	m.CreateCalled <- true
 	m.CreateInput.Name <- name
+	m.CreateInput.BufferSize <- bufferSize
 	m.CreateInput.Peers <- peers
 	return <-m.CreateOutput.Ret0
 }

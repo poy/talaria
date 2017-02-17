@@ -11,10 +11,6 @@ import (
 	rafthashi "github.com/hashicorp/raft"
 )
 
-const (
-	bufferSize = 100
-)
-
 type BufferReader interface {
 	ReadAt(readIndex uint64) (*rafthashi.Log, uint64, error)
 	LastIndex() uint64
@@ -26,15 +22,16 @@ type ConsumerFetcher interface {
 }
 
 type Raft struct {
-	node   *rafthashi.Raft
-	buffer BufferReader
-	repair *PeerRepair
+	node       *rafthashi.Raft
+	buffer     BufferReader
+	repair     *PeerRepair
+	bufferSize int
 }
 
 func Build(bufferName string, consumerFetcher ConsumerFetcher, ops ...BuildOp) (*Raft, error) {
 	config := Config{
 		Config:     rafthashi.DefaultConfig(),
-		bufferSize: bufferSize,
+		bufferSize: 100,
 	}
 	config.ShutdownOnRemove = false
 
@@ -74,9 +71,10 @@ func Build(bufferName string, consumerFetcher ConsumerFetcher, ops ...BuildOp) (
 	}
 
 	return &Raft{
-		node:   node,
-		buffer: buffer,
-		repair: repair,
+		node:       node,
+		buffer:     buffer,
+		repair:     repair,
+		bufferSize: config.bufferSize,
 	}, nil
 }
 
@@ -145,5 +143,5 @@ func (r *Raft) setupReadIndex(index uint64) uint64 {
 		return 0
 	}
 
-	return last - bufferSize + 1
+	return last - uint64(r.bufferSize) + 1
 }

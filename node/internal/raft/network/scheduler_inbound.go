@@ -1,13 +1,15 @@
 package network
 
 import (
+	"fmt"
+
 	"golang.org/x/net/context"
 
 	"github.com/apoydence/talaria/api/intra"
 )
 
 type IOFetcher interface {
-	Create(name string, peers []string) error
+	Create(name string, bufferSize uint64, peers []string) error
 	Leader(name string) (string, error)
 	Status() map[string][]string
 	SetExpectedPeers(name string, expectedPeers []string) error
@@ -26,7 +28,11 @@ func NewSchedulerInbound(externalAddr string, ioFetcher IOFetcher) *SchedulerInb
 }
 
 func (i *SchedulerInbound) Create(ctx context.Context, in *intra.CreateInfo) (*intra.CreateResponse, error) {
-	err := i.ioFetcher.Create(in.Name, i.convertPeers(in))
+	if in.BufferSize == 0 {
+		return nil, fmt.Errorf("buffer_size is required")
+	}
+
+	err := i.ioFetcher.Create(in.Name, in.BufferSize, i.convertPeers(in))
 	if err != nil {
 		return nil, err
 	}

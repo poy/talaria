@@ -29,6 +29,7 @@ type TIF struct {
 	fetcher         *iofetcher.IOFetcher
 	mockRaftCluster *mockRaftCluster
 	createName      chan string
+	createSize      chan uint64
 	createPeers     chan []string
 }
 
@@ -40,28 +41,31 @@ func TestIOFetcher(t *testing.T) {
 	o.BeforeEach(func(t *testing.T) TIF {
 		mockRaftCluster := newMockRaftCluster()
 		createName := make(chan string, 100)
+		createSize := make(chan uint64, 100)
 		createPeers := make(chan []string, 100)
 
 		return TIF{
 			T: t,
-			fetcher: iofetcher.New(iofetcher.RaftClusterCreator(func(name string, peers []string) (iofetcher.RaftCluster, error) {
+			fetcher: iofetcher.New(iofetcher.RaftClusterCreator(func(name string, bufferSize uint64, peers []string) (iofetcher.RaftCluster, error) {
 				createName <- name
+				createSize <- bufferSize
 				createPeers <- peers
 				return mockRaftCluster, nil
 			}), func() string { return "some-leader" }),
 			mockRaftCluster: mockRaftCluster,
 			createName:      createName,
+			createSize:      createSize,
 			createPeers:     createPeers,
 		}
 	})
 
 	o.Group("FetchClusters", func() {
 		o.BeforeEach(func(t TIF) TIF {
-			err := t.fetcher.Create("some-name-a", []string{"A", "B", "C"})
+			err := t.fetcher.Create("some-name-a", 99, []string{"A", "B", "C"})
 			Expect(t, err == nil).To(BeTrue())
-			err = t.fetcher.Create("some-name-b", []string{"A", "B", "C"})
+			err = t.fetcher.Create("some-name-b", 101, []string{"A", "B", "C"})
 			Expect(t, err == nil).To(BeTrue())
-			err = t.fetcher.Create("some-name-c", []string{"A", "B", "C"})
+			err = t.fetcher.Create("some-name-c", 103, []string{"A", "B", "C"})
 			Expect(t, err == nil).To(BeTrue())
 
 			t.mockRaftCluster.LeaderOutput.Ret0 <- "some-leader"
@@ -79,16 +83,19 @@ func TestIOFetcher(t *testing.T) {
 
 	o.Group("Create", func() {
 		o.Spec("it returns a BufferAlreadyCreated error for a redundant create", func(t TIF) {
-			err := t.fetcher.Create("some-name", []string{"A", "B", "C"})
+			err := t.fetcher.Create("some-name", 99, []string{"A", "B", "C"})
 			Expect(t, err == nil).To(BeTrue())
 			Expect(t, t.createName).To(
 				Chain(Receive(), Equal("some-name")),
+			)
+			Expect(t, t.createSize).To(
+				Chain(Receive(), Equal(uint64(99))),
 			)
 			Expect(t, t.createPeers).To(
 				Chain(Receive(), Equal([]string{"A", "B", "C"})),
 			)
 
-			err = t.fetcher.Create("some-name", []string{"A", "B", "C"})
+			err = t.fetcher.Create("some-name", 99, []string{"A", "B", "C"})
 			Expect(t, err).To(Equal(iofetcher.BufferAlreadyCreated))
 		})
 	})
@@ -103,7 +110,7 @@ func TestIOFetcher(t *testing.T) {
 
 		o.Group("when buffer is created", func() {
 			o.BeforeEach(func(t TIF) TIF {
-				err := t.fetcher.Create("some-name", []string{"A", "B", "C"})
+				err := t.fetcher.Create("some-name", 99, []string{"A", "B", "C"})
 				Expect(t, err == nil).To(BeTrue())
 				return t
 			})
@@ -136,7 +143,7 @@ func TestIOFetcher(t *testing.T) {
 
 		o.Group("when buffer is created", func() {
 			o.BeforeEach(func(t TIF) TIF {
-				err := t.fetcher.Create("some-name", []string{"A", "B", "C"})
+				err := t.fetcher.Create("some-name", 99, []string{"A", "B", "C"})
 				Expect(t, err == nil).To(BeTrue())
 				return t
 			})
@@ -169,7 +176,7 @@ func TestIOFetcher(t *testing.T) {
 
 		o.Group("when buffer is created", func() {
 			o.BeforeEach(func(t TIF) TIF {
-				err := t.fetcher.Create("some-name", []string{"A", "B", "C"})
+				err := t.fetcher.Create("some-name", 99, []string{"A", "B", "C"})
 				Expect(t, err == nil).To(BeTrue())
 
 				t.mockRaftCluster.LeaderOutput.Ret0 <- "some-leader"
@@ -194,7 +201,7 @@ func TestIOFetcher(t *testing.T) {
 
 		o.Group("when buffer is created", func() {
 			o.BeforeEach(func(t TIF) TIF {
-				err := t.fetcher.Create("some-name", []string{"A", "B", "C"})
+				err := t.fetcher.Create("some-name", 99, []string{"A", "B", "C"})
 				Expect(t, err == nil).To(BeTrue())
 				return t
 			})
@@ -211,15 +218,15 @@ func TestIOFetcher(t *testing.T) {
 
 	o.Group("Status", func() {
 		o.BeforeEach(func(t TIF) TIF {
-			err := t.fetcher.Create("some-name-A", []string{"A", "B", "C"})
+			err := t.fetcher.Create("some-name-A", 99, []string{"A", "B", "C"})
 			Expect(t, err == nil).To(BeTrue())
 			t.mockRaftCluster.ExpectedPeersOutput.Ret0 <- []string{"A", "B", "C"}
 
-			err = t.fetcher.Create("some-name-B", []string{"A", "B", "C"})
+			err = t.fetcher.Create("some-name-B", 99, []string{"A", "B", "C"})
 			Expect(t, err == nil).To(BeTrue())
 			t.mockRaftCluster.ExpectedPeersOutput.Ret0 <- []string{"A", "B", "C"}
 
-			err = t.fetcher.Create("some-name-C", []string{"A", "B", "C"})
+			err = t.fetcher.Create("some-name-C", 99, []string{"A", "B", "C"})
 			Expect(t, err == nil).To(BeTrue())
 			t.mockRaftCluster.ExpectedPeersOutput.Ret0 <- []string{"A", "B", "C"}
 			return t
