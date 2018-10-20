@@ -5,8 +5,8 @@ import (
 	"log"
 	"math/rand"
 
-	"github.com/apoydence/talaria/api/intra"
-	"github.com/apoydence/talaria/scheduler/internal/server"
+	"github.com/poy/talaria/api/intra"
+	"github.com/poy/talaria/scheduler/internal/server"
 	"google.golang.org/grpc"
 )
 

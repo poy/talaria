@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apoydence/talaria/api/intra"
-	"github.com/apoydence/talaria/node/internal/raft/network"
+	"github.com/poy/talaria/api/intra"
+	"github.com/poy/talaria/node/internal/raft/network"
 	rafthashi "github.com/hashicorp/raft"
 )
 

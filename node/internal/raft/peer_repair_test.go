@@ -4,12 +4,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apoydence/eachers/testhelpers"
-	"github.com/apoydence/onpar"
-	. "github.com/apoydence/onpar/expect"
-	. "github.com/apoydence/onpar/matchers"
+	"github.com/poy/eachers/testhelpers"
+	"github.com/poy/onpar"
+	. "github.com/poy/onpar/expect"
+	. "github.com/poy/onpar/matchers"
 
-	"github.com/apoydence/talaria/node/internal/raft"
+	"github.com/poy/talaria/node/internal/raft"
 )
 
 type TPR struct {

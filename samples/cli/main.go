@@ -10,8 +10,8 @@ import (
 	"os"
 	"time"
 
-	"github.com/apoydence/talaria/api/intra"
-	pb "github.com/apoydence/talaria/api/v1"
+	"github.com/poy/talaria/api/intra"
+	pb "github.com/poy/talaria/api/v1"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"

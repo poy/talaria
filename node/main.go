@@ -9,12 +9,12 @@ import (
 	"os"
 	"time"
 
-	pb "github.com/apoydence/talaria/api/v1"
-	"github.com/apoydence/talaria/node/config"
-	"github.com/apoydence/talaria/node/internal/raft"
-	"github.com/apoydence/talaria/node/internal/raft/iofetcher"
-	"github.com/apoydence/talaria/node/internal/raft/network"
-	"github.com/apoydence/talaria/node/internal/server"
+	pb "github.com/poy/talaria/api/v1"
+	"github.com/poy/talaria/node/config"
+	"github.com/poy/talaria/node/internal/raft"
+	"github.com/poy/talaria/node/internal/raft/iofetcher"
+	"github.com/poy/talaria/node/internal/raft/network"
+	"github.com/poy/talaria/node/internal/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 

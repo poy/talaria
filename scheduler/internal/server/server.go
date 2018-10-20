@@ -6,8 +6,8 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/talaria/api/intra"
-	pb "github.com/apoydence/talaria/api/v1"
+	"github.com/poy/talaria/api/intra"
+	pb "github.com/poy/talaria/api/v1"
 )
 
 type NodeInfo struct {

@@ -11,12 +11,12 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/onpar"
-	. "github.com/apoydence/onpar/expect"
-	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/api/intra"
-	"github.com/apoydence/talaria/scheduler/internal/nodefetcher"
-	"github.com/apoydence/talaria/scheduler/internal/server"
+	"github.com/poy/onpar"
+	. "github.com/poy/onpar/expect"
+	. "github.com/poy/onpar/matchers"
+	"github.com/poy/talaria/api/intra"
+	"github.com/poy/talaria/scheduler/internal/nodefetcher"
+	"github.com/poy/talaria/scheduler/internal/server"
 )
 
 func TestMain(m *testing.M) {

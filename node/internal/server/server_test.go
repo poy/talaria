@@ -14,16 +14,16 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/eachers/testhelpers"
-	"github.com/apoydence/onpar"
-	"github.com/apoydence/talaria/api/stored"
-	pb "github.com/apoydence/talaria/api/v1"
-	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/poy/eachers/testhelpers"
+	"github.com/poy/onpar"
+	"github.com/poy/talaria/api/stored"
+	pb "github.com/poy/talaria/api/v1"
+	"github.com/poy/talaria/node/internal/server"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 
-	. "github.com/apoydence/onpar/expect"
-	. "github.com/apoydence/onpar/matchers"
+	. "github.com/poy/onpar/expect"
+	. "github.com/poy/onpar/matchers"
 )
 
 func TestMain(m *testing.M) {

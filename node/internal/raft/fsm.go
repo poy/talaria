@@ -5,7 +5,7 @@ import (
 	"io"
 	"log"
 
-	"github.com/apoydence/talaria/node/internal/raft/buffers/ringbuffer"
+	"github.com/poy/talaria/node/internal/raft/buffers/ringbuffer"
 	rafthashi "github.com/hashicorp/raft"
 )
 

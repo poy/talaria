@@ -6,7 +6,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/apoydence/talaria/api/intra"
+	"github.com/poy/talaria/api/intra"
 )
 
 type ClientCache struct {

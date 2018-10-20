@@ -12,12 +12,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/apoydence/onpar"
-	. "github.com/apoydence/onpar/expect"
-	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/api/stored"
-	"github.com/apoydence/talaria/node/internal/raft"
-	"github.com/apoydence/talaria/node/internal/raft/network"
+	"github.com/poy/onpar"
+	. "github.com/poy/onpar/expect"
+	. "github.com/poy/onpar/matchers"
+	"github.com/poy/talaria/api/stored"
+	"github.com/poy/talaria/node/internal/raft"
+	"github.com/poy/talaria/node/internal/raft/network"
 	rafthashi "github.com/hashicorp/raft"
 )
 

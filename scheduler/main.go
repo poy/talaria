@@ -6,11 +6,11 @@ import (
 	"net"
 	"time"
 
-	pb "github.com/apoydence/talaria/api/v1"
-	"github.com/apoydence/talaria/scheduler/config"
-	"github.com/apoydence/talaria/scheduler/internal/auditor"
-	"github.com/apoydence/talaria/scheduler/internal/nodefetcher"
-	"github.com/apoydence/talaria/scheduler/internal/server"
+	pb "github.com/poy/talaria/api/v1"
+	"github.com/poy/talaria/scheduler/config"
+	"github.com/poy/talaria/scheduler/internal/auditor"
+	"github.com/poy/talaria/scheduler/internal/nodefetcher"
+	"github.com/poy/talaria/scheduler/internal/server"
 	"google.golang.org/grpc"
 )
 

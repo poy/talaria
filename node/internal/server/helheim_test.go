@@ -8,8 +8,8 @@ package server_test
 import (
 	"time"
 
-	"github.com/apoydence/talaria/api/stored"
-	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/poy/talaria/api/stored"
+	"github.com/poy/talaria/node/internal/server"
 )
 
 type mockReader struct {

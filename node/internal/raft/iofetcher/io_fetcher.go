@@ -5,8 +5,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/apoydence/talaria/api/stored"
-	"github.com/apoydence/talaria/node/internal/server"
+	"github.com/poy/talaria/api/stored"
+	"github.com/poy/talaria/node/internal/server"
 )
 
 var (

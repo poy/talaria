@@ -1,6 +1,6 @@
 package server
 
-import "github.com/apoydence/talaria/api/intra"
+import "github.com/poy/talaria/api/intra"
 
 type NodeClient interface {
 	intra.NodeClient

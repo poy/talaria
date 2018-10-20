@@ -17,12 +17,12 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/grpclog"
 
-	"github.com/apoydence/onpar"
-	. "github.com/apoydence/onpar/expect"
-	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/api/intra"
-	pb "github.com/apoydence/talaria/api/v1"
-	"github.com/apoydence/talaria/internal/end2end"
+	"github.com/poy/onpar"
+	. "github.com/poy/onpar/expect"
+	. "github.com/poy/onpar/matchers"
+	"github.com/poy/talaria/api/intra"
+	pb "github.com/poy/talaria/api/v1"
+	"github.com/poy/talaria/internal/end2end"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -346,7 +346,7 @@ func startNode(t *testing.T) (int, int, *os.Process) {
 	nodePort := end2end.AvailablePort()
 	intraNodePort := end2end.AvailablePort()
 
-	path, err := gexec.Build("github.com/apoydence/talaria/node")
+	path, err := gexec.Build("github.com/poy/talaria/node")
 	fmt.Println(err)
 	Expect(t, err == nil).To(BeTrue())
 	command := exec.Command(path)

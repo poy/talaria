@@ -3,7 +3,7 @@ package auditor
 import (
 	"log"
 
-	"github.com/apoydence/talaria/api/intra"
+	"github.com/poy/talaria/api/intra"
 
 	"google.golang.org/grpc"
 )

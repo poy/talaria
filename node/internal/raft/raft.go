@@ -4,9 +4,9 @@ import (
 	"log"
 	"time"
 
-	"github.com/apoydence/talaria/api/stored"
-	"github.com/apoydence/talaria/node/internal/raft/buffers/ringbuffer"
-	"github.com/apoydence/talaria/node/internal/raft/network"
+	"github.com/poy/talaria/api/stored"
+	"github.com/poy/talaria/node/internal/raft/buffers/ringbuffer"
+	"github.com/poy/talaria/node/internal/raft/network"
 	"github.com/golang/protobuf/proto"
 	rafthashi "github.com/hashicorp/raft"
 )

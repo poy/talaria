@@ -18,11 +18,11 @@ import (
 
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/onpar"
-	. "github.com/apoydence/onpar/expect"
-	. "github.com/apoydence/onpar/matchers"
-	pb "github.com/apoydence/talaria/api/v1"
-	"github.com/apoydence/talaria/internal/end2end"
+	"github.com/poy/onpar"
+	. "github.com/poy/onpar/expect"
+	. "github.com/poy/onpar/matchers"
+	pb "github.com/poy/talaria/api/v1"
+	"github.com/poy/talaria/internal/end2end"
 	"github.com/onsi/gomega/gexec"
 )
 
@@ -368,7 +368,7 @@ func connectToScheduler(schedulerPort int) pb.SchedulerClient {
 func startNode() (int, int, *os.Process) {
 	nodePort := end2end.AvailablePort()
 	intraNodePort := end2end.AvailablePort()
-	path, err := gexec.Build("github.com/apoydence/talaria/node")
+	path, err := gexec.Build("github.com/poy/talaria/node")
 	if err != nil {
 		panic(err)
 	}
@@ -392,7 +392,7 @@ func startScheduler(schedulerPort int, nodePorts []int) *os.Process {
 		log.Printf("Node Port (%d) = %d", i, port)
 	}
 
-	path, err := gexec.Build("github.com/apoydence/talaria/scheduler")
+	path, err := gexec.Build("github.com/poy/talaria/scheduler")
 	if err != nil {
 		panic(err)
 	}

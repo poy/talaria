@@ -6,9 +6,9 @@
 package server_test
 
 import (
-	"github.com/apoydence/talaria/api/intra"
-	pb "github.com/apoydence/talaria/api/v1"
-	"github.com/apoydence/talaria/scheduler/internal/server"
+	"github.com/poy/talaria/api/intra"
+	pb "github.com/poy/talaria/api/v1"
+	"github.com/poy/talaria/scheduler/internal/server"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 )

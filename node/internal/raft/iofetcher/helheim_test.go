@@ -8,7 +8,7 @@ package iofetcher_test
 import (
 	"time"
 
-	"github.com/apoydence/talaria/api/stored"
+	"github.com/poy/talaria/api/stored"
 )
 
 type mockRaftCluster struct {

@@ -13,11 +13,11 @@ import (
 
 	"google.golang.org/grpc"
 
-	"github.com/apoydence/onpar"
-	. "github.com/apoydence/onpar/expect"
-	. "github.com/apoydence/onpar/matchers"
-	"github.com/apoydence/talaria/api/intra"
-	"github.com/apoydence/talaria/node/internal/raft/network"
+	"github.com/poy/onpar"
+	. "github.com/poy/onpar/expect"
+	. "github.com/poy/onpar/matchers"
+	"github.com/poy/talaria/api/intra"
+	"github.com/poy/talaria/node/internal/raft/network"
 	rafthashi "github.com/hashicorp/raft"
 )
 

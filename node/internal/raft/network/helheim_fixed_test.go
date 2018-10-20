@@ -8,7 +8,7 @@ package network_test
 import (
 	"golang.org/x/net/context"
 
-	"github.com/apoydence/talaria/api/intra"
+	"github.com/poy/talaria/api/intra"
 	rafthashi "github.com/hashicorp/raft"
 	"google.golang.org/grpc"
 )
